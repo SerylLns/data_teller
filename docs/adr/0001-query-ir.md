@@ -80,7 +80,29 @@ Security test to add: a column hidden on its own model stays unreachable through
 Rejected: per-path manual declaration (too heavy for adopters), fully inferred paths
 at runtime (exposes never-reviewed columns), LLM-chosen joins (SQL in disguise).
 
+## D5 — Structured `clarify` / `out_of_scope`, no free text from the LLM (decided)
+
+`intent` is `answer`, `clarify` or `out_of_scope`. The last two carry a typed payload:
+`reason` from a closed list (e.g. `ambiguous_period`, `ambiguous_metric`, `ambiguous_entity`,
+`unknown_dataset`, `not_a_data_question`) and, for `clarify`, `options` restricted to declared names
+(checked by the validator, so the LLM cannot invent options).
+
+The UI renders translated labels from the keys. No sentence shown to the end user comes from the LLM.
+The compiler emits the same payload (e.g. a lookup with several candidates, D2), so the UI handles one case.
+
+Why: deterministic and translatable explanations, no unverified LLM text shown to customers
+(prompt-injection surface), scorable in the eval (decision, then reason, then options),
+and a stable `reason` vocabulary that makes failures easy to debug and aggregate
+(feeds the unanswered-question log).
+
+Guard rails:
+- Eval must also measure unnecessary clarifications on clear questions (a lazy model can always clarify).
+- Security: `out_of_scope` never reveals that a forbidden resource exists; unauthorized and
+  unknown both return `unknown_dataset`.
+
+Rejected: free-text clarification written by the LLM (unverified content, untranslatable, unscorable),
+two-call decide-then-write (extra latency and cost, templates already do the job).
+
 ## Pending
 
-- D5 structured clarify / out_of_scope
 - D6 number of metrics per query
