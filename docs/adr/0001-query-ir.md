@@ -58,8 +58,29 @@ It is additive, so it does not break existing queries.
 
 Rejected: full boolean tree (LLMs produce deep or wrong trees; validation surface explodes).
 
+## D4 — Dotted dimensions derived from exposed models (decided, "A'")
+
+The LLM references related data with dotted dimensions (`customer.city`). A path is available
+only if (1) the association exists and (2) the target model is exposed and the column is an
+exposed dimension there. Developers declare models and columns, never individual paths.
+The compiler derives joins and applies the tenant scope on every joined table.
+
+Guard rails:
+- `belongs_to` (many-to-one) paths only at MVP; `has_many` data is reached through declared
+  metrics (e.g. `items_sold: sum(line_items.quantity)`) to avoid duplicated rows and wrong counts.
+- Max depth 2, capped number of joins per query.
+- A path inherits the permissions of its target dimension, not only those of the starting dataset.
+- Two paths leading to the same dimension fail at boot with a message; the developer disambiguates with an alias.
+- Labels are derived from association + target label, overridable.
+
+Consequences: the install generator becomes a core piece of the product (it prepares the exposed
+models, columns, labels and hidden columns that paths rely on), not a nice-to-have.
+Security test to add: a column hidden on its own model stays unreachable through any association.
+
+Rejected: per-path manual declaration (too heavy for adopters), fully inferred paths
+at runtime (exposes never-reviewed columns), LLM-chosen joins (SQL in disguise).
+
 ## Pending
 
-- D4 joins via dotted dimensions
 - D5 structured clarify / out_of_scope
 - D6 number of metrics per query

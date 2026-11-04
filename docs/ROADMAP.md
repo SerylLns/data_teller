@@ -78,6 +78,7 @@ Legend: `[dep]` = new dependency to flag, `[sec]` = security-relevant, `[perf]` 
 - **T32 Per-tenant/user rate limit + token budget.** `[perf]` `[sec]`
 - **T33 Pundit adapter.** `policy_scope` applied, `unscope(:order)` on aggregates; isolation check as CI shared example, **not at boot**. `[sec]`
 - **T34 Install generator.** Infer dimensions, labels, joins, tenant path, hidden columns (encrypts, password/token/email/…).
+  Core piece since ADR 0001 D4 (paths are derived from exposed models/columns): consider pulling it forward after M5.
 
 ## V1 (after M7)
 
