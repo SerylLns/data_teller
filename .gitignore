@@ -1,0 +1,15 @@
+/.bundle/
+/Gemfile.lock
+/pkg/
+*.gem
+/spec/dummy/log/*
+/spec/dummy/tmp/*
+/spec/dummy/storage/*
+!/spec/dummy/log/.keep
+!/spec/dummy/tmp/.keep
+!/spec/dummy/storage/.keep
+/spec/dummy/db/*.sqlite3
+/spec/examples.txt
+/coverage/
+.env*
+/tmp/eval_runs/
