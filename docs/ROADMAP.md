@@ -42,6 +42,9 @@ Legend: `[dep]` = new dependency to flag, `[sec]` = security-relevant, `[perf]` 
 - **T12 Provider client.** Raw HTTP, structured outputs with the generated schema, timeouts, retries, token + latency logging.
   `[dep]` HTTP client only if needed (Faraday); no LLM framework. `[sec]` API key via credentials.
 - **T13 Naive pipeline.** Whole registry in the prompt. First scores recorded as the baseline in an ADR.
+- **T13b Minimal ask page (pulled forward from T30).** ERB + Hotwire, dev-only mount in the dummy app: question box,
+  structured query shown as JSON, result. Exists so the article series has real screenshots/GIFs from part 4 on.
+  Herb (lint ERB) only as a dev tool, flagged `[dep]` when added. No Phlex.
 - **T14 Prompt iteration log.** Each prompt change = one eval run, one commit.
 
 ## M4 — Retrieval (RAG)
@@ -70,7 +73,7 @@ Legend: `[dep]` = new dependency to flag, `[sec]` = security-relevant, `[perf]` 
 
 - **T28 Deterministic explanation.** i18n templates from the IR; user values escaped (XSS). `[sec]`
 - **T29 Clarification + refusal.** IR can return `clarify` (with options) or `out_of_scope`; scored in eval.
-- **T30 Engine endpoint + minimal UI.** `mount DataTeller::Engine`, one Hotwire page, result as number/table.
+- **T30 Engine endpoint + production UI** (builds on T13b). `mount DataTeller::Engine`, one Hotwire page, result as number/table.
 
 ## M7 — Hardening
 
