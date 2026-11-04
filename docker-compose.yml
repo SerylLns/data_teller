@@ -1,0 +1,21 @@
+# Dev-only database with pgvector. Credentials are throwaway and the port is bound
+# to localhost; never reuse them anywhere else. Port 5433 avoids clashing with a local Postgres.
+#
+# Use it with: export PGHOST=127.0.0.1 PGPORT=5433 PGUSER=postgres PGPASSWORD=postgres
+# (libpq reads these, so the dummy app's database.yml needs no change.)
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 10
+volumes:
+  pgdata:
