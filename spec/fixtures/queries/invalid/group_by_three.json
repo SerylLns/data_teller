@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "group_by": [
+    {
+      "dimension": "a"
+    },
+    {
+      "dimension": "b"
+    },
+    {
+      "dimension": "c"
+    }
+  ]
+}

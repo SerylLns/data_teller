@@ -84,7 +84,7 @@ at runtime (exposes never-reviewed columns), LLM-chosen joins (SQL in disguise).
 
 `intent` is `answer`, `clarify` or `out_of_scope`. The last two carry a typed payload:
 `reason` from a closed list (e.g. `ambiguous_period`, `ambiguous_metric`, `ambiguous_entity`,
-`unknown_dataset`, `not_a_data_question`) and, for `clarify`, `options` restricted to declared names
+`ambiguous_segment`, `missing_period`, `unknown_dataset`, `not_a_data_question`) and, for `clarify`, `options` restricted to declared names
 (checked by the validator, so the LLM cannot invent options).
 
 The UI renders translated labels from the keys. No sentence shown to the end user comes from the LLM.
@@ -117,6 +117,13 @@ Revisit: if the eval shows frequent two-number questions, move to `metrics` (1 t
 
 Rejected: array of metrics at MVP (multi-column results, ordering ambiguity, score definition,
 tendency of the model to stack metrics on simple questions).
+
+## Schema notes (T05)
+
+- `order_by` is `{ by: metric|dimension, dimension?, dir }`: `dimension` is required iff `by` is `dimension`.
+- `contains` is allowed as a text operator; the compiler must escape `%` and `_` in LIKE patterns.
+- The schema is structural only; declared names, date dimensions in filters, depth and permissions are enforced by the validator (T22).
+- Format source of truth: `lib/data_teller/schema/query_v1.json`, fixtures in `spec/fixtures/queries/`.
 
 ## Status
 

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "intent": "clarify",
+  "clarify": {
+    "reason": "i_am_confused",
+    "options": [
+      "a",
+      "b"
+    ]
+  }
+}

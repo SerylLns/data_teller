@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "filters": [
+    {
+      "dimension": "customer.name",
+      "op": "eq",
+      "value": {
+        "lookup": "Dupont"
+      }
+    }
+  ]
+}

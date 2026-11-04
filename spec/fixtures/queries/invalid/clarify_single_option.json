@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "intent": "clarify",
+  "clarify": {
+    "reason": "ambiguous_period",
+    "options": [
+      "ship_on"
+    ]
+  }
+}

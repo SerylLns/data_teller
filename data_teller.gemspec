@@ -14,4 +14,5 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "rails", ">= 7.2.2.2"
+  spec.add_dependency "json_schemer", "~> 2.0"
 end

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "limit": 1000
+}

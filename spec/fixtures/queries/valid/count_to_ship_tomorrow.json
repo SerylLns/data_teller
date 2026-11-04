@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "period": {
+    "dimension": "ship_on",
+    "range": {
+      "relative": "tomorrow"
+    }
+  },
+  "filters": [
+    {
+      "segment": "paid"
+    }
+  ]
+}

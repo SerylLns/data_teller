@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "filters": [
+    {
+      "dimension": "total_cents",
+      "op": "gte",
+      "value": 50000
+    }
+  ]
+}

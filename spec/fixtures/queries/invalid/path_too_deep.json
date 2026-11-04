@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "filters": [
+    {
+      "dimension": "a.b.c.d",
+      "op": "eq",
+      "value": "x"
+    }
+  ]
+}

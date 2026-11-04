@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "revenue",
+  "period": {
+    "dimension": "ordered_at",
+    "range": {
+      "relative": "this_year"
+    }
+  },
+  "group_by": [
+    {
+      "dimension": "ordered_at",
+      "granularity": "month"
+    }
+  ]
+}

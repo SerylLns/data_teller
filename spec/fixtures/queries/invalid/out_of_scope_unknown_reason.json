@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "intent": "out_of_scope",
+  "out_of_scope": {
+    "reason": "forbidden"
+  }
+}

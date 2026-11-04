@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "group_by": [
+    {
+      "dimension": "customer.city"
+    }
+  ],
+  "order_by": {
+    "by": "dimension",
+    "dimension": "customer.city",
+    "dir": "asc"
+  }
+}

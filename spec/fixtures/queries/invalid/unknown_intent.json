@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "intent": "run_sql",
+  "sql": "select 1"
+}

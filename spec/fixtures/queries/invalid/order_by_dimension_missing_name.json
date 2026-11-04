@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "order_by": {
+    "by": "dimension",
+    "dir": "asc"
+  }
+}

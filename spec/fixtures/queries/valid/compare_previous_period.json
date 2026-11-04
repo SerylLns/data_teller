@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "period": {
+    "dimension": "ordered_at",
+    "range": {
+      "relative": "last_month"
+    }
+  },
+  "compare": "previous_period"
+}

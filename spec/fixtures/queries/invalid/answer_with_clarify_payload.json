@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "clarify": {
+    "reason": "missing_period",
+    "options": [
+      "a",
+      "b"
+    ]
+  }
+}

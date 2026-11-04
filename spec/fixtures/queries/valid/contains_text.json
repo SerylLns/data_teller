@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "products",
+  "metric": "count",
+  "filters": [
+    {
+      "dimension": "name",
+      "op": "contains",
+      "value": "Shoes"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "intent": "clarify",
+  "clarify": {
+    "reason": "ambiguous_period",
+    "options": [
+      "a",
+      "b"
+    ],
+    "message": "Which date?"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "filters": [
+    {
+      "dimension": "shipped_at",
+      "op": "is_null"
+    }
+  ]
+}

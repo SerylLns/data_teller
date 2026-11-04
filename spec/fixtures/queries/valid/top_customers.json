@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "revenue",
+  "group_by": [
+    {
+      "dimension": "customer.name"
+    }
+  ],
+  "order_by": {
+    "by": "metric",
+    "dir": "desc"
+  },
+  "limit": 5
+}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "intent": "clarify",
+  "clarify": {
+    "reason": "missing_period",
+    "options": [
+      "this_month",
+      "last_month"
+    ]
+  }
+}
