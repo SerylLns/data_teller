@@ -42,9 +42,9 @@ Legend: `[dep]` = new dependency to flag, `[sec]` = security-relevant, `[perf]` 
 - **T12 Provider client.** Raw HTTP, structured outputs with the generated schema, timeouts, retries, token + latency logging.
   `[dep]` HTTP client only if needed (Faraday); no LLM framework. `[sec]` API key via credentials.
 - **T13 Naive pipeline.** Whole registry in the prompt. First scores recorded as the baseline in an ADR.
-- **T13b Minimal ask page (pulled forward from T30).** ERB + Hotwire, dev-only mount in the dummy app: question box,
+- **T13b Minimal command palette (pulled forward from T30).** Web component + `<dialog>` per ADR 0002, dev-only mount in the dummy app: question box,
   structured query shown as JSON, result. Exists so the article series has real screenshots/GIFs from part 4 on.
-  Herb (lint ERB) only as a dev tool, flagged `[dep]` when added. No Phlex.
+  Herb (lint ERB) only as a dev tool, flagged `[dep]` when added. No Phlex, no Stimulus.
 - **T14 Prompt iteration log.** Each prompt change = one eval run, one commit.
 
 ## M4 — Retrieval (RAG)
