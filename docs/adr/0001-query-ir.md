@@ -44,9 +44,22 @@ Consequences:
 Rejected: raw string compare (misses case/accents, silent homonyms),
 candidates in the prompt (sends customer names to the provider).
 
+## D3 — Filters are AND-only, with `in` / `not_in` (decided)
+
+`filters` is a flat list combined with AND. OR on a single dimension is expressed with `in`,
+exclusion with `not_in`. OR across different dimensions is not supported: the developer
+declares a segment for recurring cases, otherwise the user asks two questions.
+
+Why: flat schema, no recursion, easy to validate, score and explain in one sentence;
+end-user questions are overwhelmingly conjunctive.
+
+Revisit: if the eval shows repeated cross-dimension OR questions, add a single-level `any_of`.
+It is additive, so it does not break existing queries.
+
+Rejected: full boolean tree (LLMs produce deep or wrong trees; validation surface explodes).
+
 ## Pending
 
-- D3 boolean logic in filters
 - D4 joins via dotted dimensions
 - D5 structured clarify / out_of_scope
 - D6 number of metrics per query
