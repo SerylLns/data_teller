@@ -1,6 +1,6 @@
 # ADR 0001 — Structured query format (IR)
 
-Status: in progress (decisions are taken one at a time)
+Status: accepted (D1-D6 decided one at a time)
 
 Context: the LLM never writes SQL. It fills a structured query validated against the
 developer's declarations, then compiled to ActiveRecord. This ADR fixes the shape of that query.
@@ -103,6 +103,21 @@ Guard rails:
 Rejected: free-text clarification written by the LLM (unverified content, untranslatable, unscorable),
 two-call decide-then-write (extra latency and cost, templates already do the job).
 
-## Pending
+## D6 — One metric per query, versioned format (decided)
 
-- D6 number of metrics per query
+`metric` is a single declared name. Derived metrics (e.g. `average_basket: revenue / count`)
+are declared by the developer, never composed by the LLM. The query carries a `version` field
+from day one.
+
+Why: one value axis keeps the result shape (single value, series, table), the explanation and
+the eval scoring simple; `order_by`, `limit` and `compare` stay unambiguous.
+
+Revisit: if the eval shows frequent two-number questions, move to `metrics` (1 to 3) as format
+`version: 2`, a clean schema change instead of a patch. Same approach as D3 (`any_of`).
+
+Rejected: array of metrics at MVP (multi-column results, ordering ambiguity, score definition,
+tendency of the model to stack metrics on simple questions).
+
+## Status
+
+All decisions D1-D6 are taken. Next: write the JSON Schema and fixtures (T05) from this ADR.
