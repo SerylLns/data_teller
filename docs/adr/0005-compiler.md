@@ -18,8 +18,9 @@ WHERE line_items.order_id IN (SELECT orders.id FROM orders WHERE orders.account_
 - Every table touched gets its own filter: the dataset, each table joined for a path, each table a metric path goes through. An order pointing by mistake at another
   tenant's customer does not bring that customer's name out.
 - The sub-query is `unscoped`: it answers "who owns this row", which a soft-delete `default_scope` on the parent must not change. The main relation keeps its default scopes.
-- Order of construction: `scope:` segments (`merge`), then declarative segments and filters, then the tenant filters, then the grouping. Nothing that could remove a condition runs after them.
-- A check then confirms each filter is in the final relation, and the query does not run otherwise (ADR 0004 D4).
+- Order of construction: `default_scope` checked, conditions of `scope:` segments (`AND`, ADR 0004 D4), declarative segments and filters, then the tenant filters, then the grouping. Nothing that could remove a condition runs after them.
+- A check then confirms each filter is in the final relation, and the query does not run otherwise. It proves the filter is there, not that it filters: that is what the whitelist on scopes is for.
+- The tenant must be an instance of the class the path ends at, and every step a `belongs_to`, even though the boot checks it: comparing a customer id to `account_id` would read another account.
 
 Why: this is where a mistake would be the worst bug of the project, so simplicity comes first.
 
@@ -38,6 +39,9 @@ Rejected: a join (natural SQL, often the fastest, but the filter gets mixed with
 - **Bounded results.** A high-cardinality grouping is capped at `max_groups` (default 50) with the metric descending, per ADR 0004 D3. Any grouped query has a hard cap of 1,000 rows until T25 refines it.
   One extra row is fetched to know whether the result is `truncated`.
 - **A ratio over a metric with a path is refused at boot.** The join would change what the denominator counts.
+- **A metric path touches each table once, and never a `has_many :through`.** Columns and filters are built by table name, so a table met twice would be read under the wrong alias, and the table inside a `through` would have no tenant filter. Refused at boot.
+- **A descending order puts `NULL` last**: Postgres puts it first, and a group with no value would take a slot of a top N.
+- **Date grouping needs timestamps stored in UTC**, or a column with a time zone. With `default_timezone = :local` it is refused rather than shifted.
 
 ## Not implemented yet: refused, never approximated
 

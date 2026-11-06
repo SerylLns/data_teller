@@ -141,9 +141,11 @@ These are the rules the project is built around. **Only what is marked as enforc
 | A forbidden name and an unknown one get the same refusal | Enforced by the query validator |
 | Values are bound parameters; column names come from declarations, never from the query | Enforced |
 | The tenant filter is applied last, on every table touched, and checked before running | Enforced |
+| A `scope:` used as a segment can only add structured conditions | Enforced: raw SQL, `from`, `joins` and the like are refused |
 | Read-only execution, timeouts, minimum group size | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
 
+Isolation is tested in `spec/security/` against hostile scopes and values, on real rows across two tenants. That shows the cases tried, not all possible ones.
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right
 thing, so that line has to be reviewed. The check for sensitive column names is a lint, not a guarantee.
 

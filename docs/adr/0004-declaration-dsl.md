@@ -106,16 +106,18 @@ segment :vip,     scope: :vip_customers      # escape hatch, checked at boot
 ```
 
 - The declarative form is the norm: analyzable, explainable from its definition, no surprise with the tenant scope.
-- `scope:` reuses an existing ActiveRecord scope to avoid duplicating business logic. Accepted only if it takes no argument and
-  has no `order` / `limit` / `group` / `select` and no relative date. Its label comes from I18n (its content cannot be explained).
-- **The boot checks are a lint, not a security validation.** They catch accidents; a scope is arbitrary code and can be wrong
-  or hostile. Documentation must say so plainly.
+- `scope:` reuses an existing ActiveRecord scope to avoid duplicating business logic. Its label comes from I18n (its content cannot be explained).
+- **A scope brings structured conditions and nothing else** (amended 2026-11-07). It is a whitelist, checked on every query by the compiler and in `rake data_teller:check`:
+  any other part of the relation (`from`, `with`, `joins`, `group`, `having`, `select`, `distinct`, `order`, `limit`, `offset`, `lock`, `unscope`, ...) means a refusal, and so does raw SQL.
+  Its conditions are added with `AND`, never with `merge`, which would replace an earlier condition on the same column.
+  Why: a list of forbidden clauses missed `from`. A scope replacing `FROM` with a sub-query that redefines `account_id` read other tenants' rows while the tenant filter was present and the structural check passed; `where("1=1) OR (1=1")` did the same by putting an `OR` outside the filter's `AND`. Both returned 2001 instead of 1 in a spec with two tenants, now permanent regression tests in `spec/security/`.
+  **The price:** `where("total_cents > ?", 100)` and scopes with `joins` are refused: write them with a hash, Arel, a declarative segment or a dimension.
+- **`default_scope` follows the same logic**, since it applies without anyone naming it: conditions and an order only (the compiler drops the order), on the dataset and on every table joined. Raw SQL stays accepted there, because `where("deleted_at IS NULL")` is common, as long as it cannot end its parentheses or the statement.
+- **Calling a scope still runs code.** It can write, or read something else entirely, while it is being called. The whitelist judges what it returns. Running the compiler in a read-only transaction closes the writing part (T25).
 - Where each check runs: the name must be registered by `scope` at boot (a class method could do anything when called, so it is refused and never called);
-  the rest in `rake data_teller:check`, by calling the scope inside a rolled-back transaction. "No relative date" cannot be detected from a relation: it stays
-  a documented rule, with the tenant scope applied last as the real boundary.
-- The real boundary: the compiler applies the tenant scope **last**, on top of the segment, so a scope calling `unscoped` or
-  `unscope(where: ...)` cannot remove the tenant condition; a structural check asserts the tenant predicate is present in the
-  final relation; the DB-level role (T37) and optional RLS (T39) back it up.
+  the whitelist in `rake data_teller:check`, by calling the scope inside a rolled-back transaction, and on every query by the compiler. "No relative date" cannot be detected from a relation: it stays a documented rule.
+- The real boundary: the whitelist, then the compiler applying the tenant filter **last**, on top of the segment, and a structural check that it is present in the
+  final relation. A present filter is not enough on its own, as `from` showed. The DB-level role (T37) and optional RLS (T39) back it up.
 - Security Test Kit: includes fixtures with hostile scopes (`unscoped`, `unscope`, `or`, `rewhere`) and segments flagged as
   less verifiable.
 
