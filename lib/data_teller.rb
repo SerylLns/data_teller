@@ -38,24 +38,26 @@ module DataTeller
       registry.register(builder.build)
     end
 
+    # Loads and validates without side effects beyond (re)building the registry. Used by boot! and by
+    # `rake data_teller:check`. A broken declaration file is reported like any other invalid configuration.
+    def check(root)
+      Loader.load!(root)
+      Validator.new.call
+    rescue Error => e
+      Validator::Report.new(errors: [ e.message ], warnings: [])
+    end
+
     # Loads, validates and, only if everything is valid, freezes the declarations and enables the engine.
     # Both failure modes leave the engine disabled (fail closed); the setting decides whether the host app also
-    # refuses to boot (ADR 0004 D6). A broken declaration file is treated like any other invalid configuration.
+    # refuses to boot (ADR 0004 D6).
     def boot!(root)
-      problems = begin
-        Loader.load!(root)
-        Validator.new.call.errors
-      rescue Error => e
-        [ e.message ]
-      end
-
-      @enabled = problems.empty?
+      report = check(root)
+      @enabled = report.ok?
       return registry.freeze! if @enabled
 
-      message = Validator::Report.new(errors: problems, warnings: []).message
-      raise ConfigurationError, message if config.on_invalid_config == :raise
+      raise ConfigurationError, report.message if config.on_invalid_config == :raise
 
-      Rails.logger&.error("[DataTeller] DISABLED, configuration is invalid and on_invalid_config is :disable. #{message}")
+      Rails.logger&.error("[DataTeller] DISABLED, configuration is invalid and on_invalid_config is :disable. #{report.message}")
       nil
     end
 
