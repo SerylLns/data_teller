@@ -26,7 +26,8 @@ module DataTeller
 
     # load_errors and skipped_checks come from the Loader: its problems are reported along with ours, minus the checks
     # that would only repeat them.
-    def initialize(config:, registry:, load_errors: [], skipped_checks: [])
+    def initialize(config:, registry:, load_errors: [], skipped_checks: [], schema: false)
+      @schema = schema
       @config = config
       @registry = registry
       @load_errors = load_errors
@@ -43,6 +44,7 @@ module DataTeller
       @errors.concat(
         ModelValidator.new(config: @config, registry: @registry, check_exposure: !@skipped_checks.include?(:exposure)).call
       )
+      @errors.concat(SchemaValidator.new(registry: @registry).call) if @schema
 
       Report.new(errors: @errors.freeze, warnings: @warnings.freeze, config: @config, registry: @registry)
     end

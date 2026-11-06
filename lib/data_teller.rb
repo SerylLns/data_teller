@@ -11,6 +11,7 @@ require "data_teller/registry"
 require "data_teller/loader"
 require "data_teller/model_lookup"
 require "data_teller/model_validator"
+require "data_teller/schema_validator"
 require "data_teller/validator"
 require "data_teller/engine"
 require "data_teller/query_schema"
@@ -54,11 +55,12 @@ module DataTeller
     end
 
     # Loads and validates the files without touching the running engine: it is safe from a console or a health check.
-    def check(root)
+    # schema: true adds what needs the database, so the boot must leave it off (ADR 0004 D6).
+    def check(root, schema: false)
       loaded = Loader.call(root)
       Validator.new(
         config: loaded.config, registry: loaded.registry,
-        load_errors: loaded.errors, skipped_checks: loaded.skipped_checks
+        load_errors: loaded.errors, skipped_checks: loaded.skipped_checks, schema: schema
       ).call
     end
 

@@ -4,9 +4,9 @@ namespace :data_teller do
     DataTeller.defer_boot!
   end
 
-  desc "Validate the DataTeller declarations (run it in CI before deploying)"
+  desc "Validate the DataTeller declarations, columns included (run it in CI and after migrations)"
   task check: %i[defer_boot environment] do
-    report = DataTeller.check(Rails.root)
+    report = DataTeller.check(Rails.root, schema: true)
     report.warnings.each { |warning| warn "warning: #{warning}" }
 
     if report.ok?

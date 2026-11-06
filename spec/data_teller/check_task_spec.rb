@@ -7,9 +7,15 @@ RSpec.describe "rake data_teller:check" do
   let(:dummy) { Rails.root }
   let(:broken_file) { dummy.join("config/data_teller/zz_broken_by_check_task_spec.rb") }
 
-  def run_task
-    Open3.capture3({ "RAILS_ENV" => "test" }, "bundle", "exec", "rake", "data_teller:check", chdir: dummy.to_s)
+  def run_task(env = {})
+    Open3.capture3({ "RAILS_ENV" => "test" }.merge(env), "bundle", "exec", "rake", "data_teller:check", chdir: dummy.to_s)
   end
+
+  def boot_and_print_enabled(env = {})
+    Open3.capture3({ "RAILS_ENV" => "test" }.merge(env), "bundle", "exec", "rails", "runner", "puts DataTeller.enabled?", chdir: dummy.to_s)
+  end
+
+  let(:unreachable_database) { { "DATABASE_URL" => "postgresql://nobody@127.0.0.1:1/none" } }
 
   it "reports the declared datasets and exits 0 when the configuration is valid" do
     stdout, _stderr, status = run_task
@@ -34,5 +40,35 @@ RSpec.describe "rake data_teller:check" do
     expect(stdout).not_to include("OK")
   ensure
     broken_file.delete if broken_file.exist?
+  end
+
+  # The deadlock this prevents: db:migrate boots the app, so a boot checking columns would refuse to start
+  # while the migration that adds the column is waiting to run.
+  it "catches a missing column, which the boot deliberately does not look at" do
+    broken_file.write("DataTeller.refine('Customer', name: :clients) { roles :admin; tenant_path :account; dimension :nope }")
+
+    boot_stdout, = boot_and_print_enabled
+    expect(boot_stdout.strip).to eq("true")
+
+    _stdout, stderr, status = run_task
+    expect(status.exitstatus).to eq(1)
+    expect(stderr).to include("Customer has no column nope")
+  ensure
+    broken_file.delete if broken_file.exist?
+  end
+
+  it "does not need the database to boot" do
+    stdout, stderr, status = boot_and_print_enabled(unreachable_database)
+
+    expect(status.exitstatus).to eq(0), stderr
+    expect(stdout.strip).to eq("true")
+  end
+
+  it "fails when it cannot read the database, without printing connection details" do
+    _stdout, stderr, status = run_task(unreachable_database)
+
+    expect(status.exitstatus).to eq(1)
+    expect(stderr).to include("cannot read the database")
+    expect(stderr).not_to include("nobody")
   end
 end
