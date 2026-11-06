@@ -20,8 +20,9 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
     sensitive lint extended with `encrypted_attributes` and the host's `filter_parameters`.
   - In `rake data_teller:check`: tables, columns, types (`sum`/`avg` on numbers, `min`/`max` on numbers and dates), `time:` on dates, `lookup:` on text,
     and `scope:` segments, called inside a rolled-back transaction (no argument, no order/limit/group/select).
-- **T08 Schema generation from DSL.** Enums of declared names only, per role (visible catalog); not a security boundary.
-  Derives dotted dimensions from exposed models (ADR 0001 D4); two paths to the same dimension = error at boot.
+- **T08 Schema generation from DSL** — done (ADR 0004 D8). Per-role visible catalog with derived metrics, segments and paths; one schema branch per dataset;
+  `rake "data_teller:schema[admin]"`; two paths to the same dataset refused at boot. Not a security boundary. Left for T12: caching by permissions fingerprint + registry version,
+  and what each provider accepts. Left for T22: the schema does not tie `{lookup}` to `lookup:` dimensions or `granularity` to date dimensions.
 
 ## M2 — Safe core, no LLM
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. Real calendar dates (the schema still accepts `2024-02-31`) and `from` <= `to` in `between`. `[sec]`
