@@ -13,3 +13,6 @@
 /coverage/
 .env*
 /tmp/eval_runs/
+
+# Article series: local working files, not versioned (drafts, notes, plan)
+/docs/series/
