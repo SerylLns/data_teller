@@ -11,7 +11,7 @@ RSpec.describe DataTeller::Generators::InstallGenerator do
   end
 
   def run_generator
-    described_class.start([], destination_root: @root.to_s, quiet: true)
+    described_class.start([ "--quiet" ], destination_root: @root.to_s)
   end
 
   let(:config_file) { @root.join("config/data_teller.rb") }
@@ -50,7 +50,7 @@ RSpec.describe DataTeller::Generators::InstallGenerator do
     run_generator
     config_file.write("# mine")
 
-    described_class.start([ "--force" ], destination_root: @root.to_s, quiet: true)
+    described_class.start([ "--force", "--quiet" ], destination_root: @root.to_s)
 
     expect(config_file.read).to include("DataTeller.configure")
   end
