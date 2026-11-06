@@ -113,7 +113,47 @@ Why: keeps the DRY promise of the README where possible without making arbitrary
 Rejected: scopes by name only (unanalyzable code, unexplainable, relative dates ignoring the tenant time zone);
 declarative only (forces rewriting every business scope).
 
+## D5 — Roles and permissions: declarative roles for concepts, Pundit for rows (decided, "C")
+
+Principle: **DataTeller controls what users can ask; Pundit controls which records they can access.**
+
+| Level | Responsible |
+|---|---|
+| Dataset, metric, dimension, segment | DataTeller DSL (`roles:`) |
+| Accessible rows | Pundit (`policy_scope`, T33) |
+| Tenant isolation | DataTeller (compiler) + database (role, optional RLS) |
+
+Pundit can never widen the tenant scope: the tenant condition is applied last, on top of everything else.
+
+Rules:
+- Every dataset declares `roles:` explicitly (boot error otherwise). Metrics, dimensions and segments inherit the dataset's roles and can
+  only **narrow** them, never widen. `sensitive:` dimensions require an explicit `roles:`.
+- Roles come from the host app (`c.roles { |user| ... }`). `nil` or a resolver error -> no access (fail closed). Unknown role -> no extra
+  permission. Several roles -> union. Permissions are recomputed on every request.
+- A permission applies to every use of a name, not only display: filtering, grouping, ordering/top-N and period all need it
+  (filtering on a hidden dimension would reveal its values by bisection).
+- Derived metrics (`ratio:`) are visible only if all their dependencies are visible in the user's effective (unioned) catalog.
+  Otherwise `count` + `avg_basket` would reveal `revenue`.
+- Segments inherit the permissions of the columns they reference. A `scope:` segment cannot be analyzed, so it must declare `roles:` explicitly.
+- A dotted dimension inherits the permissions of its target column (ADR 0001 D4).
+- **One choke point:** a per-request "visible catalog" object, used by schema generation, retrieval, suggestions, explanations and the
+  validator, so consistency across the whole chain is testable by the Security Test Kit.
+- The LLM schema is generated per role (forbidden names are absent), but **that is not a security boundary**: the validator always
+  re-checks permissions server-side. The schema/catalog cache is keyed by the fingerprint of the effective permissions plus the registry
+  version, never by user id.
+- Leak surfaces to cover with the same catalog: question suggestions, query history, error messages, search results, explanations of
+  derived metrics, saved questions (re-validated against the viewer's catalog), the unanswered-question log (admin only), and dynamic
+  few-shot examples (T20), which must be filtered by tenant AND by the role's catalog (examples can contain forbidden metric names or customer names).
+- Refusals never reveal that a forbidden resource exists (ADR 0001 D5): unauthorized and unknown give the same answer.
+
+Why: functional authorization and row authorization are different problems; each tool handles the one it is good at, and nothing in the DSL is
+arbitrary code.
+
+Performance: the catalog is set operations, cached by fingerprint.
+
+Rejected: everything delegated to Pundit (rules scattered across policies, not validatable at boot, not testable by the kit);
+free lambdas in the DSL (arbitrary code); "no `roles:` means visible to all" (too permissive).
+
 ## Pending
 
-- D5 roles and permissions in the DSL
 - D6 registry object and validation at boot

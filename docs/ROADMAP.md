@@ -14,7 +14,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T05 Query format** (JSON Schema, fixtures) — done, ADR 0001.
 - **T06 Declaration DSL.** `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms, labels), registry object.
 - **T07 Mandatory tenant.** Boot fails without `c.tenant`. `[sec]`
-- **T08 Schema generation from DSL.** Enums of declared names only.
+- **T08 Schema generation from DSL.** Enums of declared names only, per role (visible catalog); not a security boundary.
 
 ## M2 — Safe core, no LLM
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. `[sec]`
@@ -23,12 +23,14 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
   (`max_groups` per dimension, `LIMIT n+1` check, top-N required for high-cardinality group_by, time-series point cap). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** resolved in the compiler.
-- **T35 Permission basics.** Roles on dataset / metric / dimension; path permissions inherited from target. `[sec]`
+- **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
+  inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`
   Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.
 - **T36 Aggregate disclosure.** Declarative `min_group_size`, small-cell suppression; documents the differencing limit. `[sec]`
 - **T37 Database read-only role.** SELECT-only role with column-level GRANTs on exposed columns; boot check; recommended, not mandatory. `[sec]`
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
-- **T31a Security Test Kit v0.** Cross-tenant ids, forbidden columns and associations, sensitive aggregates, run on JSON fixtures; shared examples. `[sec]`
+- **T31a Security Test Kit v0.** Cross-tenant ids, forbidden columns and associations, sensitive aggregates, hostile scopes, inference via
+  filters/order/derived metrics, catalog consistency across the chain; run on JSON fixtures; shared examples. `[sec]`
 
 ## M3 — Evaluation & LLM baseline
 - **T09 Eval dataset v0.** 40 French questions -> expected IR (traps: synonyms, ambiguity, out-of-scope, relative dates, cross-tenant). 30 dev / 10 held-out.
@@ -42,7 +44,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 ## M4 — Retrieval (RAG)
 - **T15 Indexable documents.** **T16 Embeddings pipeline** `[dep]` `[perf]` `[sec]` (only declared labels leave the app).
 - **T17 Retrieval A (vectors).** **T18 Retrieval B (hybrid, tsvector + vectors, RRF).** Recall@k scored separately.
-- **T19 Retrieval-scoped prompt** vs the T13 baseline. **T20 Dynamic few-shot.** **T21 (optional) reranking.**
+- **T19 Retrieval-scoped prompt** vs the T13 baseline. **T20 Dynamic few-shot** (filtered by tenant and by the role's visible catalog). **T21 (optional) reranking.**
 - **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). `[sec]`
 
 ## M5 — Trust UX
