@@ -33,6 +33,9 @@ module DataTeller
     def column_for(name, aggregation, column)
       if COLUMN_AGGREGATIONS.include?(aggregation)
         raise DeclarationError, "metric #{name.inspect}: #{aggregation} needs a column" if column.nil?
+        unless column.is_a?(Symbol) || column.is_a?(String)
+          raise DeclarationError, "metric #{name.inspect}: column must be a column name, got #{column.class}"
+        end
 
         column.to_sym
       else
