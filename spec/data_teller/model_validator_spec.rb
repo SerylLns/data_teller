@@ -10,6 +10,8 @@ RSpec.describe DataTeller::ModelValidator do
 
       belongs_to :owner, polymorphic: true, optional: true
       belongs_to :ghost, class_name: "NoSuchModel", optional: true
+      belongs_to :customer, optional: true
+      belongs_to :billing_customer, class_name: "Customer", optional: true
 
       scope :real_scope, -> { where(status: 1) }
       def self.purge_all = nil
@@ -118,6 +120,20 @@ RSpec.describe DataTeller::ModelValidator do
     it "refuses a polymorphic association" do
       expect(errors_for("SpecRecord", %i[customer], metrics: [ metric(:x, "owner.total") ]))
         .to include(/metric x: SpecRecord\.owner is polymorphic/)
+    end
+  end
+
+  describe "two paths to the same dataset (ADR 0001 D4)" do
+    it "are refused, the LLM could not tell them apart" do
+      registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: [ :admin ], tenant_path: %i[account],
+                                                dimensions: [ DataTeller::Dimension.new(name: :city) ]))
+
+      expect(errors_for("SpecRecord", %i[customer account]))
+        .to include(/dataset spec_records: customer and billing_customer both lead to Customer/)
+    end
+
+    it "are fine when the target is not exposed" do
+      expect(errors_for("SpecRecord", %i[customer account]).grep(/both lead/)).to eq([])
     end
   end
 

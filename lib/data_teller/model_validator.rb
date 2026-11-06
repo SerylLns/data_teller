@@ -39,6 +39,19 @@ module DataTeller
       check_tenant_path(dataset, klass)
       check_metric_paths(dataset, klass)
       check_scopes(dataset, klass)
+      check_paths_are_distinct(dataset)
+    end
+
+    # The LLM could not tell customer.city from billing_customer.city (ADR 0001 D4).
+    def check_paths_are_distinct(dataset)
+      hops = DimensionPaths.hops(dataset, registry: @registry, tenant_model_name: @config.tenant_model_name)
+
+      hops.group_by(&:target).each do |target, same_target|
+        next if same_target.size < 2
+
+        @errors << "dataset #{dataset.name}: #{same_target.map(&:prefix).join(' and ')} both lead to #{target.model_name}, " \
+                   "so their dimensions would be ambiguous"
+      end
     end
 
     def check_tenant_path(dataset, klass)
