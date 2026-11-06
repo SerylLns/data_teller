@@ -32,6 +32,7 @@ Rejected: a join (natural SQL, often the fastest, but the filter gets mixed with
 - **Values are bound parameters**, for every operator, including `gt` and `contains`. Column names come from the catalog, never from the query's text.
   The two literals that are not bound, a granularity (closed list) and a time zone (from `ActiveSupport::TimeZone`), are quoted: Postgres sees `date_trunc` in SELECT and GROUP BY as different expressions when they use different parameters.
 - **Paths use `INNER JOIN`.** An order with no customer does not appear when grouping by customer, so a grouped total can be smaller than the overall total. It needs documenting for integrators. `is_null` on a path therefore means "the related row has no value", not "there is no related row".
+- **`not_eq` and `not_in` follow SQL**: a row with no value does not match. "Orders not in Paris" leaves out customers with no city.
 - **"The last 7 days" includes today**, on a rolling basis. "This month" covers the whole month, so that a future `ship_on` can match. `between` includes both ends. Weeks start on Monday.
 - **Postgres only**, for `date_trunc` and `AT TIME ZONE`. pgvector requires it for retrieval anyway.
 - **Bounded results.** A high-cardinality grouping is capped at `max_groups` (default 50) with the metric descending, per ADR 0004 D3. Any grouped query has a hard cap of 1,000 rows until T25 refines it.

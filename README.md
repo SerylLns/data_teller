@@ -6,7 +6,7 @@ A mountable Rails engine for multi-tenant apps: your users ask questions about t
 to ActiveRecord with the tenant filter added by the compiler.
 
 > **Status: early work in progress. It does not answer questions yet.**
-> There is no LLM integration, no query execution and no UI so far. It is not on RubyGems, and it must not be used in production.
+> A hand-written JSON query runs, but there is no LLM integration and no UI so far, and queries don't yet run read-only. It is not on RubyGems, and it must not be used in production.
 
 ## Why not text-to-SQL
 
@@ -62,7 +62,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Boot validation, `rake data_teller:check` | Done |
 | Per-role catalog, schema generated for the LLM | Done |
 | Query validator | Done |
-| Compiler, tenant injection, execution guards | Next |
+| Compiler, tenant filter on every table, running a hand-written JSON query | Done |
+| Execution guards (read-only, timeout), `compare`, entity lookups | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 
@@ -138,9 +139,9 @@ These are the rules the project is built around. **Only what is marked as enforc
 | The schema generated for the LLM only contains names the role can see | Enforced, but not a security boundary: the query validator re-checks everything |
 | A resolver returning anything but the tenant model means no tenant | Enforced |
 | A forbidden name and an unknown one get the same refusal | Enforced by the query validator |
-| The LLM never writes SQL; bound parameters only | Planned (compiler) |
-| The tenant filter is applied last, on every table touched | Planned (compiler) |
-| Read-only execution, timeouts, limits, minimum group size | Planned |
+| Values are bound parameters; column names come from declarations, never from the query | Enforced |
+| The tenant filter is applied last, on every table touched, and checked before running | Enforced |
+| Read-only execution, timeouts, minimum group size | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
 
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right
@@ -159,6 +160,13 @@ bin/rubocop
 ```
 
 `spec/dummy` is a small shop app (accounts, customers, products, orders) with **fake, deterministic seeds**, for development and tests only.
+To run a JSON query on them and see the SQL:
+
+```bash
+cd spec/dummy
+bundle exec rails db:create db:migrate db:seed
+bundle exec rake "try[Acme,admin]" QUERY='{"version":1,"intent":"answer","dataset":"orders","metric":"revenue"}'
+```
 
 The design decisions, with the options that were rejected, are in [docs/adr](docs/adr).
 

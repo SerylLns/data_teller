@@ -27,11 +27,12 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 ## M2 — Safe core, no LLM
 - **T22 Query validator** — done (`QueryValidator`). Judges the LLM's output against the role's catalog: names, date dimensions rejected in filters, operators and values by type,
   real calendar dates, lookups only where declared, granularity on dates only, `order_by` within the `group_by`, `too_many_groups` on two high-cardinality dimensions. Forbidden and unknown give the same result. `[sec]`
-- **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. A column missing at execution means a refusal (ADR 0004 D6). `[sec]`
-- **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
+- **T23 Compiler** — done (ADR 0005). Bound parameters, whitelisted operators, LIKE escaped, truncation (`max_groups`, `truncated`), a missing column means a refusal. `QueryRunner` is the entry point. `[sec]`
+- **T24 Tenant injection** — done (ADR 0005 D1). A sub-query on every table touched (joins, metric paths), applied last on top of segments, with a structural presence check.
+  Specs on real rows: two tenants, corrupt rows, hostile scopes (`unscoped`, `unscope`, `or`, `rewhere`, `from`). Still to cover in T31a: `default_scope`, soft-delete, STI, nullable tenant, a `scope:` with `joins`. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
   (`max_groups` per dimension with a global default, automatic top-N with `LIMIT n+1` and a `truncated` flag, time-series point cap, `too_many_groups` refusal). `[perf]` `[sec]`
-- **T26 Relative dates + tenant time zone** resolved in the compiler.
+- **T26 Relative dates + tenant time zone.** Done for periods and date grouping. Left: `compare`, refused until then, and relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
 - **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
   inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`
   Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.
