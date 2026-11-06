@@ -96,6 +96,20 @@ module DataTeller
       nil
     end
 
+    # nil when the tenant's zone is wrong or unknown: the caller refuses, because the wrong "today" is a wrong answer.
+    def time_zone_for(tenant)
+      resolver = @tenant&.time_zone_resolver
+      return Time.zone || ActiveSupport::TimeZone["UTC"] unless resolver
+
+      name = resolver.call(tenant)
+      ActiveSupport::TimeZone[name.to_s].tap do |zone|
+        Rails.logger&.error("[DataTeller] unknown tenant time zone, refusing the query") unless zone
+      end
+    rescue StandardError => e
+      Rails.logger&.error("[DataTeller] tenant time zone failed, refusing the query: #{e.class}")
+      nil
+    end
+
     # Fails closed: no resolver, nil, or an error all mean "no role", which means no access.
     def roles_for(user)
       return [] unless @roles_resolver

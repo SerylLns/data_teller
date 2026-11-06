@@ -108,6 +108,31 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "#time_zone_for" do
+    let(:acme) { Account.new(time_zone: "Europe/Paris") }
+
+    def declare_zone(&block)
+      config.tenant { time_zone(&block) }
+    end
+
+    it "uses the tenant's zone" do
+      declare_zone(&:time_zone)
+      expect(config.time_zone_for(acme).tzinfo.name).to eq("Europe/Paris")
+    end
+
+    it "uses the app's zone when none is declared" do
+      expect(config.time_zone_for(acme)).to eq(Time.zone)
+    end
+
+    it "gives nothing for an unknown zone or a failing resolver: a wrong today is a wrong answer" do
+      declare_zone { "Mars/Olympus" }
+      expect(config.time_zone_for(acme)).to be_nil
+
+      declare_zone { raise "boom" }
+      expect(config.time_zone_for(acme)).to be_nil
+    end
+  end
+
   describe "#roles_for" do
     it "returns no role when no resolver is configured" do
       expect(config.roles_for(:anyone)).to eq([])
