@@ -72,7 +72,7 @@ RSpec.describe "DataTeller.refine" do
     end
 
     it "rejects a lambda in a segment" do
-      expect { refine_orders { segment :today, where: -> { Date.today } } }.to raise_error(DataTeller::DeclarationError, /data, not code/)
+      expect { refine_orders { segment :today, where: -> { Date.today } } }.to raise_error(DataTeller::DeclarationError, /where: must be a non-empty Hash/)
     end
 
     it "rejects a duplicate name inside a dataset and a dataset declared twice" do

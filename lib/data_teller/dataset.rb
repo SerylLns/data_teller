@@ -12,9 +12,9 @@ module DataTeller
         name: NameFormat.ensure!(name || derived, "dataset"),
         model_name: model_name.freeze,
         roles: NameFormat.roles(roles, "dataset"),
-        metrics: index_by_name(metrics, "metric"),
-        dimensions: index_by_name(dimensions, "dimension"),
-        segments: index_by_name(segments, "segment"),
+        metrics: index_by_name(model_name, metrics, "metric"),
+        dimensions: index_by_name(model_name, dimensions, "dimension"),
+        segments: index_by_name(model_name, segments, "segment"),
         synonyms: synonyms.map { |s| s.to_s.strip.freeze }.reject(&:empty?).uniq.freeze
       )
     end
@@ -34,7 +34,8 @@ module DataTeller
 
     private
 
-    def index_by_name(items, kind)
+    # model_name is passed in because the reader returns nil until `super` has run.
+    def index_by_name(model_name, items, kind)
       items.each_with_object({}) do |item, index|
         raise DeclarationError, "dataset #{model_name}: #{kind} #{item.name.inspect} is declared twice" if index.key?(item.name)
 

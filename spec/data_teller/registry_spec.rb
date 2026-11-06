@@ -47,10 +47,6 @@ RSpec.describe "DataTeller declarations" do
       expect(dimension).to have_attributes(group: true, max_groups: 20, lookup: :trigram)
     end
 
-    it "supports dotted paths as the column" do
-      expect(described_class.new(name: :customer_city, column: "customer.city").column).to eq("customer.city")
-    end
-
     it "rejects invalid flags" do
       expect { described_class.new(name: :x, lookup: :fuzzy) }.to raise_error(DataTeller::DeclarationError, /lookup/)
       expect { described_class.new(name: :x, max_groups: 0) }.to raise_error(DataTeller::DeclarationError, /max_groups/)

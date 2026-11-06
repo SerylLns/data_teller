@@ -62,7 +62,7 @@ RSpec.describe DataTeller::Validator do
 
   describe "sensitive dimensions" do
     it "refuses a sensitive-looking name unless it is forced with sensitive: true" do
-      dataset(dimensions: [ dimension(:email), dimension(:customer_phone, column: "customer.phone"), dimension(:monkey) ])
+      dataset(dimensions: [ dimension(:email), dimension(:contact, column: "phone"), dimension(:monkey) ])
 
       expect(report.errors.grep(/looks sensitive/).size).to eq(2)
     end

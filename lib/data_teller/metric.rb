@@ -14,7 +14,7 @@ module DataTeller
         aggregation: aggregation,
         column: column_for(name, aggregation, column),
         of: ratio_for(name, aggregation, of),
-        format: format&.to_sym,
+        format: format.nil? ? nil : NameFormat.ensure!(format, "metric #{name.inspect}: format"),
         roles: NameFormat.roles(roles, "metric")
       )
     end
@@ -33,11 +33,8 @@ module DataTeller
     def column_for(name, aggregation, column)
       if COLUMN_AGGREGATIONS.include?(aggregation)
         raise DeclarationError, "metric #{name.inspect}: #{aggregation} needs a column" if column.nil?
-        unless column.is_a?(Symbol) || column.is_a?(String)
-          raise DeclarationError, "metric #{name.inspect}: column must be a column name, got #{column.class}"
-        end
 
-        column.to_sym
+        NameFormat.column(column, "metric #{name.inspect}", pattern: NameFormat::COLUMN_PATH).to_sym
       else
         raise DeclarationError, "metric #{name.inspect}: #{aggregation} does not take a column" unless column.nil?
 
