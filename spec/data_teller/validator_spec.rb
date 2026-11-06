@@ -78,6 +78,79 @@ RSpec.describe DataTeller::Validator do
     end
   end
 
+  describe "sensitive-looking names" do
+    %w[api_key access_key private_key emails e_mail tokens passwords phones secrets credit_card card_number
+       customerEmail EMAIL password_digest encrypted_notes date_of_birth ip_address].each do |column|
+      it "catches #{column}" do
+        dataset(dimensions: [ dimension(:contact, column: column) ])
+
+        expect(report.errors).to include(/looks sensitive/)
+      end
+    end
+
+    %w[monkey keyboard status city emailed mailbox].each do |column|
+      it "does not trip on #{column}" do
+        dataset(dimensions: [ dimension(:other, column: column) ])
+
+        expect(report).to be_ok
+      end
+    end
+  end
+
+  describe "metrics over a sensitive column" do
+    # min and max return a stored value: metric :x, min: :email is a way to read an email.
+    it "are refused without sensitive: true and explicit roles" do
+      dataset(metrics: [ metric(:first_email, :min, column: :email), metric(:pw, :max, column: "customer.password_digest") ])
+
+      expect(report.errors.grep(/looks sensitive/).size).to eq(2)
+    end
+
+    it "need explicit roles once forced" do
+      dataset(metrics: [ metric(:emails_seen, :count_distinct, column: :email, sensitive: true) ])
+
+      expect(report.errors).to include(/metric emails_seen: a sensitive metric needs explicit `roles:`/)
+    end
+
+    it "pass when forced and restricted" do
+      dataset(metrics: [ metric(:emails_seen, :count_distinct, column: :email, sensitive: true, roles: :admin) ])
+
+      expect(report).to be_ok
+    end
+
+    it "rejects a coerced flag" do
+      expect { metric(:x, :sum, column: :a, sensitive: "true") }.to raise_error(DataTeller::DeclarationError, /sensitive must be true or false/)
+    end
+  end
+
+  describe "segments over a sensitive column" do
+    let(:segment) { DataTeller::Segment.new(name: :vip_mail, where: { email: "a@example.test" }) }
+
+    it "need explicit roles" do
+      dataset(segments: [ segment ])
+
+      expect(report.errors).to include(/segment vip_mail: .*needs explicit `roles:`/)
+    end
+  end
+
+  describe "scope: segments" do
+    it "refuses a built-in ActiveRecord method, which is not a scope of the model" do
+      %i[destroy_all delete_all unscoped all].each do |name|
+        registry = DataTeller::Registry.new
+        registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin],
+                                                  segments: [ DataTeller::Segment.new(name: :x, scope: name, roles: :admin) ]))
+
+        expect(described_class.new(config: config, registry: registry).call.errors)
+          .to include(/segment x: `scope: :#{name}` is a built-in ActiveRecord method/)
+      end
+    end
+
+    it "accepts a name that could be a scope of the model" do
+      dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :vip_customers, roles: :admin) ])
+
+      expect(report).to be_ok
+    end
+  end
+
   it "requires explicit roles on a scope segment" do
     dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :vip_customers) ])
 

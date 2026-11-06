@@ -3,9 +3,16 @@ module DataTeller
   # (ADR 0004 D6). It reports every problem at once. It does not prove the tenant path or that columns exist;
   # that is part B, which reads the ActiveRecord schema.
   class Validator
-    # Words that make a dimension look like personal data or a secret. A name is matched word by word so that
-    # `monkey` does not trip `key`.
-    SENSITIVE_WORDS = %w[email phone mobile password passwd token secret iban ssn salt digest].freeze
+    # A lint, not a guarantee: a list of words cannot recognise every sensitive column, which is why nothing is
+    # exposed unless it is declared. Identifiers are compared word by word, so that `monkey` does not trip `key`.
+    SENSITIVE_WORDS = %w[
+      email mail phone telephone mobile password passwd pwd passphrase token secret credential
+      iban ssn salt digest otp cvv cvc passport birthdate birthday dob address encrypted ciphertext
+    ].freeze
+    SENSITIVE_PHRASES = %w[
+      api_key access_key private_key encryption_key credit_card card_number e_mail
+      date_of_birth social_security tax_id national_id
+    ].freeze
 
     Report = Data.define(:errors, :warnings) do
       def ok?
@@ -60,6 +67,7 @@ module DataTeller
       check_dimensions(dataset)
       check_segments(dataset)
       check_metrics(dataset)
+      check_metric_columns(dataset)
       check_role_narrowing(dataset)
     end
 
@@ -72,25 +80,43 @@ module DataTeller
 
     def check_dimensions(dataset)
       dataset.dimensions.each_value do |dimension|
-        at = "dataset #{dataset.name}, dimension #{dimension.name}"
-        looks_sensitive = sensitive_name?(dimension)
+        check_sensitive("dataset #{dataset.name}, dimension #{dimension.name}", "dimension", dimension,
+                        dimension.name, dimension.column)
+      end
+    end
 
-        if looks_sensitive && !dimension.sensitive
-          @errors << "#{at}: the name looks sensitive; expose it only with `sensitive: true` and explicit `roles:`"
-        end
-        if dimension.sensitive && dimension.roles.nil?
-          @errors << "#{at}: a sensitive dimension needs explicit `roles:`"
+    # min and max return a stored value, so a metric over a column can read that column.
+    def check_metric_columns(dataset)
+      dataset.metrics.each_value do |metric|
+        check_sensitive("dataset #{dataset.name}, metric #{metric.name}", "metric", metric, metric.column)
+      end
+    end
+
+    def check_sensitive(at, kind, member, *identifiers)
+      if !member.sensitive && sensitive_identifier?(*identifiers)
+        @errors << "#{at}: the name looks sensitive; expose it only with `sensitive: true` and explicit `roles:`"
+      end
+      @errors << "#{at}: a sensitive #{kind} needs explicit `roles:`" if member.sensitive && member.roles.nil?
+    end
+
+    def check_segments(dataset)
+      dataset.segments.each_value do |segment|
+        at = "dataset #{dataset.name}, segment #{segment.name}"
+        check_scope_segment(at, segment) if segment.scope?
+
+        if segment.where && segment.roles.nil? && sensitive_identifier?(*segment.where.keys)
+          @errors << "#{at}: a condition on a sensitive-looking column needs explicit `roles:`"
         end
       end
     end
 
     # A scope is arbitrary code that cannot be analysed, so its audience cannot be inferred (ADR 0004 D5).
-    def check_segments(dataset)
-      dataset.segments.each_value do |segment|
-        next unless segment.scope? && segment.roles.nil?
+    # A method every model has (destroy_all, unscoped, all) is not a scope the developer wrote for this purpose.
+    def check_scope_segment(at, segment)
+      @errors << "#{at}: a `scope:` segment needs explicit `roles:`" if segment.roles.nil?
+      return unless ActiveRecord::Base.respond_to?(segment.scope)
 
-        @errors << "dataset #{dataset.name}, segment #{segment.name}: a `scope:` segment needs explicit `roles:`"
-      end
+      @errors << "#{at}: `scope: :#{segment.scope}` is a built-in ActiveRecord method, not a scope of the model"
     end
 
     def check_metrics(dataset)
@@ -144,9 +170,13 @@ module DataTeller
       end
     end
 
-    def sensitive_name?(dimension)
-      words = "#{dimension.name}_#{dimension.column}".split(/[_.]/)
-      (words & SENSITIVE_WORDS).any?
+    def sensitive_identifier?(*identifiers)
+      identifiers.compact.any? do |identifier|
+        words = identifier.to_s.underscore.split(/[_.]+/).map(&:singularize)
+        joined = "_#{words.join('_')}_"
+
+        (words & SENSITIVE_WORDS).any? || SENSITIVE_PHRASES.any? { |phrase| joined.include?("_#{phrase}_") }
+      end
     end
   end
 end

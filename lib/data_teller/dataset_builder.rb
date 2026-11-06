@@ -2,7 +2,7 @@ module DataTeller
   # The block given to `DataTeller.refine`. It only collects declarations and hands them to the immutable value
   # objects, which do the validation: nothing in here evaluates user input or reads the database.
   class DatasetBuilder
-    METRIC_OPTIONS = %i[format roles].freeze
+    METRIC_OPTIONS = %i[format sensitive roles].freeze
 
     def initialize(model_name, name: nil)
       @model_name = model_name

@@ -1,10 +1,10 @@
 module DataTeller
   # A metric never contains free code (ADR 0004 D2): a closed set of aggregations, plus ratio of two other metrics.
-  class Metric < Data.define(:name, :aggregation, :column, :of, :format, :roles)
+  class Metric < Data.define(:name, :aggregation, :column, :of, :format, :sensitive, :roles)
     AGGREGATIONS = %i[count sum avg min max count_distinct ratio].freeze
     COLUMN_AGGREGATIONS = %i[sum avg min max count_distinct].freeze
 
-    def initialize(name:, aggregation:, column: nil, of: nil, format: nil, roles: nil)
+    def initialize(name:, aggregation:, column: nil, of: nil, format: nil, sensitive: false, roles: nil)
       unless AGGREGATIONS.include?(aggregation)
         raise DeclarationError, "metric #{name.inspect}: aggregation must be one of #{AGGREGATIONS.inspect}, got #{aggregation.inspect}"
       end
@@ -15,6 +15,7 @@ module DataTeller
         column: column_for(name, aggregation, column),
         of: ratio_for(name, aggregation, of),
         format: format.nil? ? nil : NameFormat.ensure!(format, "metric #{name.inspect}: format"),
+        sensitive: NameFormat.boolean(sensitive, "metric #{name.inspect}: sensitive"),
         roles: NameFormat.roles(roles, "metric")
       )
     end
