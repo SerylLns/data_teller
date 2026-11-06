@@ -8,6 +8,7 @@ require "data_teller/segment"
 require "data_teller/dataset"
 require "data_teller/dataset_builder"
 require "data_teller/registry"
+require "data_teller/loader"
 require "data_teller/engine"
 require "data_teller/query_schema"
 
@@ -36,7 +37,12 @@ module DataTeller
       registry.register(builder.build)
     end
 
-    # For tests and development reloads only.
+    # Development reloads: declarations are rebuilt, global settings are kept.
+    def registry_reset!
+      @registry = nil
+    end
+
+    # For tests only.
     def reset!
       @config = nil
       @registry = nil
