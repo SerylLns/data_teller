@@ -15,16 +15,13 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T06 Declaration DSL** — done. `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms), registry object, loading of `config/data_teller*.rb`.
 - **T07a Boot validation without the database** — done (ADR 0004 D6). Mandatory tenant, collected errors, frozen versioned registry, `on_invalid_config`,
   `rake data_teller:check`, minimal `rails generate data_teller:install`. `[sec]`
-- **T07b Validation against the models and the schema.** Must be done before T23/T24: T07a only proves `c.tenant` is set, not that the tenant can be reached. `[sec]`
-  The boot never reads the database (ADR 0004 D6): associations, tenant path and scopes at boot; columns and types in `rake data_teller:check`.
-  - Tenant path found for every exposed model; ambiguous = error (ADR 0004 D6).
-  - Columns and associations exist: dimensions, metric columns and paths, `where:` keys, `scope:` names.
-  - `scope:` lint (ADR 0004 D4) reads the arity only and **never calls the method at boot**: the name could be anything the model answers to.
-  - `min` / `max` limited to numeric and date columns: on a string column they return a stored value, i.e. row-level disclosure.
-  - Sensitive lint also reads `encrypted_attributes` and the host's `filter_parameters`, because a word list cannot be complete.
-  - Dotted paths derived from exposed models (ADR 0001 D4); two paths to the same dimension = error.
-  - Missing I18n keys are warnings; `Report#warnings` exists for them and is empty until then.
+- **T07b Validation against the models and the schema** — done. The boot never reads the database (ADR 0004 D6). `[sec]`
+  - At boot: `c.tenant` model, mandatory `tenant_path` (ADR 0004 D7), metric paths through exposed models only, `scope:` names registered by `scope`,
+    sensitive lint extended with `encrypted_attributes` and the host's `filter_parameters`.
+  - In `rake data_teller:check`: tables, columns, types (`sum`/`avg` on numbers, `min`/`max` on numbers and dates), `time:` on dates, `lookup:` on text,
+    and `scope:` segments, called inside a rolled-back transaction (no argument, no order/limit/group/select).
 - **T08 Schema generation from DSL.** Enums of declared names only, per role (visible catalog); not a security boundary.
+  Derives dotted dimensions from exposed models (ADR 0001 D4); two paths to the same dimension = error at boot.
 
 ## M2 — Safe core, no LLM
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. Real calendar dates (the schema still accepts `2024-02-31`) and `from` <= `to` in `between`. `[sec]`
@@ -59,7 +56,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). `[sec]`
 
 ## M5 — Trust UX
-- **T28 Deterministic explanation** (i18n templates, escaped values). `[sec]`
+- **T28 Deterministic explanation** (i18n templates, escaped values). Missing I18n keys become warnings in `Report#warnings`, empty until then. `[sec]`
 - **T29 Clarification + refusal** (ADR 0001 D5).
 - **T30 Engine endpoint + production UI** (builds on T13b).
 

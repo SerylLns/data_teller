@@ -10,7 +10,7 @@ DataTeller.configure do |c|
   # Returns the roles of the current user. No resolver, nil or an error all mean no access.
   # c.roles { |user| user.roles }
 
-  # Models that can be queried, each one declared in config/data_teller/<dataset>.rb.
+  # Models that can be queried, each one declared in config/data_teller/<dataset>.rb with its roles and its tenant_path.
   # A model that is not listed here cannot be queried.
   # c.expose Order
 

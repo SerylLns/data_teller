@@ -109,6 +109,9 @@ segment :vip,     scope: :vip_customers      # escape hatch, checked at boot
   has no `order` / `limit` / `group` / `select` and no relative date. Its label comes from I18n (its content cannot be explained).
 - **The boot checks are a lint, not a security validation.** They catch accidents; a scope is arbitrary code and can be wrong
   or hostile. Documentation must say so plainly.
+- Where each check runs: the name must be registered by `scope` at boot (a class method could do anything when called, so it is refused and never called);
+  the rest in `rake data_teller:check`, by calling the scope inside a rolled-back transaction. "No relative date" cannot be detected from a relation: it stays
+  a documented rule, with the tenant scope applied last as the real boundary.
 - The real boundary: the compiler applies the tenant scope **last**, on top of the segment, so a scope calling `unscoped` or
   `unscope(where: ...)` cannot remove the tenant condition; a structural check asserts the tenant predicate is present in the
   final relation; the DB-level role (T37) and optional RLS (T39) back it up.
