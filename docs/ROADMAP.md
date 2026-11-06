@@ -22,10 +22,11 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
     and `scope:` segments, called inside a rolled-back transaction (no argument, no order/limit/group/select).
 - **T08 Schema generation from DSL** — done (ADR 0004 D8). Per-role visible catalog with derived metrics, segments and paths; one schema branch per dataset;
   `rake "data_teller:schema[admin]"`; two paths to the same dataset refused at boot. Not a security boundary. Left for T12: caching by permissions fingerprint + registry version,
-  and what each provider accepts. Left for T22: the schema does not tie `{lookup}` to `lookup:` dimensions or `granularity` to date dimensions.
+  and what each provider accepts. The schema does not tie `{lookup}` to `lookup:` dimensions or `granularity` to date dimensions: T22 does.
 
 ## M2 — Safe core, no LLM
-- **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. Real calendar dates (the schema still accepts `2024-02-31`) and `from` <= `to` in `between`. `[sec]`
+- **T22 Query validator** — done (`QueryValidator`). Judges the LLM's output against the role's catalog: names, date dimensions rejected in filters, operators and values by type,
+  real calendar dates, lookups only where declared, granularity on dates only, `order_by` within the `group_by`, `too_many_groups` on two high-cardinality dimensions. Forbidden and unknown give the same result. `[sec]`
 - **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. A column missing at execution means a refusal (ADR 0004 D6). `[sec]`
 - **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3

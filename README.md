@@ -61,7 +61,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Declaration DSL, tenant declaration | Done |
 | Boot validation, `rake data_teller:check` | Done |
 | Per-role catalog, schema generated for the LLM | Done |
-| Query validator, compiler, tenant injection, execution guards | Next |
+| Query validator | Done |
+| Compiler, tenant injection, execution guards | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 
@@ -134,8 +135,9 @@ These are the rules the project is built around. **Only what is marked as enforc
 |---|---|
 | Nothing is exposed unless it is declared | Enforced |
 | Every dataset declares a path to the tenant, checked at boot | Enforced |
-| The schema generated for the LLM only contains names the role can see | Enforced, but not a security boundary: the validator will re-check everything |
+| The schema generated for the LLM only contains names the role can see | Enforced, but not a security boundary: the query validator re-checks everything |
 | A resolver returning anything but the tenant model means no tenant | Enforced |
+| A forbidden name and an unknown one get the same refusal | Enforced by the query validator |
 | The LLM never writes SQL; bound parameters only | Planned (compiler) |
 | The tenant filter is applied last, on every table touched | Planned (compiler) |
 | Read-only execution, timeouts, limits, minimum group size | Planned |
