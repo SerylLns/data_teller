@@ -16,3 +16,6 @@
 
 # Article series: local working files, not versioned (drafts, notes, plan)
 /docs/series/
+
+# Local working files, not versioned
+/docs/design/
