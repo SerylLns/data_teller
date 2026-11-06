@@ -2,5 +2,5 @@
 DataTeller.configure do |c|
   c.tenant { |user| user.account }
   c.roles { |user| user.roles }
-  c.expose Order
+  c.expose Order, Customer
 end

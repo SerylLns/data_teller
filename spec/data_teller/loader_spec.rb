@@ -8,13 +8,13 @@ RSpec.describe DataTeller::Loader do
     described_class.load!(Rails.root)
 
     expect(DataTeller.registry.dataset(:orders).metrics.keys).to include(:count, :revenue, :avg_basket, :customers)
-    expect(DataTeller.config.exposed_models).to eq([ "Order" ])
+    expect(DataTeller.config.exposed_models).to contain_exactly("Order", "Customer")
   end
 
   it "rebuilds the registry on reload instead of declaring twice" do
     2.times { described_class.load!(Rails.root) }
 
-    expect(DataTeller.registry.datasets.size).to eq(1)
+    expect(DataTeller.registry.datasets.size).to eq(2)
   end
 
   it "names the file when a declaration is invalid" do

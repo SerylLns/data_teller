@@ -13,7 +13,7 @@ RSpec.describe "rake data_teller:check" do
   after { DataTeller.boot!(Pathname(File.expand_path("../dummy", __dir__))) }
 
   it "reports the declared datasets when the configuration is valid" do
-    expect { Rake::Task["data_teller:check"].invoke }.to output(/DataTeller: OK \(1 dataset: orders\)/).to_stdout
+    expect { Rake::Task["data_teller:check"].invoke }.to output(/DataTeller: OK \(2 datasets: customers, orders\)/).to_stdout
   end
 
   it "exits non-zero and prints every problem when it is invalid" do

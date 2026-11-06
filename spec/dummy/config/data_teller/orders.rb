@@ -1,3 +1,4 @@
+# customer.city and customer.name are never written here: the paths come from the Customer declaration (ADR 0001 D4).
 DataTeller.refine Order do
   roles :admin, :support
   synonyms "commande", "order"
@@ -9,8 +10,6 @@ DataTeller.refine Order do
   dimension :ordered_at, time: true                                   # default time dimension
   dimension :ship_on                                                  # a second date: "tomorrow" stays ambiguous
   dimension :status
-  dimension :customer_city, column: "customer.city"
-  dimension :customer_name, column: "customer.name", lookup: :trigram, group: true, max_groups: 20
 
   segment :paid, where: { status: :paid }
   segment :open, where: { status: %i[pending paid] }
