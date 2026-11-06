@@ -83,12 +83,12 @@ module DataTeller
     # Every table touched needs its own tenant_path, so a path can only go through exposed models (ADR 0001 D4).
     def check_metric_paths(dataset, klass)
       dataset.metrics.each_value do |metric|
-        steps = metric.column.to_s.split(".")[0...-1]
         at = "dataset #{dataset.name}, metric #{metric.name}"
         check_ratio_has_no_path(at, dataset, metric)
-        next if steps.empty?
+        check_aggregation_on_enum(at, klass, metric)
+        next if metric.steps.empty?
 
-        ModelLookup.follow(klass, steps) { |_current, _step, reflection| check_exposed(at, reflection) }
+        ModelLookup.follow_metric_path(klass, metric.steps) { |reflection| check_exposed(at, reflection) }
       rescue ModelLookup::PathError => e
         @errors << "#{at}: #{e.message}"
       end
@@ -101,6 +101,16 @@ module DataTeller
 
         @errors << "#{at}: a ratio cannot use #{dependency}, a metric through a path"
       end
+    end
+
+    # An enum is stored as an integer: its sum means nothing, and its minimum would come out as the raw number.
+    def check_aggregation_on_enum(at, klass, metric)
+      return unless %i[sum avg min max].include?(metric.aggregation)
+
+      owner, column = ModelLookup.column_owner(klass, metric.column)
+      return unless owner&.defined_enums&.key?(column)
+
+      @errors << "#{at}: #{metric.aggregation} means nothing on the enum #{column}"
     end
 
     def check_exposed(at, reflection)

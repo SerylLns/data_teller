@@ -17,11 +17,17 @@ module DataTeller
 
       step, *rest = path
       reflection = klass.reflect_on_association(step)
-      raise Compiler::Refused.new(:unsupported_query, "#{klass.name} has no association #{step}") unless reflection
+      unless reflection&.belongs_to? && !reflection.polymorphic?
+        raise Compiler::Refused.new(:unsupported_query, "#{klass.name}.#{step} is not a belongs_to association")
+      end
 
       key = reflection.foreign_key
 
       if rest.empty?
+        unless @tenant.is_a?(reflection.klass)
+          raise Compiler::Refused.new(:unsupported_query, "the path of #{klass.name} ends at #{reflection.klass.name}, the tenant is a #{@tenant.class.name}")
+        end
+
         key_equals(klass, key, @tenant.public_send(reflection.association_primary_key))
       else
         klass.arel_table[key].in(parent_ids(reflection, rest))

@@ -3,19 +3,15 @@ require "rails_helper"
 # Real rows on two tenants: the only proof of isolation that counts is what actually comes out of the database.
 RSpec.describe DataTeller::QueryRunner do
   before(:all) do
-    # Spec-only model: hostile scopes that the dummy app's clean domain does not have (ADR 0004 D4).
+    # Spec-only model, for what the dummy app's clean domain does not have. Hostile scopes are in spec/security.
     Object.const_set(:SpecHostile, Class.new(ApplicationRecord))
     SpecHostile.class_eval do
       self.table_name = "orders"
       belongs_to :account
+      belongs_to :customer
 
-      scope :calls_unscoped, -> { unscoped }
-      scope :unscopes_tenant, -> { unscope(where: :account_id) }
-      scope :or_everything, -> { where(status: 1).or(where.not(status: 1)) }
-      scope :rewhere_other, ->(id = Account.where(name: "Globex").pick(:id)) { rewhere(account_id: id) }
-      scope :raw_or, -> { where("1=1 OR 1=1") }
-      scope :from_subquery, -> { from("(SELECT * FROM orders) orders") }
-      scope :fine, -> { where(status: 1) }
+      scope :paid_ones, -> { where(status: 1) }
+      scope :shipped_ones, -> { where(status: 2) }
     end
   end
 
@@ -141,7 +137,7 @@ RSpec.describe DataTeller::QueryRunner do
       scope = DataTeller::TenantScope.new(acme)
 
       expect { scope.condition_for(Order, nil) }.to raise_error(DataTeller::Compiler::Refused, /no tenant_path/)
-      expect { scope.condition_for(Order, %i[nope]) }.to raise_error(DataTeller::Compiler::Refused, /no association/)
+      expect { scope.condition_for(Order, %i[nope]) }.to raise_error(DataTeller::Compiler::Refused, /not a belongs_to/)
     end
 
     it "filters a dataset on the tenant model by its own id" do
@@ -171,28 +167,6 @@ RSpec.describe DataTeller::QueryRunner do
       expect(plan.to_sql).to include('"line_items"."order_id" IN (SELECT "orders"."id"')
     end
 
-    describe "with hostile scopes (ADR 0004 D4)" do
-      def compile_with(scope, tenant = acme)
-        registry = DataTeller::Registry.new
-        registry.register(DataTeller::Dataset.new(model_name: "SpecHostile", roles: %i[admin], tenant_path: %i[account],
-                                                  metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
-                                                  segments: [ DataTeller::Segment.new(name: :x, scope: scope, roles: :admin) ]))
-        catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
-        DataTeller::Compiler.new(catalog: catalog, tenant: tenant, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
-                            .call(answer("spec_hostiles", filters: [ { "segment" => "x" } ]))
-      end
-
-      {
-        calls_unscoped: 3, unscopes_tenant: 3, or_everything: 3, raw_or: 3, from_subquery: 3,
-        rewhere_other: 0, # both conditions apply, so nothing matches: still nothing from the other tenant
-        fine: 2
-      }.each do |scope, expected|
-        it "#{scope} cannot escape the tenant" do
-          expect(compile_with(scope).execute.value).to eq(expected)
-        end
-      end
-    end
-
     it "refuses a user with no tenant, before anything runs" do
       statements = sql_of { expect(run_query(answer, user_class.new(nil, [ :admin ])).refusal.reason).to eq(:no_tenant) }
 
@@ -214,6 +188,19 @@ RSpec.describe DataTeller::QueryRunner do
       expect(scope.present_in?(Order.where(status: 1), [ node ])).to be(false)
       expect(scope.present_in?(Order.all, [ node ])).to be(false)
       expect(scope.present_in?(Order.where(node).unscope(:where), [ node ])).to be(false)
+    end
+  end
+
+  describe "the tenant at the end of a path" do
+    let(:scope) { DataTeller::TenantScope.new(alice) }
+
+    # Comparing a customer id to account_id would read the account that happens to have this id.
+    it "must be an instance of the association's class" do
+      expect { scope.condition_for(Order, %i[account]) }.to raise_error(DataTeller::Compiler::Refused, /ends at Account, the tenant is a Customer/)
+    end
+
+    it "must be reached through belongs_to only" do
+      expect { DataTeller::TenantScope.new(acme).condition_for(Account, %i[orders]) }.to raise_error(DataTeller::Compiler::Refused, /not a belongs_to/)
     end
   end
 
@@ -253,6 +240,100 @@ RSpec.describe DataTeller::QueryRunner do
     it "is case-insensitive on contains" do
       expect(value_of(answer(filters: [ filter("customer.city", "contains", "PARIS") ]))).to eq(2)
     end
+  end
+
+  describe "scope segments" do
+    def compile_with(*scopes)
+      segments = scopes.each_with_index.map { |scope, index| DataTeller::Segment.new(name: :"s#{index}", scope: scope, roles: :admin) }
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(model_name: "SpecHostile", roles: %i[admin], tenant_path: %i[account], segments: segments,
+                                                metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ]))
+      catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+      filters = segments.map { |segment| { "segment" => segment.name.to_s } }
+      DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+                          .call(answer("spec_hostiles", filters: filters))
+    end
+
+    it "apply their conditions" do
+      expect(compile_with(:paid_ones).execute.value).to eq(2)
+    end
+
+    # ADR 0001 D3: filters are AND-only, and merge would replace the first condition.
+    it "combine with AND, in either order" do
+      expect(compile_with(:paid_ones, :shipped_ones).execute.value).to eq(0)
+      expect(compile_with(:shipped_ones, :paid_ones).execute.value).to eq(0)
+    end
+  end
+
+  describe "a default_scope with an order" do
+    it "still aggregates, and groups" do
+      model = Class.new(ApplicationRecord)
+      stub_const("SpecOrdered", model)
+      model.class_eval do
+        self.table_name = "orders"
+        belongs_to :account
+        default_scope { order(:ordered_at) }
+      end
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(model_name: "SpecOrdered", roles: %i[admin], tenant_path: %i[account],
+                                                metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
+                                                dimensions: [ DataTeller::Dimension.new(name: :status, group: true) ]))
+      catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+      compile = ->(query) { DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current).call(query) }
+
+      expect(compile.call(answer("spec_ordereds")).execute.value).to eq(3)
+      expect(compile.call(answer("spec_ordereds", group_by: [ by("status") ])).execute.rows.size).to eq(2)
+    end
+  end
+
+  describe "a top N" do
+    # Postgres sorts NULL first on DESC: a group with no value would take a slot from a real one.
+    it "keeps groups with no value last" do
+      metrics = [ DataTeller::Metric.new(name: :count, aggregation: :count), DataTeller::Metric.new(name: :total, aggregation: :sum, column: :total_cents),
+                  DataTeller::Metric.new(name: :ratio, aggregation: :ratio, of: %i[total total]) ]
+      order(acme, customer(acme, "Zero"), total: 0)
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account], metrics: metrics))
+      registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: %i[admin], tenant_path: %i[account],
+                                                dimensions: [ DataTeller::Dimension.new(name: :name, group: true, max_groups: 2) ]))
+      catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+
+      rows = DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+                                 .call(answer("orders", "ratio", group_by: [ by("customer.name") ])).execute.rows
+
+      expect(rows.map(&:first)).to eq(%w[Alice Bruno])
+    end
+  end
+
+  it "does not carry a grouping over when a compiler is reused" do
+    compiler = DataTeller::Compiler.new(catalog: DataTeller::Catalog.for(:admin), tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+
+    expect(compiler.call(answer(group_by: [ by("status") ])).execute.columns).to eq(%w[status count])
+    expect(compiler.call(answer(group_by: [ by("customer.name") ])).execute.rows.map(&:first)).to contain_exactly("Alice", "Bruno")
+    expect(compiler.call(answer).execute.value).to eq(3)
+  end
+
+  it "refuses a date grouping when timestamps are not stored in UTC, rather than shift every group" do
+    allow(ActiveRecord).to receive(:default_timezone).and_return(:local)
+
+    expect(run_query(answer(group_by: [ by("ordered_at", "month") ])).refusal.reason).to eq(:unsupported_query)
+  end
+
+  it "refuses a date grouping on a column that does not exist" do
+    registry = DataTeller::Registry.new
+    registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account],
+                                              metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
+                                              dimensions: [ DataTeller::Dimension.new(name: :nope, type: :date) ]))
+    catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+    compiler = DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+
+    expect { compiler.call(answer(group_by: [ by("nope", "month") ])) }.to raise_error(DataTeller::Compiler::Refused)
+  end
+
+  it "does not need the time zone for a plain count" do
+    acme.update_column(:time_zone, "Mars/Olympus")
+
+    expect(value_of(answer)).to eq(3)
   end
 
   describe "metrics" do

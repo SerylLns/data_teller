@@ -24,6 +24,11 @@ module DataTeller
       aggregation == :ratio
     end
 
+    # The associations to walk when the column is a path: "line_items.quantity" gives [:line_items].
+    def steps
+      column.to_s.split(".")[0...-1].map(&:to_sym)
+    end
+
     # Metrics this one depends on; the derived metric is visible only if all of them are (ADR 0004 D5).
     def dependencies
       ratio? ? of : [].freeze

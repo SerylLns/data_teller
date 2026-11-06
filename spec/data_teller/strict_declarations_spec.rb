@@ -94,6 +94,10 @@ RSpec.describe "Strict declaration values" do
       end
     end
 
+    it "refuses a condition nested in a list" do
+      expect { segment(where: { a: [ { days_ago: 30 } ] }) }.to raise_error(error, /a list holds plain values/)
+    end
+
     it "checks nested values too" do
       expect { segment(where: { a: [ Date.today ] }) }.to raise_error(error, /data, not code/)
       expect { segment(where: { a: { b: Date.today } }) }.to raise_error(error, /data, not code/)

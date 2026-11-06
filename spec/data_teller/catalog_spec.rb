@@ -85,6 +85,29 @@ RSpec.describe DataTeller::Catalog do
     end
   end
 
+  # ADR 0004 D5: a permission applies to every use of a column.
+  describe "metrics over a hidden column" do
+    it "are hidden with it" do
+      parts = { metrics: [ metric(:top, :max, column: :total_cents) ], dimensions: [ dimension(:total_cents, roles: :admin) ] }
+
+      expect(catalog(:support, datasets: [ dataset("Order", **parts) ]).dataset(:orders).metrics).to be_empty
+      expect(catalog(:admin, datasets: [ dataset("Order", **parts) ]).dataset(:orders).metrics.map(&:name)).to eq([ :top ])
+    end
+
+    it "match by column, not by name" do
+      parts = { metrics: [ metric(:top, :max, column: :total_cents) ], dimensions: [ dimension(:amount, column: :total_cents, roles: :admin) ] }
+
+      expect(catalog(:support, datasets: [ dataset("Order", **parts) ]).dataset(:orders).metrics).to be_empty
+    end
+
+    it "are hidden when the column is on the table a path reaches" do
+      orders = dataset("Order", metrics: [ metric(:items, :sum, column: "line_items.quantity") ])
+      items = dataset("LineItem", tenant_path: %i[order account], dimensions: [ dimension(:quantity, roles: :admin) ])
+
+      expect(catalog(:support, datasets: [ orders, items ]).dataset(:orders).metrics).to be_empty
+    end
+  end
+
   describe "metrics over another table" do
     let(:parts) { { metrics: [ metric(:items, :sum, column: "line_items.quantity") ] } }
 

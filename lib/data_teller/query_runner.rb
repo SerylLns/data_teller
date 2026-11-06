@@ -38,11 +38,16 @@ module DataTeller
     private
 
     def answer(catalog, tenant)
-      time_zone = DataTeller.config.time_zone_for(tenant)
+      time_zone = needs_time_zone? ? DataTeller.config.time_zone_for(tenant) : Time.zone
       return refused(:unsupported_query) unless time_zone
 
       plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
       Outcome.new(status: :answered, query: @query, result: plan.execute, refusal: nil)
+    end
+
+    # A count has no "today": a tenant's broken time zone must not refuse it.
+    def needs_time_zone?
+      @query["period"] || Array(@query["group_by"]).any? { |item| item["granularity"] }
     end
 
     def passed_through

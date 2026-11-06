@@ -34,6 +34,7 @@ module DataTeller
       raise Refused.new(:unsupported_query, "only an answer compiles") unless query["intent"] == "answer"
       raise Refused.new(:unsupported_query, "compare is not implemented yet") if query["compare"]
 
+      @group_nodes = nil
       @query = query
       @entry = @catalog.dataset(query["dataset"])
       @klass = @entry.model_name.constantize
@@ -45,7 +46,9 @@ module DataTeller
     private
 
     def build_plan
-      relation = apply_scope_segments(@klass.all)
+      check_default_scopes
+      # A default order cannot apply to an aggregate. Everything else a default_scope could hold is refused just above.
+      relation = apply_scope_segments(@klass.all.unscope(:order))
       relation = apply_joins(relation)
       relation = apply_conditions(relation)
 
@@ -77,25 +80,28 @@ module DataTeller
       [ *comparisons.map { |item| field(item["dimension"]) }, *group_fields, period_field ].compact.uniq(&:name)
     end
 
-    def metric_steps = @metric.column.to_s.split(".")[0...-1].map(&:to_sym)
+    def metric_steps = @metric.steps
+
+    def touched_datasets
+      [ *fields_used.flat_map(&:via), *metric_path_datasets, @entry.dataset ].uniq(&:name)
+    end
 
     # ---- segments and joins
 
-    # `merge` first: on a shared column it replaces what came before, so filters must come after it.
-    def apply_scope_segments(relation)
-      segments.select(&:scope?).reduce(relation) { |current, segment| current.merge(scope_relation(segment)) }
+    def check_default_scopes
+      touched_datasets.each { |dataset| ScopeInspector.check_default_scope(dataset.model_name.constantize) }
+    rescue ScopeInspector::Rejected => e
+      raise Refused.new(:unsupported_query, e.message)
     end
 
-    def scope_relation(segment)
-      unless ModelLookup.declared_scope?(@klass, segment.scope)
-        raise Refused.new(:unsupported_query, "scope #{segment.scope} is not declared with `scope`")
+    # Added as conditions, never merged: `merge` replaces an earlier condition on the same column.
+    def apply_scope_segments(relation)
+      segments.select(&:scope?).reduce(relation) do |current, segment|
+        conditions = ScopeInspector.conditions(@klass, segment.scope)
+        conditions ? current.where(conditions) : current
       end
-
-      @klass.public_send(segment.scope).tap do |scoped|
-        raise Refused.new(:unsupported_query, "scope #{segment.scope} is not a relation") unless scoped.is_a?(ActiveRecord::Relation)
-      end
-    rescue ArgumentError
-      raise Refused.new(:unsupported_query, "scope #{segment.scope} takes an argument")
+    rescue ScopeInspector::Rejected => e
+      raise Refused.new(:unsupported_query, e.message)
     end
 
     def apply_joins(relation)
@@ -143,6 +149,8 @@ module DataTeller
       when "contains" then attribute.matches(bound(klass, column, "%#{klass.sanitize_sql_like(value)}%"))
       when "is_null" then attribute.eq(nil)
       when "is_not_null" then attribute.not_eq(nil)
+      # An operator added to the format without its SQL here must not silently become no condition at all.
+      else raise Refused.new(:unsupported_query, "unknown operator")
       end
     end
 
@@ -174,8 +182,7 @@ module DataTeller
 
     # The dataset's own table comes last, the tables reached through paths before it: all of them get their own filter.
     def tenant_filters
-      joined = fields_used.flat_map(&:via) + metric_path_datasets
-      [ *joined.uniq(&:name), @entry.dataset ].map do |dataset|
+      touched_datasets.map do |dataset|
         @tenant_scope.condition_for(dataset.model_name.constantize, dataset.tenant_path)
       end
     end
@@ -184,11 +191,13 @@ module DataTeller
       return [] if metric_steps.empty?
 
       datasets = []
-      ModelLookup.follow(@klass, metric_steps) do |_current, _step, reflection|
+      ModelLookup.follow_metric_path(@klass, metric_steps) do |reflection|
         # The boot refuses a path through a model that is not exposed; this is the last line if that ever changes.
         datasets << (@catalog.dataset_for_model(reflection.class_name) || raise(Refused.new(:unsupported_query, "no tenant_path for a metric path")))
       end
       datasets
+    rescue ModelLookup::PathError => e
+      raise Refused.new(:unsupported_query, e.message)
     end
 
     # ---- grouping and output
@@ -212,8 +221,15 @@ module DataTeller
     end
 
     def in_tenant_zone(found, attribute)
-      sql_type = found.model.columns_hash[found.dimension.column].sql_type
-      utc = sql_type.include?("with time zone") ? attribute : at_zone(attribute, "UTC")
+      column = found.model.columns_hash[found.dimension.column]
+      raise Refused.new(:unsupported_query, "no such column") unless column
+      # Without a zone in the column, this reads it as UTC. Period boundaries go through the attribute type instead, so on
+      # another setting the two would disagree and shift every group.
+      unless column.sql_type.include?("with time zone") || ActiveRecord.default_timezone == :utc
+        raise Refused.new(:unsupported_query, "date grouping needs timestamps stored in UTC")
+      end
+
+      utc = column.sql_type.include?("with time zone") ? attribute : at_zone(attribute, "UTC")
 
       at_zone(utc, @time_zone.tzinfo.name)
     end
@@ -277,8 +293,9 @@ module DataTeller
       [ first, *group_nodes.map { |node| directed(node, "asc") } ].compact
     end
 
+    # NULLS LAST: Postgres sorts NULL first on DESC, so groups with no value would take the top of a capped top N.
     def directed(node, direction)
-      direction == "desc" ? Arel::Nodes::Descending.new(node) : Arel::Nodes::Ascending.new(node)
+      direction == "desc" ? Arel::Nodes::Descending.new(node).nulls_last : Arel::Nodes::Ascending.new(node)
     end
 
     def high_cardinality_field

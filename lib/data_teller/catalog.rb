@@ -30,6 +30,9 @@ module DataTeller
       # An enum's values come from the model, never from the DSL (ADR 0004 D3). nil for a type forced with `type: :enum`.
       def enum_values = model.defined_enums[dimension.column]&.keys
 
+      # The bind casts through the column type, so 1000.5 would silently be compared as 1000.
+      def integer? = %i[integer bigint].include?(model.type_for_attribute(dimension.column).type)
+
       def high_cardinality? = !%i[enum boolean date].include?(kind)
 
       # Time goes through period, never through filters (ADR 0001 D1).
@@ -87,7 +90,7 @@ module DataTeller
 
     # A ratio is visible only if everything it divides is: count + avg_basket would otherwise reveal revenue.
     def metric_visible?(metric, dataset)
-      return false unless member_visible?(metric, dataset) && metric_path_visible?(metric, dataset)
+      return false unless member_visible?(metric, dataset) && metric_path_visible?(metric, dataset) && metric_column_visible?(metric, dataset)
 
       metric.dependencies.all? do |dependency|
         declared = dataset.metrics[dependency]
@@ -97,17 +100,29 @@ module DataTeller
 
     # A metric over another table shows data of that table, so its dataset must be visible too.
     def metric_path_visible?(metric, dataset)
-      steps = metric.column.to_s.split(".")[0...-1]
-      return true if steps.empty?
+      return true if metric.steps.empty?
 
       visible_along_path = true
-      ModelLookup.follow(dataset.model_name.constantize, steps) do |_current, _step, reflection|
+      ModelLookup.follow_metric_path(dataset.model_name.constantize, metric.steps) do |reflection|
         target = @registry.datasets.find { |candidate| candidate.model_name == reflection.class_name }
         visible_along_path &&= target && visible?(target)
       end
       visible_along_path
     rescue ModelLookup::PathError
       false
+    end
+
+    # max: :total_cents reads the column, so a permission on that column applies to the metric (ADR 0004 D5).
+    def metric_column_visible?(metric, dataset)
+      return true unless metric.column
+
+      owner, column = ModelLookup.column_owner(dataset.model_name.constantize, metric.column)
+      return false unless owner
+
+      owner_dataset = owner.name == dataset.model_name ? dataset : dataset_for_model(owner.name)
+      return true unless owner_dataset
+
+      owner_dataset.dimensions.values.none? { |dimension| dimension.column == column && !member_visible?(dimension, owner_dataset) }
     end
 
     # A segment on a hidden column would reveal its values by bisection (ADR 0004 D5).

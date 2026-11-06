@@ -39,7 +39,10 @@ module DataTeller
     def frozen_data(name, value)
       case value
       when Hash then condition(name, value)
-      when Array then value.map { |item| frozen_data(name, item) }.freeze
+      when Array
+        raise DeclarationError, "segment #{name.inspect}: where: a list holds plain values" if value.any? { |item| item.is_a?(Hash) || item.is_a?(Array) }
+
+        value.map { |item| frozen_data(name, item) }.freeze
       when String then value.dup.freeze
       when Symbol, Numeric, true, false, nil then value
       else

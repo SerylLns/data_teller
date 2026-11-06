@@ -180,6 +180,13 @@ RSpec.describe DataTeller::QueryValidator do
         expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "gte", 100) ]))).to be_accepted
       end
 
+      # The bind casts through the column type, so 1000.5 would silently be compared as 1000.
+      it "refuse a fraction on an integer column" do
+        expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "eq", 1000.5) ]))).to be_refused_with(:unsupported_query)
+        expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "in", [ 1000.9 ]) ]))).to be_refused_with(:unsupported_query)
+        expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "eq", 1000.0) ]))).to be_accepted
+      end
+
       it "refuse strings and contains" do
         expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "gte", "100") ]))).to be_refused_with(:unsupported_query)
         expect(described_class.new(catalog).call(answer(filters: [ filter("total_cents", "contains", 1) ]))).to be_refused_with(:unsupported_query)

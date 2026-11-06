@@ -24,17 +24,33 @@ module DataTeller
     # A column of a metric, which may be a path: "line_items.quantity" gives [LineItem, "quantity"]. nil when unusable.
     def column_owner(klass, column)
       *steps, name = column.to_s.split(".")
-      [ follow(klass, steps), name ]
+      [ follow_metric_path(klass, steps), name ]
     rescue PathError
       nil
     end
 
-    # `scope` and `enum` register the name here, unlike a class method, which could do anything when called.
-    # Private API, stable across recent Rails: if it goes away the rescue makes every scope refused, not trusted.
+    # A metric path touches each table once, and never a `through` one: the compiler reads and filters tables by name, so a table
+    # met twice would be read under the wrong alias, and the table inside a `through` would be joined with no tenant filter.
+    def follow_metric_path(klass, steps)
+      seen = [ klass.table_name ]
+
+      follow(klass, steps) do |current, step, reflection|
+        raise PathError, "#{current.name}.#{step} goes through another table, name each step instead" if reflection.through_reflection?
+
+        table = target_of(current, step, reflection).table_name
+        raise PathError, "#{current.name}.#{step} comes back to the table #{table}" if seen.include?(table)
+
+        seen << table
+        yield reflection if block_given?
+      end
+    end
+
+    # `scope` and `enum` both define the method from Rails' own file. A class method is defined elsewhere, and could do anything
+    # when called. Rails' list of relation methods cannot tell them apart: it also records a class method once called on a relation.
     def declared_scope?(klass, name)
-      klass.send(:generated_relation_methods).method_defined?(name)
-    rescue NoMethodError
-      false
+      return false unless klass.respond_to?(name)
+
+      klass.method(name).source_location&.first.to_s.end_with?("active_record/scoping/named.rb")
     end
 
     # What the host app already treats as sensitive: its filter_parameters reach the models through filter_attributes.

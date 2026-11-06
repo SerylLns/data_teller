@@ -16,22 +16,23 @@ module DataTeller
       klass = ModelLookup.active_record_class(dataset.model_name)
       return [] unless klass
 
-      walk(klass, [], [], [ klass ], registry, tenant_model_name)
+      walk(klass, [], [], [ klass.table_name ], registry, tenant_model_name)
     end
 
     # The tenant model is left out: inside a tenant-scoped query every row has the same value there.
+    # Each table once: columns are read by table name, so a table met twice would be read under the wrong alias.
     def walk(klass, steps, via, visited, registry, tenant_model_name)
       return [] if steps.size == MAX_DEPTH
 
       klass.reflect_on_all_associations(:belongs_to).reject(&:polymorphic?).flat_map do |reflection|
         target = target_class(reflection)
-        next [] if target.nil? || visited.include?(target) || target.name == tenant_model_name
+        next [] if target.nil? || visited.include?(target.table_name) || target.name == tenant_model_name
 
         dataset = registry.datasets.find { |candidate| candidate.model_name == target.name }
         next [] unless dataset
 
         hop = Hop.new(steps: steps + [ reflection.name ], via: via + [ dataset ])
-        [ hop, *walk(target, hop.steps, hop.via, visited + [ target ], registry, tenant_model_name) ]
+        [ hop, *walk(target, hop.steps, hop.via, visited + [ target.table_name ], registry, tenant_model_name) ]
       end
     end
 

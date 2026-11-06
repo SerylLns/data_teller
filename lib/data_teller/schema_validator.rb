@@ -5,7 +5,6 @@ module DataTeller
     NUMBER_TYPES = %i[integer bigint decimal float].freeze
     DATE_TYPES = %i[date datetime timestamp timestamptz].freeze
     TEXT_TYPES = %i[string text citext].freeze
-    FORBIDDEN_IN_SCOPE = { order: :order_values, limit: :limit_value, group: :group_values, select: :select_values }.freeze
 
     def initialize(registry:)
       @registry = registry
@@ -34,6 +33,7 @@ module DataTeller
     private
 
     def check_dataset(dataset, klass)
+      check_default_scope(dataset, klass)
       dataset.dimensions.each_value { |dimension| check_dimension(dataset, klass, dimension) }
       dataset.metrics.each_value { |metric| check_metric(dataset, klass, metric) }
       dataset.segments.each_value { |segment| check_segment(dataset, klass, segment) }
@@ -86,27 +86,22 @@ module DataTeller
       end
     end
 
-    # Calling a scope is the only way to inspect it, and only names registered by `scope` get this far, so a class method
-    # is never called. The rollback is there because a scope is still code: it should not write, but this must not find out
-    # the hard way on a CI or staging database.
+    # Calling a scope is the only way to inspect it, and only what `scope` defined gets called, so a class method never is.
+    # The rollback is there because a scope is still code: it should not write, but this must not find out the hard way
+    # on a CI or staging database.
     def check_scope(at, klass, name)
       klass.transaction(requires_new: true) do
-        inspect_scope(at, name, klass.public_send(name))
+        ScopeInspector.conditions(klass, name)
         raise ActiveRecord::Rollback
       end
-    rescue ArgumentError
-      @errors << "#{at}: scope :#{name} takes an argument, a segment has none to give it"
+    rescue ScopeInspector::Rejected => e
+      @errors << "#{at}: #{e.message}"
     end
 
-    def inspect_scope(at, name, relation)
-      unless relation.is_a?(ActiveRecord::Relation)
-        @errors << "#{at}: scope :#{name} does not return a relation"
-        return
-      end
-
-      FORBIDDEN_IN_SCOPE.each do |clause, reader|
-        @errors << "#{at}: scope :#{name} uses #{clause}, which would change the result of an aggregate" if relation.public_send(reader).present?
-      end
+    def check_default_scope(dataset, klass)
+      ScopeInspector.check_default_scope(klass)
+    rescue ScopeInspector::Rejected => e
+      @errors << "dataset #{dataset.name}: #{e.message}"
     end
 
     def column_of(at, klass, name)

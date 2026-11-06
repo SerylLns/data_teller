@@ -134,9 +134,11 @@ module DataTeller
         return problem("#{at}/value", :lookup_required)
       end
 
+      problem("#{at}/value", :invalid_character) if value.is_a?(String) && value.include?("\u0000")
       problem("#{at}/value", :wrong_value_type) unless value_fits?(found, kind, value)
     end
 
+    # A NUL byte is refused here because the database driver raises on it, and it can come straight from the LLM.
     def check_lookup(found, operator, at)
       problem("#{at}/value", :lookup_not_allowed) unless found.dimension.lookup && LOOKUP_OPERATORS.include?(operator)
     end
@@ -145,7 +147,7 @@ module DataTeller
       case kind
       when :enum then value.is_a?(String) && (found.enum_values.nil? || found.enum_values.include?(value))
       when :boolean then value == true || value == false
-      when :number then value.is_a?(Numeric)
+      when :number then value.is_a?(Numeric) && (!found.integer? || value == value.to_i)
       else value.is_a?(String)
       end
     end

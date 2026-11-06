@@ -124,6 +124,25 @@ RSpec.describe DataTeller::ModelValidator do
       expect(errors_for("Order", %i[account], metrics: metrics)).to contain_exactly(/metric per_order: a ratio cannot use items/)
     end
 
+    it "refuses a has_many through: the table in the middle would have no tenant filter" do
+      Order.has_many(:spec_products_through, through: :line_items, source: :product)
+
+      expect(errors_for("Order", %i[account], metrics: [ metric(:x, "spec_products_through.price_cents") ]))
+        .to contain_exactly(/metric x: Order\.spec_products_through goes through another table/)
+    ensure
+      Order._reflections.delete("spec_products_through")
+    end
+
+    it "refuses a path that comes back to a table it already went through" do
+      expect(errors_for("Order", %i[account], metrics: [ metric(:x, "customer.orders.total_cents") ]))
+        .to contain_exactly(/metric x: Customer\.orders comes back to the table orders/)
+    end
+
+    it "refuses a sum or a minimum on an enum" do
+      expect(errors_for("Order", %i[account], metrics: [ metric(:x, :status, :min), metric(:y, :status, :sum), metric(:z, :status, :count_distinct) ]))
+        .to contain_exactly(/metric x: min means nothing on the enum status/, /metric y: sum means nothing on the enum status/)
+    end
+
     it "refuses a polymorphic association" do
       expect(errors_for("SpecRecord", %i[customer], metrics: [ metric(:x, "owner.total") ]))
         .to include(/metric x: SpecRecord\.owner is polymorphic/)
@@ -162,6 +181,24 @@ RSpec.describe DataTeller::ModelValidator do
     it "refuses a class method, even one that looks harmless" do
       expect(errors_for("SpecRecord", %i[customer], segments: [ scope_segment(:purge_all) ]).grep(/segment/))
         .to contain_exactly(/segment x: SpecRecord has no scope :purge_all/)
+    end
+
+    # Rails records a class method in its list of relation methods once it is called on a relation.
+    it "still refuses a class method after it was called on a relation" do
+      SpecRecord.where(status: 1).purge_all
+
+      expect(errors_for("SpecRecord", %i[customer], segments: [ scope_segment(:purge_all) ]).grep(/segment/))
+        .to contain_exactly(/segment x: SpecRecord has no scope :purge_all/)
+    end
+
+    it "accepts a scope inherited from an abstract parent" do
+      parent = Class.new(ApplicationRecord) { self.abstract_class = true }
+      stub_const("SpecAbstract", parent)
+      parent.scope :inherited_one, -> { where(status: 1) }
+      child = Class.new(parent) { self.table_name = "orders" }
+      stub_const("SpecChild", child)
+
+      expect(DataTeller::ModelLookup.declared_scope?(SpecChild, :inherited_one)).to be(true)
     end
 
     it "leaves built-in methods to the declaration lint, which has a clearer message" do
