@@ -1,18 +1,19 @@
 require "data_teller/ui_configuration"
+require "data_teller/tenant_declaration"
 
 module DataTeller
   # Global settings (config/data_teller.rb). Datasets are declared separately with DataTeller.refine (ADR 0004 D1).
   class Configuration
     ON_INVALID_CONFIG = %i[raise disable].freeze
 
-    attr_reader :on_invalid_config, :ui, :tenant_resolver, :roles_resolver
+    attr_reader :on_invalid_config, :ui, :roles_resolver
     attr_accessor :llm
 
     def initialize
       @on_invalid_config = :raise
       @ui = UiConfiguration.new
       @exposed_models = []
-      @tenant_resolver = nil
+      @tenant = nil
       @roles_resolver = nil
       @llm = nil
       @authorization = nil
@@ -22,6 +23,7 @@ module DataTeller
     def freeze
       @ui.freeze
       @exposed_models.freeze
+      @tenant&.freeze
       super
     end
 
@@ -34,11 +36,27 @@ module DataTeller
       @on_invalid_config = value
     end
 
-    # c.tenant { |user| user.account } — required; boot validation (T07) refuses to start without it.
+    # Required, with its two lines (ADR 0004 D7); boot validation refuses to start without them.
+    #   c.tenant do
+    #     model Account
+    #     resolve { |user| user.account }
+    #   end
     def tenant(&block)
-      raise ConfigurationError, "tenant needs a block: c.tenant { |user| user.account }" unless block
+      raise ConfigurationError, "tenant needs a block: c.tenant do model Account; resolve { |user| user.account } end" unless block
 
-      @tenant_resolver = block
+      @tenant = TenantDeclaration.new.tap { |declaration| declaration.instance_eval(&block) }
+    end
+
+    def tenant_declared?
+      !@tenant.nil?
+    end
+
+    def tenant_model_name
+      @tenant&.model_name
+    end
+
+    def tenant_resolver
+      @tenant&.resolver
     end
 
     # c.roles { |user| user.roles } — resolved on every request, never cached per user (ADR 0004 D5).
@@ -63,8 +81,19 @@ module DataTeller
       @exposed_models.dup.freeze
     end
 
+    # Fails closed: nil means no tenant, which the compiler turns into a refusal. A resolver returning some other record
+    # would otherwise scope every query to the wrong thing. Only the class is logged, a message could hold user data.
     def tenant_for(user)
-      @tenant_resolver&.call(user)
+      return nil unless tenant_resolver && tenant_model_name
+
+      tenant = tenant_resolver.call(user)
+      return tenant if tenant.is_a?(tenant_model_name.constantize)
+
+      Rails.logger&.error("[DataTeller] tenant resolver returned #{tenant.class}, expected #{tenant_model_name}") unless tenant.nil?
+      nil
+    rescue StandardError => e
+      Rails.logger&.error("[DataTeller] tenant resolver failed, treating as no tenant: #{e.class}")
+      nil
     end
 
     # Fails closed: no resolver, nil, or an error all mean "no role", which means no access.

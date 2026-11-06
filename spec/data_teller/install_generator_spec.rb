@@ -27,12 +27,12 @@ RSpec.describe DataTeller::Generators::InstallGenerator do
   it "does not guess the tenant, so the validator asks for it by name" do
     run_generator
 
-    expect(DataTeller.check(@root).errors).to contain_exactly(/no tenant resolver: set `c.tenant/)
+    expect(DataTeller.check(@root).errors).to contain_exactly(/no tenant: declare it/)
   end
 
   it "generates a file that becomes valid once the tenant is set" do
     run_generator
-    config_file.write(config_file.read.sub("# c.tenant", "c.tenant"))
+    config_file.write(config_file.read.gsub(/^  # (c\.tenant do|  model Account|  resolve \{.*|end)$/, "  \\1"))
 
     expect(DataTeller.check(@root)).to be_ok
   end

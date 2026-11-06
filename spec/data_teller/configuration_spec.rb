@@ -42,13 +42,69 @@ RSpec.describe DataTeller::Configuration do
   end
 
   describe "#tenant" do
+    let(:acme) { Account.new(name: "Acme") }
+
+    def declare_tenant(&resolver)
+      config.tenant do
+        model Account
+        resolve(&resolver)
+      end
+    end
+
     it "requires a block" do
       expect { config.tenant }.to raise_error(DataTeller::ConfigurationError, /needs a block/)
     end
 
+    it "keeps the model by name, like expose, so a reload never leaves a stale class" do
+      declare_tenant { |user| user }
+      expect(config.tenant_model_name).to eq("Account")
+
+      config.tenant { model "Account" }
+      expect(config.tenant_model_name).to eq("Account")
+    end
+
+    it "requires a block on resolve" do
+      expect { config.tenant { resolve } }.to raise_error(DataTeller::ConfigurationError, /resolve needs a block/)
+    end
+
     it "resolves the tenant of a user" do
-      config.tenant { |user| user[:account] }
-      expect(config.tenant_for({ account: "acme" })).to eq("acme")
+      declare_tenant { |user| user[:account] }
+      expect(config.tenant_for({ account: acme })).to eq(acme)
+    end
+
+    it "accepts a subclass of the tenant model" do
+      subclass = Class.new(Account)
+      declare_tenant { |_user| subclass.new }
+      expect(config.tenant_for(:user)).to be_a(Account)
+    end
+
+    describe "fails closed" do
+      it "with no tenant declared" do
+        expect(config.tenant_for(:user)).to be_nil
+      end
+
+      it "when the resolver returns nil" do
+        declare_tenant { |_user| nil }
+        expect(config.tenant_for(:user)).to be_nil
+      end
+
+      # A resolver returning another record would scope every query to the wrong thing.
+      it "when the resolver returns anything but the tenant model" do
+        declare_tenant { |_user| Customer.new }
+        allow(Rails.logger).to receive(:error)
+
+        expect(config.tenant_for(:user)).to be_nil
+        expect(Rails.logger).to have_received(:error).with(/tenant resolver returned Customer, expected Account/)
+      end
+
+      it "when the resolver raises, without logging the message" do
+        declare_tenant { |_user| raise "secret detail" }
+        allow(Rails.logger).to receive(:error)
+
+        expect(config.tenant_for(:user)).to be_nil
+        expect(Rails.logger).to have_received(:error).with(/tenant resolver failed.*RuntimeError/)
+        expect(Rails.logger).not_to have_received(:error).with(/secret detail/)
+      end
     end
   end
 
@@ -100,7 +156,7 @@ RSpec.describe "The published configuration" do
   it "cannot be changed once the engine is running, so a resolver cannot be swapped at runtime" do
     expect(DataTeller).to be_enabled
 
-    expect { DataTeller.config.tenant { |user| user } }.to raise_error(FrozenError)
+    expect { DataTeller.config.tenant { model Account } }.to raise_error(FrozenError)
     expect { DataTeller.config.expose "Hack" }.to raise_error(FrozenError)
     expect { DataTeller.config.on_invalid_config = :disable }.to raise_error(FrozenError)
     expect { DataTeller.config.ui.theme = :dark }.to raise_error(FrozenError)
@@ -109,13 +165,13 @@ RSpec.describe "The published configuration" do
   it "cannot be filled in behind the validator while the engine is closed" do
     DataTeller.reset!
 
-    expect { DataTeller.config.tenant { |user| user } }.to raise_error(FrozenError)
+    expect { DataTeller.config.tenant { model Account } }.to raise_error(FrozenError)
   ensure
     DataTeller.boot!(Rails.root)
   end
 
   it "stays writable while a file is being loaded" do
-    loaded = DataTeller::Loader.capture { DataTeller.configure { |c| c.tenant { |user| user } } }
+    loaded = DataTeller::Loader.capture { DataTeller.configure { |c| c.tenant { resolve { |user| user } } } }
 
     expect(loaded.config.tenant_resolver).to be_present
   end

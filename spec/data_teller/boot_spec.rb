@@ -20,8 +20,8 @@ RSpec.describe "DataTeller.boot!" do
     @root.join(path).tap { |file| file.dirname.mkpath }.write(content)
   end
 
-  let(:valid_global) { "DataTeller.configure { |c| c.tenant { |u| u.account }; c.expose 'Order' }" }
-  let(:disabling_global) { "DataTeller.configure { |c| c.on_invalid_config = :disable; c.tenant { |u| u.account }; c.expose 'Order' }" }
+  let(:valid_global) { "DataTeller.configure { |c| c.tenant { model 'Account'; resolve { |u| u.account } }; c.expose 'Order' }" }
+  let(:disabling_global) { "DataTeller.configure { |c| c.on_invalid_config = :disable; c.tenant { model 'Account'; resolve { |u| u.account } }; c.expose 'Order' }" }
   let(:valid_dataset) { "DataTeller.refine('Order') { roles :admin }" }
 
   def expect_closed
@@ -66,7 +66,7 @@ RSpec.describe "DataTeller.boot!" do
     it "still applies the strict rule when only dataset files exist" do
       write("config/data_teller/orders.rb", valid_dataset)
 
-      expect { DataTeller.boot!(@root) }.to raise_error(DataTeller::ConfigurationError, /no tenant resolver/)
+      expect { DataTeller.boot!(@root) }.to raise_error(DataTeller::ConfigurationError, /no tenant:/)
       expect_closed
     end
   end
@@ -76,7 +76,7 @@ RSpec.describe "DataTeller.boot!" do
       write("config/data_teller.rb", "DataTeller.configure { |c| c.expose 'Order' }")
 
       expect { DataTeller.boot!(@root) }
-        .to raise_error(DataTeller::ConfigurationError, /no tenant resolver.*\n.*Order is exposed but has no/m)
+        .to raise_error(DataTeller::ConfigurationError, /no tenant:.*\n.*Order is exposed but has no/m)
       expect_closed
     end
 
@@ -87,7 +87,7 @@ RSpec.describe "DataTeller.boot!" do
       expect { DataTeller.boot!(@root) }.not_to raise_error
 
       expect_closed
-      expect(Rails.logger).to have_received(:error).with(/DISABLED.*no tenant resolver/m)
+      expect(Rails.logger).to have_received(:error).with(/DISABLED.*no tenant:/m)
     end
   end
 
@@ -143,11 +143,11 @@ RSpec.describe "DataTeller.boot!" do
     it "notices a tenant resolver that was removed" do
       write("config/data_teller.rb", "DataTeller.configure { |c| c.expose 'Order' }")
 
-      expect { DataTeller.boot!(@root) }.to raise_error(DataTeller::ConfigurationError, /no tenant resolver/)
+      expect { DataTeller.boot!(@root) }.to raise_error(DataTeller::ConfigurationError, /no tenant:/)
     end
 
     it "forgets an exposed model that was removed" do
-      write("config/data_teller.rb", "DataTeller.configure { |c| c.tenant { |u| u }; c.expose 'Order', 'Customer' }")
+      write("config/data_teller.rb", "DataTeller.configure { |c| c.tenant { model 'Account'; resolve { |u| u } }; c.expose 'Order', 'Customer' }")
       write("config/data_teller/customers.rb", "DataTeller.refine('Customer') { roles :admin }")
       DataTeller.boot!(@root)
 

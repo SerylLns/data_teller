@@ -64,11 +64,11 @@ RSpec.describe DataTeller::Loader do
       write("config/data_teller/a.rb", "DataTeller.refine('Order') { metric :x, median: :a }")
       write("config/data_teller/b.rb", "DataTeller.refine(Bee) { }")
 
-      expect(DataTeller.check(@root).errors).to contain_exactly(/no tenant resolver/, /a\.rb.*aggregation/, /b\.rb.*Bee/)
+      expect(DataTeller.check(@root).errors).to contain_exactly(/no tenant:/, /a\.rb.*aggregation/, /b\.rb.*Bee/)
     end
 
     it "does not claim a model has no refine block when its file failed to load" do
-      write("config/data_teller.rb", "DataTeller.configure { |c| c.tenant { |u| u }; c.expose 'Order' }")
+      write("config/data_teller.rb", "DataTeller.configure { |c| c.tenant { model 'Account'; resolve { |u| u } }; c.expose 'Order' }")
       write("config/data_teller/orders.rb", "DataTeller.refine(Ordr) { }")
 
       expect(DataTeller.check(@root).errors).to contain_exactly(/orders\.rb.*Ordr/)

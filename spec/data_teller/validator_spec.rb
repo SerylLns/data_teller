@@ -3,7 +3,10 @@ require "rails_helper"
 RSpec.describe DataTeller::Validator do
   let(:config) do
     DataTeller::Configuration.new.tap do |c|
-      c.tenant { |user| user.account }
+      c.tenant do
+        model Account
+        resolve { |user| user.account }
+      end
       c.expose "Order"
     end
   end
@@ -30,9 +33,19 @@ RSpec.describe DataTeller::Validator do
 
   it "requires a tenant resolver" do
     dataset
-    config.instance_variable_set(:@tenant_resolver, nil)
+    config.instance_variable_set(:@tenant, nil)
 
-    expect(report.errors).to include(/no tenant resolver/)
+    expect(report.errors).to include(/no tenant:/)
+  end
+
+  it "requires both the model and the resolver of the tenant" do
+    dataset
+    config.instance_variable_set(:@tenant, nil)
+    config.tenant { resolve { |user| user.account } }
+    expect(described_class.new(config: config, registry: registry).call.errors).to include(/tenant: `model` is missing/)
+
+    config.tenant { model Account }
+    expect(described_class.new(config: config, registry: registry).call.errors).to include(/tenant: `resolve` is missing/)
   end
 
   it "requires roles on every dataset" do
@@ -191,10 +204,10 @@ RSpec.describe DataTeller::Validator do
   end
 
   it "reports every problem at once" do
-    config.instance_variable_set(:@tenant_resolver, nil)
+    config.instance_variable_set(:@tenant, nil)
     dataset(roles: nil, dimensions: [ dimension(:email) ])
 
     expect(report.errors.size).to be >= 3
-    expect(report.message).to start_with("DataTeller configuration is invalid (").and include("no tenant resolver")
+    expect(report.message).to start_with("DataTeller configuration is invalid (").and include("no tenant:")
   end
 end

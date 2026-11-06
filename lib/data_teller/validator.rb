@@ -49,9 +49,13 @@ module DataTeller
 
     # The tenant is what keeps one customer's data from another's: no tenant, no engine.
     def check_tenant
-      return if @config.tenant_resolver
+      unless @config.tenant_declared?
+        @errors << "no tenant: declare it in config/data_teller.rb with `c.tenant do model Account; resolve { |user| user.account } end`"
+        return
+      end
 
-      @errors << "no tenant resolver: set `c.tenant { |user| user.account }` in config/data_teller.rb"
+      @errors << "tenant: `model` is missing, e.g. `model Account`" unless @config.tenant_model_name
+      @errors << "tenant: `resolve` is missing, e.g. `resolve { |user| user.account }`" unless @config.tenant_resolver
     end
 
     # Exposure must be visible in two places that agree: the `expose` list and a `refine` per model.
