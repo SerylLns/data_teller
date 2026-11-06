@@ -1,6 +1,6 @@
 # ADR 0004 — Declaration DSL
 
-Status: accepted (D1-D7 decided one at a time)
+Status: accepted (D1-D8 decided one at a time)
 
 Context: the developer declares what is exposed (datasets, metrics, dimensions, segments, vocabulary).
 Nothing is exposed until it is in a visible, versioned file (ADR 0001, README principle).
@@ -240,6 +240,26 @@ Rejected: `c.tenant(Account) { ... }` (shorter, but no room for the tenant's oth
 column); finding a `belongs_to :account` by convention (it may be a billing account, and nothing would flag it); shortest path with a declaration only on a tie
 (implicit, and it changes silently when an association is added).
 
+## D8 — Schema sent to the LLM: one branch per visible dataset (decided, "B")
+
+```json
+{ "anyOf": [
+  { "dataset": { "const": "orders" },    "metric": { "enum": ["count", "revenue"] } },
+  { "dataset": { "const": "customers" }, "metric": { "enum": ["count"] } }
+] }
+```
+
+- Each branch fixes the dataset and lists only what is visible for the role in that dataset. Mixing datasets cannot be written.
+- Derived paths (`customer.city`) appear only in the branches where they exist (ADR 0001 D4).
+- Not a security boundary: the validator re-checks everything server-side (D5, T22).
+
+Why: a mix-up would otherwise surface far from its cause as a validator refusal, which is hard to debug, and would pollute the eval's understanding scores.
+
+Performance: bigger than flat lists, and the whole of it goes with every question until retrieval narrows it to the items found (T19).
+Not verified yet: what each provider accepts in a nested schema; to test in T12. Falling back to flat lists would be a small change, since the visible names are the same.
+
+Rejected: one flat list per kind of name (small and portable, but `customers` + `revenue` fits the schema and only fails later).
+
 ## Status
 
-All decisions D1-D7 are taken. Next: implement T06 (DSL and registry), T07 (mandatory tenant), T08 (schema from the registry).
+All decisions D1-D8 are taken. Next: implement T06 (DSL and registry), T07 (mandatory tenant), T08 (schema from the registry).
