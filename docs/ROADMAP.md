@@ -20,7 +20,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. `[sec]`
 - **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. `[sec]`
 - **T24 Tenant path + injection** on every table touched (joins, lookups). Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
-- **T25 Execution guards.** Read-only transaction, statement timeout, row limit, group_by cardinality cap, join cap. `[perf]` `[sec]`
+- **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
+  (`max_groups` per dimension, `LIMIT n+1` check, top-N required for high-cardinality group_by, time-series point cap). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** resolved in the compiler.
 - **T35 Permission basics.** Roles on dataset / metric / dimension; path permissions inherited from target. `[sec]`
   Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.

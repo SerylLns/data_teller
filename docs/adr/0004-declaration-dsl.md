@@ -49,9 +49,48 @@ Performance: `avg` and `count_distinct` cost more than `count`; the complexity b
 Rejected: free lambdas in metrics (date frozen at load time, tenant time zone ignored, arbitrary code, not describable in one sentence);
 aggregations only with no ratio (cannot express average basket without a developer-written query).
 
+## D3 — Dimensions: type inferred from the column, explicit allowlist, capability flags (decided, "A")
+
+```ruby
+dimension :status                          # enum inferred from the model; values and labels via I18n
+dimension :ship_on, time: true             # default time dimension of the dataset (at most one)
+dimension :name, lookup: :trigram          # entity resolved locally (ADR 0001 D2)
+dimension :city, group: false              # filterable but not groupable
+dimension :customer_id, group: true, max_groups: 20   # high cardinality: explicit opt-in
+```
+
+- Types come from ActiveRecord (date, enum, string, number, boolean) and can be overridden. Enum values are not copied into the DSL.
+- Every exposed dimension is a named line in the file, so nothing becomes queryable without a diff.
+- Flags: `time:`, `lookup:`, `filter:`, `group:`, `max_groups:`, `sensitive:`.
+- Sensitive names (`email`, `phone`, `token`, `password`, `iban`, ...) are refused unless explicitly forced with `sensitive: true` and a role.
+- A dataset has one default time dimension; if several are plausible for a question, it becomes a clarification (ADR 0001 D5).
+- A dotted dimension (`customer.city`) inherits the rights of its target column (ADR 0001 D4).
+
+### Cardinality rule (performance and privacy)
+
+Grouping by a high-cardinality dimension is a performance risk and a privacy risk: `group_by customer_id` with a count is a
+list of customers in disguise, i.e. row-level disclosure presented as an aggregate.
+
+- **Classification.** Enums and booleans are low cardinality. Foreign keys, ids, free strings and names are high cardinality.
+  Dates are bounded by period and granularity. The install generator can read `pg_stats.n_distinct` to suggest the class.
+- **Default.** `group` is allowed by default only on low-cardinality dimensions; high-cardinality ones need `group: true`
+  with an explicit `max_groups` (global default configurable, e.g. 50).
+- **Enforcement at execution.** The grouped query runs with `LIMIT max_groups + 1`; if the extra row appears the result is
+  truncated to the top N (a high-cardinality `group_by` requires `order_by` and `limit`, otherwise it is refused).
+- **Time series.** A date granularity over a long period is capped (a maximum number of points, e.g. 366); beyond it the query is refused.
+- **Two group_by.** The cap applies to the product of both dimensions, so two high-cardinality dimensions cannot be combined.
+- **Privacy.** `min_group_size` (T36) applies per group on top of this: small groups are suppressed even within the top N.
+- **Refusals** use the same structured payload as ADR 0001 D5. Open point: reuse `unsupported_query` or add a dedicated
+  reason (e.g. `too_many_groups`) to the closed list; decide before the validator ticket (T22).
+
+Why: explicit exposure kept, types not duplicated, and the cost and leak potential of grouping is a declared, enforced limit
+instead of a hope.
+
+Rejected: fully explicit types and enum values (verbose, drifts from the model); exposing every column minus a hidden list
+(a new column becomes queryable without a diff).
+
 ## Pending
 
-- D3 dimensions and their types (date, enum, lookup, hidden)
 - D4 segments (reuse existing scopes by name vs inline definitions)
 - D5 roles and permissions in the DSL
 - D6 registry object and validation at boot
