@@ -13,6 +13,9 @@ Gem::Specification.new do |spec|
     Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md"]
   end
 
+  # Data.define needs 3.2, while Rails 7.2 still allows 3.1: without this the gem would install and then crash at load.
+  spec.required_ruby_version = ">= 3.2"
+
   spec.add_dependency "rails", ">= 7.2.2.2"
   spec.add_dependency "json_schemer", "~> 2.0"
 end
