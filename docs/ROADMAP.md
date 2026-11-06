@@ -19,7 +19,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 ## M2 — Safe core, no LLM
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. `[sec]`
 - **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. `[sec]`
-- **T24 Tenant path + injection** on every table touched (joins, lookups). Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
+- **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
   (`max_groups` per dimension, `LIMIT n+1` check, top-N required for high-cardinality group_by, time-series point cap). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** resolved in the compiler.

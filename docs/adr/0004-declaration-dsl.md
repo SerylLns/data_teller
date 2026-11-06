@@ -89,8 +89,31 @@ instead of a hope.
 Rejected: fully explicit types and enum values (verbose, drifts from the model); exposing every column minus a hidden list
 (a new column becomes queryable without a diff).
 
+## D4 — Segments: declarative by default, guarded escape hatch to a scope (decided, "C")
+
+```ruby
+segment :paid,    where: { status: :paid }
+segment :overdue, where: { status: :pending, created_before: { days_ago: 30 } }
+segment :vip,     scope: :vip_customers      # escape hatch, checked at boot
+```
+
+- The declarative form is the norm: analyzable, explainable from its definition, no surprise with the tenant scope.
+- `scope:` reuses an existing ActiveRecord scope to avoid duplicating business logic. Accepted only if it takes no argument and
+  has no `order` / `limit` / `group` / `select` and no relative date. Its label comes from I18n (its content cannot be explained).
+- **The boot checks are a lint, not a security validation.** They catch accidents; a scope is arbitrary code and can be wrong
+  or hostile. Documentation must say so plainly.
+- The real boundary: the compiler applies the tenant scope **last**, on top of the segment, so a scope calling `unscoped` or
+  `unscope(where: ...)` cannot remove the tenant condition; a structural check asserts the tenant predicate is present in the
+  final relation; the DB-level role (T37) and optional RLS (T39) back it up.
+- Security Test Kit: includes fixtures with hostile scopes (`unscoped`, `unscope`, `or`, `rewhere`) and segments flagged as
+  less verifiable.
+
+Why: keeps the DRY promise of the README where possible without making arbitrary code a trusted part of the query.
+
+Rejected: scopes by name only (unanalyzable code, unexplainable, relative dates ignoring the tenant time zone);
+declarative only (forces rewriting every business scope).
+
 ## Pending
 
-- D4 segments (reuse existing scopes by name vs inline definitions)
 - D5 roles and permissions in the DSL
 - D6 registry object and validation at boot
