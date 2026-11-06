@@ -84,12 +84,22 @@ module DataTeller
     def check_metric_paths(dataset, klass)
       dataset.metrics.each_value do |metric|
         steps = metric.column.to_s.split(".")[0...-1]
+        at = "dataset #{dataset.name}, metric #{metric.name}"
+        check_ratio_has_no_path(at, dataset, metric)
         next if steps.empty?
 
-        at = "dataset #{dataset.name}, metric #{metric.name}"
         ModelLookup.follow(klass, steps) { |_current, _step, reflection| check_exposed(at, reflection) }
       rescue ModelLookup::PathError => e
         @errors << "#{at}: #{e.message}"
+      end
+    end
+
+    # The join a path needs would change what the other side of the ratio counts (ADR 0005 D2).
+    def check_ratio_has_no_path(at, dataset, metric)
+      metric.dependencies.each do |dependency|
+        next unless dataset.metrics[dependency]&.column.to_s.include?(".")
+
+        @errors << "#{at}: a ratio cannot use #{dependency}, a metric through a path"
       end
     end
 

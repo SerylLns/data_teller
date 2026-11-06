@@ -1,0 +1,316 @@
+module DataTeller
+  # From a query to an ActiveRecord relation (ADR 0005). It validates the query itself, so that nothing reaches SQL without
+  # going through QueryValidator, even when called directly. Column names come from the catalog, never from the query.
+  class Compiler
+    class Refused < Error
+      attr_reader :reason
+
+      def initialize(reason = :unsupported_query, message = nil)
+        @reason = reason
+        super(message || reason.to_s)
+      end
+    end
+
+    DEFAULT_MAX_GROUPS = 50
+    ROW_CAP = 1_000
+
+    # A parameter the database receives apart from the SQL: the query's text can never become part of the statement.
+    def self.bind(klass, column, value)
+      Arel::Nodes::BindParam.new(
+        ActiveRecord::Relation::QueryAttribute.new(column.to_s, value, klass.type_for_attribute(column.to_s))
+      )
+    end
+
+    def initialize(catalog:, tenant:, time_zone:, now:)
+      @catalog = catalog
+      @tenant_scope = TenantScope.new(tenant)
+      @time_zone = time_zone
+      @now = now
+    end
+
+    def call(query)
+      validation = QueryValidator.new(@catalog).call(query)
+      raise Refused.new(validation.refusal.reason) unless validation.ok?
+      raise Refused.new(:unsupported_query, "only an answer compiles") unless query["intent"] == "answer"
+      raise Refused.new(:unsupported_query, "compare is not implemented yet") if query["compare"]
+
+      @query = query
+      @entry = @catalog.dataset(query["dataset"])
+      @klass = @entry.model_name.constantize
+      @metric = @entry.metrics.find { |metric| metric.name.to_s == query["metric"] }
+
+      build_plan
+    end
+
+    private
+
+    def build_plan
+      relation = apply_scope_segments(@klass.all)
+      relation = apply_joins(relation)
+      relation = apply_conditions(relation)
+
+      # Last on purpose: a scope above can hold anything, and nothing below removes a condition (ADR 0005 D1).
+      filters = tenant_filters
+      relation = filters.reduce(relation) { |current, condition| current.where(condition) }
+      relation = apply_grouping(relation)
+
+      unless @tenant_scope.present_in?(relation, filters)
+        raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
+      end
+
+      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit)
+    end
+
+    # ---- what the query touches
+
+    def filter_items = Array(@query["filters"])
+    def group_items = Array(@query["group_by"])
+
+    def field(name) = @entry.fields.find { |candidate| candidate.name.to_s == name }
+
+    def comparisons = filter_items.select { |item| item.key?("dimension") }
+    def segments = filter_items.select { |item| item.key?("segment") }.map { |item| @entry.segments.find { |s| s.name.to_s == item["segment"] } }
+    def group_fields = group_items.map { |item| field(item["dimension"]) }
+    def period_field = @query["period"] && field(@query["period"]["dimension"])
+
+    def fields_used
+      [ *comparisons.map { |item| field(item["dimension"]) }, *group_fields, period_field ].compact.uniq(&:name)
+    end
+
+    def metric_steps = @metric.column.to_s.split(".")[0...-1].map(&:to_sym)
+
+    # ---- segments and joins
+
+    # `merge` first: on a shared column it replaces what came before, so filters must come after it.
+    def apply_scope_segments(relation)
+      segments.select(&:scope?).reduce(relation) { |current, segment| current.merge(scope_relation(segment)) }
+    end
+
+    def scope_relation(segment)
+      unless ModelLookup.declared_scope?(@klass, segment.scope)
+        raise Refused.new(:unsupported_query, "scope #{segment.scope} is not declared with `scope`")
+      end
+
+      @klass.public_send(segment.scope).tap do |scoped|
+        raise Refused.new(:unsupported_query, "scope #{segment.scope} is not a relation") unless scoped.is_a?(ActiveRecord::Relation)
+      end
+    rescue ArgumentError
+      raise Refused.new(:unsupported_query, "scope #{segment.scope} takes an argument")
+    end
+
+    def apply_joins(relation)
+      paths = [ *fields_used.map(&:steps), metric_steps ].reject(&:empty?).uniq
+
+      paths.reduce(relation) { |current, steps| current.joins(nested(steps)) }
+    end
+
+    def nested(steps)
+      steps.reverse.reduce { |inner, step| { step => inner } }
+    end
+
+    # ---- conditions
+
+    def apply_conditions(relation)
+      relation = segments.reject(&:scope?).reduce(relation) { |current, segment| current.where(declarative(segment)) }
+      relation = comparisons.reduce(relation) { |current, item| current.where(comparison(item)) }
+      period_field ? relation.where(period_condition) : relation
+    end
+
+    def declarative(segment)
+      if segment.where.values.any? { |value| value.is_a?(Hash) }
+        raise Refused.new(:unsupported_query, "relative conditions in segments are not implemented yet")
+      end
+
+      segment.where
+    end
+
+    def comparison(item)
+      found = field(item["dimension"])
+      klass = found.model
+      column = found.dimension.column
+      attribute = klass.arel_table[column]
+      value = item["value"]
+
+      case item["op"]
+      when "eq" then attribute.eq(bound(klass, column, value))
+      when "not_eq" then attribute.not_eq(bound(klass, column, value))
+      when "gt" then attribute.gt(bound(klass, column, value))
+      when "gte" then attribute.gteq(bound(klass, column, value))
+      when "lt" then attribute.lt(bound(klass, column, value))
+      when "lte" then attribute.lteq(bound(klass, column, value))
+      when "in" then attribute.in(value.map { |one| bound(klass, column, one) })
+      when "not_in" then attribute.not_in(value.map { |one| bound(klass, column, one) })
+      when "contains" then attribute.matches(bound(klass, column, "%#{klass.sanitize_sql_like(value)}%"))
+      when "is_null" then attribute.eq(nil)
+      when "is_not_null" then attribute.not_eq(nil)
+      end
+    end
+
+    def bound(klass, column, value)
+      raise Refused.new(:unsupported_query, "lookups are not implemented yet") if value.is_a?(Hash)
+
+      self.class.bind(klass, column, value)
+    end
+
+    def period_condition
+      found = period_field
+      klass = found.model
+      column = found.dimension.column
+      attribute = klass.arel_table[column]
+      from, to = PeriodResolver.new(time_zone: @time_zone, now: @now).call(@query["period"]["range"])
+
+      attribute.gteq(self.class.bind(klass, column, boundary(klass, column, from)))
+               .and(attribute.lt(self.class.bind(klass, column, boundary(klass, column, to))))
+    end
+
+    # A day starts at a different instant in each time zone: a datetime is compared to the tenant's midnight.
+    def boundary(klass, column, day)
+      return day if klass.type_for_attribute(column).type == :date
+
+      @time_zone.local(day.year, day.month, day.day)
+    end
+
+    # ---- tenant
+
+    # The dataset's own table comes last, the tables reached through paths before it: all of them get their own filter.
+    def tenant_filters
+      joined = fields_used.flat_map(&:via) + metric_path_datasets
+      [ *joined.uniq(&:name), @entry.dataset ].map do |dataset|
+        @tenant_scope.condition_for(dataset.model_name.constantize, dataset.tenant_path)
+      end
+    end
+
+    def metric_path_datasets
+      return [] if metric_steps.empty?
+
+      datasets = []
+      ModelLookup.follow(@klass, metric_steps) do |_current, _step, reflection|
+        # The boot refuses a path through a model that is not exposed; this is the last line if that ever changes.
+        datasets << (@catalog.dataset_for_model(reflection.class_name) || raise(Refused.new(:unsupported_query, "no tenant_path for a metric path")))
+      end
+      datasets
+    end
+
+    # ---- grouping and output
+
+    def group_nodes
+      @group_nodes ||= group_items.map { |item| group_node(field(item["dimension"]), item["granularity"]) }
+    end
+
+    def group_node(found, granularity)
+      attribute = found.model.arel_table[found.dimension.column]
+      granularity ? truncated_date(found, attribute, granularity) : attribute
+    end
+
+    # The granularity comes from a closed list and the zone from ActiveSupport::TimeZone. They are quoted, not bound, because
+    # Postgres sees different parameters in SELECT and GROUP BY as different expressions.
+    def truncated_date(found, attribute, granularity)
+      local = found.model.type_for_attribute(found.dimension.column).type == :date ? attribute : in_tenant_zone(found, attribute)
+      truncated = Arel::Nodes::NamedFunction.new("date_trunc", [ Arel::Nodes.build_quoted(granularity), cast(local, "timestamp") ])
+
+      cast(truncated, "date")
+    end
+
+    def in_tenant_zone(found, attribute)
+      sql_type = found.model.columns_hash[found.dimension.column].sql_type
+      utc = sql_type.include?("with time zone") ? attribute : at_zone(attribute, "UTC")
+
+      at_zone(utc, @time_zone.tzinfo.name)
+    end
+
+    def at_zone(node, zone)
+      Arel::Nodes::InfixOperation.new("AT TIME ZONE", node, Arel::Nodes.build_quoted(zone))
+    end
+
+    def cast(node, type)
+      Arel::Nodes::NamedFunction.new("CAST", [ node.as(type) ])
+    end
+
+    def metric_node(metric = @metric)
+      case metric.aggregation
+      when :count then Arel.star.count
+      when :ratio then ratio_node(metric)
+      else aggregate_node(metric)
+      end
+    end
+
+    def aggregate_node(metric)
+      owner, column = ModelLookup.column_owner(@klass, metric.column)
+      attribute = owner.arel_table[column]
+
+      case metric.aggregation
+      when :sum then attribute.sum
+      when :avg then attribute.average
+      when :min then attribute.minimum
+      when :max then attribute.maximum
+      when :count_distinct then attribute.count(true)
+      end
+    end
+
+    # NULLIF: dividing by zero must give no value, not an SQL error. 1.0: an integer division would round.
+    def ratio_node(metric)
+      numerator, denominator = metric.of.map { |name| metric_node(@entry.dataset.metrics.fetch(name)) }
+      dividend = Arel::Nodes::Multiplication.new(numerator, Arel.sql("1.0"))
+      divisor = Arel::Nodes::NamedFunction.new("NULLIF", [ denominator, Arel.sql("0") ])
+
+      Arel::Nodes::Division.new(dividend, divisor)
+    end
+
+    def apply_grouping(relation)
+      return relation if group_nodes.empty?
+
+      relation.group(*group_nodes).order(*ordering)
+    end
+
+    # A top N with ties would change from one run to the next without the group columns as a tie-break.
+    def ordering
+      order_by = @query["order_by"]
+      first =
+        if order_by&.fetch("by") == "dimension"
+          directed(group_nodes[group_items.index { |item| item["dimension"] == order_by["dimension"] }], order_by["dir"])
+        elsif order_by
+          directed(metric_node, order_by["dir"])
+        elsif high_cardinality_field
+          directed(metric_node, "desc")
+        end
+
+      [ first, *group_nodes.map { |node| directed(node, "asc") } ].compact
+    end
+
+    def directed(node, direction)
+      direction == "desc" ? Arel::Nodes::Descending.new(node) : Arel::Nodes::Ascending.new(node)
+    end
+
+    def high_cardinality_field
+      group_fields.find(&:high_cardinality?)
+    end
+
+    # Grouping by a high-cardinality dimension is capped, the query's own limit can only lower that (ADR 0004 D3).
+    def row_limit
+      return nil if group_nodes.empty?
+
+      cap = high_cardinality_field ? (high_cardinality_field.dimension.max_groups || DEFAULT_MAX_GROUPS) : ROW_CAP
+      [ @query["limit"], cap ].compact.min
+    end
+
+    def selection = [ *group_nodes, metric_node ]
+    def columns = [ *group_items.map { |item| item["dimension"] }, @metric.name.to_s ]
+
+    def decoders
+      [ *group_fields.map { |found| decoder_for(found) }, metric_decoder ]
+    end
+
+    # Enums are stored as integers and read by their name.
+    def decoder_for(found)
+      return nil unless found.kind == :enum
+
+      type = found.model.type_for_attribute(found.dimension.column)
+      ->(raw) { type.deserialize(raw) }
+    end
+
+    # A sum over no rows is 0. An average or a ratio over no rows has no value, and saying 0 would be false.
+    def metric_decoder
+      %i[sum count count_distinct].include?(@metric.aggregation) ? ->(raw) { raw || 0 } : nil
+    end
+  end
+end

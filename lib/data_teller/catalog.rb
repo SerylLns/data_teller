@@ -3,15 +3,18 @@ module DataTeller
   # suggestions, explanations and the validator will too, so that the whole chain agrees on what exists.
   # It holds only declared names, and is computed from roles, never from a user.
   class Catalog
-    Entry = Data.define(:name, :model_name, :metrics, :fields, :segments)
+    Entry = Data.define(:name, :model_name, :dataset, :metrics, :fields, :segments)
 
     # A dimension as a query can name it: its own (status) or through a path (customer.city).
-    Field = Data.define(:name, :model_name, :dimension) do
+    # steps: the associations to join. via: the datasets of those joined tables, each needing its own tenant filter.
+    Field = Data.define(:name, :model_name, :dimension, :steps, :via) do
+      def model = model_name.constantize
+
       # Reads the column type, so this needs the database or the schema cache. Never called at boot.
       def kind
         return dimension.type if dimension.type
 
-        klass = model_name.constantize
+        klass = model
         return :enum if klass.defined_enums.key?(dimension.column)
 
         case klass.type_for_attribute(dimension.column).type
@@ -25,7 +28,7 @@ module DataTeller
       def date? = kind == :date
 
       # An enum's values come from the model, never from the DSL (ADR 0004 D3). nil for a type forced with `type: :enum`.
-      def enum_values = model_name.constantize.defined_enums[dimension.column]&.keys
+      def enum_values = model.defined_enums[dimension.column]&.keys
 
       def high_cardinality? = !%i[enum boolean date].include?(kind)
 
@@ -56,6 +59,10 @@ module DataTeller
       datasets.find { |entry| entry.name == name.to_sym }
     end
 
+    def dataset_for_model(model_name)
+      @registry.datasets.find { |dataset| dataset.model_name == model_name }
+    end
+
     private
 
     def visible?(dataset)
@@ -71,6 +78,7 @@ module DataTeller
       Entry.new(
         name: dataset.name,
         model_name: dataset.model_name,
+        dataset: dataset,
         metrics: dataset.metrics.values.select { |metric| metric_visible?(metric, dataset) }.freeze,
         fields: (own_fields(dataset) + path_fields(dataset)).freeze,
         segments: dataset.segments.values.select { |segment| segment_visible?(segment, dataset) }.freeze
@@ -113,7 +121,7 @@ module DataTeller
 
     def own_fields(dataset)
       dataset.dimensions.values.select { |dimension| member_visible?(dimension, dataset) }.map do |dimension|
-        Field.new(name: dimension.name, model_name: dataset.model_name, dimension: dimension)
+        Field.new(name: dimension.name, model_name: dataset.model_name, dimension: dimension, steps: [], via: [])
       end
     end
 
@@ -123,7 +131,8 @@ module DataTeller
 
       hops.select { |hop| hop.via.all? { |step| visible?(step) } }.flat_map do |hop|
         hop.target.dimensions.values.select { |dimension| member_visible?(dimension, hop.target) }.map do |dimension|
-          Field.new(name: :"#{hop.prefix}.#{dimension.name}", model_name: hop.target.model_name, dimension: dimension)
+          Field.new(name: :"#{hop.prefix}.#{dimension.name}", model_name: hop.target.model_name, dimension: dimension,
+                    steps: hop.steps, via: hop.via)
         end
       end
     end

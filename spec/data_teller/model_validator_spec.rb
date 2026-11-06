@@ -117,6 +117,13 @@ RSpec.describe DataTeller::ModelValidator do
         .to contain_exactly(/metric x: Order has no association :nope/)
     end
 
+    it "cannot be divided in a ratio: the join would change what the other side counts" do
+      metrics = [ metric(:items, "line_items.quantity"), DataTeller::Metric.new(name: :count, aggregation: :count),
+                  DataTeller::Metric.new(name: :per_order, aggregation: :ratio, of: %i[items count]) ]
+
+      expect(errors_for("Order", %i[account], metrics: metrics)).to contain_exactly(/metric per_order: a ratio cannot use items/)
+    end
+
     it "refuses a polymorphic association" do
       expect(errors_for("SpecRecord", %i[customer], metrics: [ metric(:x, "owner.total") ]))
         .to include(/metric x: SpecRecord\.owner is polymorphic/)
