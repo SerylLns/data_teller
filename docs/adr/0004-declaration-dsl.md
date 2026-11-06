@@ -1,6 +1,6 @@
 # ADR 0004 — Declaration DSL
 
-Status: in progress (decisions are taken one at a time)
+Status: accepted (D1-D6 decided one at a time)
 
 Context: the developer declares what is exposed (datasets, metrics, dimensions, segments, vocabulary).
 Nothing is exposed until it is in a visible, versioned file (ADR 0001, README principle).
@@ -154,6 +154,28 @@ Performance: the catalog is set operations, cached by fingerprint.
 Rejected: everything delegated to Pundit (rules scattered across policies, not validatable at boot, not testable by the kit);
 free lambdas in the DSL (arbitrary code); "no `roles:` means visible to all" (too permissive).
 
-## Pending
+## D6 — Registry and boot validation: fail hard by default, configurable, always fail closed (decided, "A with setting")
 
-- D6 registry object and validation at boot
+- The registry holds everything the DSL declared. It is validated once at boot (rebuilt on reload in development through
+  `to_prepare`), then **frozen**: no runtime mutation, safe across threads. It carries a version, reused in the cache fingerprint (D5).
+- Validation collects **all** errors and reports them together. Checks: `c.tenant` defined; a tenant path found for every exposed
+  model (ambiguous = error); explicit `roles:` on every dataset; at most one `time:` dimension per dataset; no cycles between derived
+  metrics; existing columns and associations; `scope:` segments pass the lint (D4); sensitive dimensions justified; missing I18n keys
+  are warnings.
+- Setting: `c.on_invalid_config = :raise | :disable`, default `:raise`.
+  - `:raise`: the app refuses to boot (consistent with the mandatory tenant).
+  - `:disable`: the engine is switched off (routes answer 503, the palette is not rendered) with a loud log, so a side feature cannot
+    take the host app down. Both modes fail **closed**, never open.
+- `rake data_teller:check` runs the same validation in CI before deployment.
+
+Why: a broken exposure config must never go unnoticed, and the choice between availability of the host app and strictness belongs to
+the integrator, with the safe option as the default.
+
+Performance: validation runs once at boot (or on reload in development).
+
+Rejected: lazy validation on first use (errors surface to end users in production); hard failure with no opt-out (a secondary
+feature can block the host app's boot).
+
+## Status
+
+All decisions D1-D6 are taken. Next: implement T06 (DSL and registry), T07 (mandatory tenant), T08 (schema from the registry).

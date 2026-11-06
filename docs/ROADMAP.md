@@ -13,7 +13,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 ## M1 — DSL & query format
 - **T05 Query format** (JSON Schema, fixtures) — done, ADR 0001.
 - **T06 Declaration DSL.** `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms, labels), registry object.
-- **T07 Mandatory tenant.** Boot fails without `c.tenant`. `[sec]`
+- **T07 Boot validation** (ADR 0004 D6). Mandatory tenant, collected errors, frozen versioned registry, `on_invalid_config` (`:raise` default / `:disable`),
+  `rake data_teller:check`. `[sec]`
 - **T08 Schema generation from DSL.** Enums of declared names only, per role (visible catalog); not a security boundary.
 
 ## M2 — Safe core, no LLM
