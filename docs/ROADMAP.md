@@ -12,13 +12,21 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 
 ## M1 — DSL & query format
 - **T05 Query format** (JSON Schema, fixtures) — done, ADR 0001.
-- **T06 Declaration DSL.** `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms, labels), registry object.
-- **T07 Boot validation** (ADR 0004 D6). Mandatory tenant, collected errors, frozen versioned registry, `on_invalid_config` (`:raise` default / `:disable`),
-  `rake data_teller:check`. `[sec]`
+- **T06 Declaration DSL** — done. `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms), registry object, loading of `config/data_teller*.rb`.
+- **T07a Boot validation without the database** — done (ADR 0004 D6). Mandatory tenant, collected errors, frozen versioned registry, `on_invalid_config`,
+  `rake data_teller:check`, minimal `rails generate data_teller:install`. `[sec]`
+- **T07b Boot validation against the ActiveRecord schema.** Must be done before T23/T24: T07a only proves `c.tenant` is set, not that the tenant can be reached. `[sec]`
+  - Tenant path found for every exposed model; ambiguous = error (ADR 0004 D6).
+  - Columns and associations exist: dimensions, metric columns and paths, `where:` keys, `scope:` names.
+  - `scope:` lint (ADR 0004 D4) reads the arity only and **never calls the method at boot**: the name could be anything the model answers to.
+  - `min` / `max` limited to numeric and date columns: on a string column they return a stored value, i.e. row-level disclosure.
+  - Sensitive lint also reads `encrypted_attributes` and the host's `filter_parameters`, because a word list cannot be complete.
+  - Dotted paths derived from exposed models (ADR 0001 D4); two paths to the same dimension = error.
+  - Missing I18n keys are warnings; `Report#warnings` exists for them and is empty until then.
 - **T08 Schema generation from DSL.** Enums of declared names only, per role (visible catalog); not a security boundary.
 
 ## M2 — Safe core, no LLM
-- **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. `[sec]`
+- **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. Real calendar dates (the schema still accepts `2024-02-31`) and `from` <= `to` in `between`. `[sec]`
 - **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. `[sec]`
 - **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
@@ -39,6 +47,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T12 Provider client.** Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
 - **T13 Naive pipeline** (whole registry in the prompt); baseline recorded in an ADR.
 - **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.
+  First endpoint, so it also wires `DataTeller.enabled?`: routes answer 503 and the palette is not rendered when the engine is off (ADR 0004 D6).
   Herb only as an optional dev tool, flagged when added.
 - **T14 Prompt iteration log.** One change = one eval run = one commit.
 
@@ -57,7 +66,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T31b Full adversarial suite** incl. prompt injection; shipped as shared examples. `[sec]`
 - **T32 Per-tenant/user rate limit + token budget.** `[perf]` `[sec]`
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
-- **T34 Install generator.** Core piece since ADR 0001 D4. Consider pulling it forward.
+- **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
+  this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.
 - **T40 `data_teller-demo` repository** (after M3 and T33). Separate Rails app using the gem like an integrator: Accounts/Users/roles,
   Pundit, several tenants, reusing the dummy's models and fake seeds. Scripted security demo = the Security Test Kit scenarios
   (other-tenant data, forbidden column, injection attempt), with a replay mode of recorded LLM responses so it is deterministic.

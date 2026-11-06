@@ -15,6 +15,8 @@ Nothing is exposed until it is in a visible, versioned file (ADR 0001, README pr
   The DSL holds structure and logic; short inline `synonyms` stay allowed. Long synonym lists are never sent whole to the
   LLM: retrieval selects the relevant ones.
 - The install generator (T34) writes one file per model plus the locale files.
+- `DataTeller.configure` and `DataTeller.refine` work only while these files are being loaded. Called from an initializer they raise with a
+  pointer to the right file, because the declarations would otherwise be silently discarded by the next load.
 
 Why: keeps the explicit, reviewable exposure; scales to many models without a 600-line initializer; separates logic from
 language-dependent vocabulary; consistent with labels already coming from I18n.
@@ -65,6 +67,9 @@ dimension :customer_id, group: true, max_groups: 20   # high cardinality: explic
 - Every exposed dimension is a named line in the file, so nothing becomes queryable without a diff.
 - Flags: `time:`, `lookup:`, `filter:`, `group:`, `max_groups:`, `sensitive:`.
 - Sensitive names (`email`, `phone`, `token`, `password`, `iban`, ...) are refused unless explicitly forced with `sensitive: true` and a role.
+  The same rule applies to metric columns, because `min` and `max` return a stored value (`metric :x, min: :email` reads an email). A segment whose
+  condition names such a column needs explicit roles. This is a lint: a word list cannot recognise every sensitive column, the real protection is that
+  nothing undeclared is exposed.
 - A dataset has one default time dimension; if several are plausible for a question, it becomes a clarification (ADR 0001 D5).
 - A dotted dimension (`customer.city`) inherits the rights of its target column (ADR 0001 D4).
 
@@ -168,7 +173,15 @@ free lambdas in the DSL (arbitrary code); "no `roles:` means visible to all" (to
   - `:raise`: the app refuses to boot (consistent with the mandatory tenant).
   - `:disable`: the engine is switched off (routes answer 503, the palette is not rendered) with a loud log, so a side feature cannot
     take the host app down. Both modes fail **closed**, never open.
-- `rake data_teller:check` runs the same validation in CI before deployment.
+- `rake data_teller:check` runs the same validation in CI before deployment. It reports the problems itself instead of dying during the boot.
+- **Isolation.** Files are loaded into fresh objects (settings included), and published only once valid. The engine is closed first and opened last,
+  so any failure, including an ordinary Ruby error in a file, leaves it closed with an empty registry. A failed load never reaches the running engine.
+- **No configuration at all** (no global file and no dataset file): the engine stays off with a warning instead of refusing to boot, otherwise adding the
+  gem would block `rails generate data_teller:install` and `db:migrate`, and `:disable` could not help because the setting lives in the missing file.
+  `rake data_teller:check` fails in that case, so a file deleted by mistake is caught in CI. As soon as one file exists, the rules above apply.
+- **Install generator.** Writes `config/data_teller.rb` with `c.tenant` commented out, so the app does not boot until it is set: a generated default would
+  make the mandatory check pass for everyone. It never overwrites an existing file without `--force`.
+- If the global file breaks before it sets `:disable`, the default `:raise` applies: the setting cannot be read from a file that did not run.
 
 Why: a broken exposure config must never go unnoticed, and the choice between availability of the host app and strictness belongs to
 the integrator, with the safe option as the default.
