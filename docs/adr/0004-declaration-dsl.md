@@ -169,6 +169,11 @@ free lambdas in the DSL (arbitrary code); "no `roles:` means visible to all" (to
   model (ambiguous = error); explicit `roles:` on every dataset; at most one `time:` dimension per dataset; no cycles between derived
   metrics; existing columns and associations; `scope:` segments pass the lint (D4); sensitive dimensions justified; missing I18n keys
   are warnings.
+- **The boot never reads the database** (amended 2026-11-06, option "A"). `db:create` and `db:migrate` load the environment, so a boot that
+  checks columns would refuse to start while the migration that adds the column is waiting to run, and would block a deploy.
+  - At boot: everything readable from the code without a connection (declarations, associations, tenant path, scopes).
+  - In `rake data_teller:check`: the same plus columns and their types. It runs in CI and after migrations.
+  - At execution: a column missing despite this makes the query refused. The user gets a refusal, never data (T23).
 - Setting: `c.on_invalid_config = :raise | :disable`, default `:raise`.
   - `:raise`: the app refuses to boot (consistent with the mandatory tenant).
   - `:disable`: the engine is switched off (routes answer 503, the palette is not rendered) with a loud log, so a side feature cannot
@@ -190,6 +195,9 @@ Performance: validation runs once at boot (or on reload in development).
 
 Rejected: lazy validation on first use (errors surface to end users in production); hard failure with no opt-out (a secondary
 feature can block the host app's boot).
+Also rejected for columns: reading the database at boot and only closing the engine on failure (a connection per boot, and a database that is
+down at boot leaves the engine off until the next restart); reading it and raising except during `db:*` tasks (detecting tasks is fragile,
+and any tool we did not foresee stays blocked).
 
 ## Status
 

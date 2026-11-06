@@ -15,7 +15,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T06 Declaration DSL** — done. `configure`, `expose`, `refine` (segments, metrics, dimensions, synonyms), registry object, loading of `config/data_teller*.rb`.
 - **T07a Boot validation without the database** — done (ADR 0004 D6). Mandatory tenant, collected errors, frozen versioned registry, `on_invalid_config`,
   `rake data_teller:check`, minimal `rails generate data_teller:install`. `[sec]`
-- **T07b Boot validation against the ActiveRecord schema.** Must be done before T23/T24: T07a only proves `c.tenant` is set, not that the tenant can be reached. `[sec]`
+- **T07b Validation against the models and the schema.** Must be done before T23/T24: T07a only proves `c.tenant` is set, not that the tenant can be reached. `[sec]`
+  The boot never reads the database (ADR 0004 D6): associations, tenant path and scopes at boot; columns and types in `rake data_teller:check`.
   - Tenant path found for every exposed model; ambiguous = error (ADR 0004 D6).
   - Columns and associations exist: dimensions, metric columns and paths, `where:` keys, `scope:` names.
   - `scope:` lint (ADR 0004 D4) reads the arity only and **never calls the method at boot**: the name could be anything the model answers to.
@@ -27,7 +28,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 
 ## M2 — Safe core, no LLM
 - **T22 IR validator.** Declared names, date dimensions rejected in filters, depth, operators/types. Real calendar dates (the schema still accepts `2024-02-31`) and `from` <= `to` in `between`. `[sec]`
-- **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. `[sec]`
+- **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. A column missing at execution means a refusal (ADR 0004 D6). `[sec]`
 - **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
   (`max_groups` per dimension, `LIMIT n+1` check, top-N required for high-cardinality group_by, time-series point cap). `[perf]` `[sec]`
