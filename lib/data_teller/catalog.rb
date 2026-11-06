@@ -24,13 +24,18 @@ module DataTeller
 
       def date? = kind == :date
 
+      # An enum's values come from the model, never from the DSL (ADR 0004 D3). nil for a type forced with `type: :enum`.
+      def enum_values = model_name.constantize.defined_enums[dimension.column]&.keys
+
+      def high_cardinality? = !%i[enum boolean date].include?(kind)
+
       # Time goes through period, never through filters (ADR 0001 D1).
       def filterable? = dimension.filter && !date?
       def period? = dimension.filter && date?
 
       # Grouping by a high-cardinality column lists rows in disguise, so it takes an explicit opt-in (ADR 0004 D3).
       def groupable?
-        dimension.group.nil? ? %i[enum boolean date].include?(kind) : dimension.group
+        dimension.group.nil? ? !high_cardinality? : dimension.group
       end
     end
 
