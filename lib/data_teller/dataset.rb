@@ -3,8 +3,8 @@ require "active_support/core_ext/string/inflections"
 module DataTeller
   # roles is required by boot validation (T07, ADR 0004 D5); it is allowed to be nil here so that the validator
   # can report every missing declaration at once instead of failing on the first one.
-  class Dataset < Data.define(:name, :model_name, :roles, :metrics, :dimensions, :segments, :synonyms)
-    def initialize(model_name:, name: nil, roles: nil, metrics: [], dimensions: [], segments: [], synonyms: [])
+  class Dataset < Data.define(:name, :model_name, :roles, :tenant_path, :metrics, :dimensions, :segments, :synonyms)
+    def initialize(model_name:, name: nil, roles: nil, tenant_path: nil, metrics: [], dimensions: [], segments: [], synonyms: [])
       model_name = model_name.to_s
       derived = model_name.demodulize.underscore.pluralize
 
@@ -12,6 +12,7 @@ module DataTeller
         name: NameFormat.ensure!(name || derived, "dataset"),
         model_name: model_name.freeze,
         roles: NameFormat.roles(roles, "dataset"),
+        tenant_path: tenant_steps(model_name, tenant_path),
         metrics: index_by_name(model_name, metrics, "metric"),
         dimensions: index_by_name(model_name, dimensions, "dimension"),
         segments: index_by_name(model_name, segments, "segment"),
@@ -25,6 +26,7 @@ module DataTeller
         name: name,
         model: model_name,
         roles: roles&.sort,
+        tenant_path: tenant_path,
         synonyms: synonyms.sort,
         metrics: metrics.sort.to_h { |key, metric| [ key, canonical_member(metric) ] },
         dimensions: dimensions.sort.to_h { |key, dimension| [ key, canonical_member(dimension) ] },
@@ -33,6 +35,14 @@ module DataTeller
     end
 
     private
+
+    # nil is allowed here for the same reason as roles; the order of the steps is the path itself.
+    def tenant_steps(model_name, steps)
+      return nil if steps.nil?
+      raise DeclarationError, "dataset #{model_name}: tenant_path needs at least one association" if steps.empty?
+
+      steps.map { |step| NameFormat.ensure!(step, "dataset #{model_name}: tenant_path step") }.freeze
+    end
 
     # `of` keeps its order: a / b is not b / a. Everything else is a set, or a condition whose order means nothing.
     def canonical_member(member)

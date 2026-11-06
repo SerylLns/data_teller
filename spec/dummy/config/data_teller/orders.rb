@@ -1,6 +1,7 @@
 # customer.city and customer.name are never written here: the paths come from the Customer declaration (ADR 0001 D4).
 DataTeller.refine Order do
   roles :admin, :support
+  tenant_path :account
   synonyms "commande", "order"
 
   metric :revenue, sum: :total_cents, format: :money, roles: :admin   # support sees volumes, not revenue

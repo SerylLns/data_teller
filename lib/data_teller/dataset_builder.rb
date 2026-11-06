@@ -9,6 +9,7 @@ module DataTeller
       @model_name = model_name
       @name = name
       @roles = nil
+      @tenant_path = nil
       @synonyms = []
       @metrics = []
       @dimensions = []
@@ -18,6 +19,10 @@ module DataTeller
 
     def roles(*names)
       @roles = names.flatten
+    end
+
+    def tenant_path(*steps)
+      @tenant_path = steps.flatten
     end
 
     def synonyms(*words)
@@ -39,7 +44,7 @@ module DataTeller
     def build
       dataset = collect_problems do
         Dataset.new(
-          model_name: @model_name, name: @name, roles: @roles, synonyms: @synonyms,
+          model_name: @model_name, name: @name, roles: @roles, tenant_path: @tenant_path, synonyms: @synonyms,
           metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments
         )
       end

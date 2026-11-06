@@ -22,7 +22,7 @@ RSpec.describe "DataTeller.boot!" do
 
   let(:valid_global) { "DataTeller.configure { |c| c.tenant { model 'Account'; resolve { |u| u.account } }; c.expose 'Order' }" }
   let(:disabling_global) { "DataTeller.configure { |c| c.on_invalid_config = :disable; c.tenant { model 'Account'; resolve { |u| u.account } }; c.expose 'Order' }" }
-  let(:valid_dataset) { "DataTeller.refine('Order') { roles :admin }" }
+  let(:valid_dataset) { "DataTeller.refine('Order') { roles :admin; tenant_path :account }" }
 
   def expect_closed
     expect(DataTeller).not_to be_enabled
@@ -148,7 +148,7 @@ RSpec.describe "DataTeller.boot!" do
 
     it "forgets an exposed model that was removed" do
       write("config/data_teller.rb", "DataTeller.configure { |c| c.tenant { model 'Account'; resolve { |u| u } }; c.expose 'Order', 'Customer' }")
-      write("config/data_teller/customers.rb", "DataTeller.refine('Customer') { roles :admin }")
+      write("config/data_teller/customers.rb", "DataTeller.refine('Customer') { roles :admin; tenant_path :account }")
       DataTeller.boot!(@root)
 
       write("config/data_teller.rb", valid_global)

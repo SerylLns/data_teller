@@ -1,6 +1,7 @@
 # email and phone are deliberately absent: a column that is not listed here cannot be queried.
 DataTeller.refine Customer do
   roles :admin, :support
+  tenant_path :account
   synonyms "client", "customer"
 
   dimension :city

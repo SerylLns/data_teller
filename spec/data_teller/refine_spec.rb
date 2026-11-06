@@ -24,6 +24,14 @@ RSpec.describe "DataTeller.refine" do
     expect(dataset.segments[:paid].where).to eq({ status: :paid })
   end
 
+  it "keeps the tenant path in order" do
+    expect(refine_orders { tenant_path :customer, :account }.tenant_path).to eq(%i[customer account])
+  end
+
+  it "refuses an empty tenant path" do
+    expect { refine_orders { tenant_path } }.to raise_error(DataTeller::DeclarationError, /tenant_path/)
+  end
+
   it "accepts the model as a class or as a name" do
     registry = DataTeller::Loader.capture { DataTeller.refine("Order") { roles :admin } }.registry
     expect(registry.dataset(:orders).model_name).to eq("Order")

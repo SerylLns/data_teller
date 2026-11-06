@@ -12,7 +12,7 @@ RSpec.describe "Reloading the declarations in development" do
       step = -> { Rails.application.reloader.wrap { } ; print DataTeller.registry.dataset(:clients) ? "present " : "absent " }
 
       step.call
-      file.write("DataTeller.refine('Customer', name: :clients) { roles :admin }")
+      file.write("DataTeller.refine('Customer', name: :clients) { roles :admin; tenant_path :account }")
       step.call
       file.delete
       step.call

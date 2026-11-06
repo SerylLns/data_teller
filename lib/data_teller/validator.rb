@@ -1,7 +1,6 @@
 module DataTeller
-  # Boot validation, part A: checks that need only the declarations and the config, never the database
-  # (ADR 0004 D6). It reports every problem at once. It does not prove the tenant path or that columns exist;
-  # that is part B, which reads the ActiveRecord schema.
+  # Boot validation: never reads the database (ADR 0004 D6). This class checks the declarations and the config, and
+  # ModelValidator checks them against the models' code. It reports every problem at once.
   class Validator
     # A lint, not a guarantee: a list of words cannot recognise every sensitive column, which is why nothing is
     # exposed unless it is declared. Identifiers are compared word by word, so that `monkey` does not trip `key`.
@@ -41,6 +40,9 @@ module DataTeller
       check_tenant unless @skipped_checks.include?(:tenant)
       check_exposure unless @skipped_checks.include?(:exposure)
       @registry.datasets.each { |dataset| check_dataset(dataset) }
+      @errors.concat(
+        ModelValidator.new(config: @config, registry: @registry, check_exposure: !@skipped_checks.include?(:exposure)).call
+      )
 
       Report.new(errors: @errors.freeze, warnings: @warnings.freeze, config: @config, registry: @registry)
     end
@@ -89,19 +91,20 @@ module DataTeller
     def check_dimensions(dataset)
       dataset.dimensions.each_value do |dimension|
         check_sensitive("dataset #{dataset.name}, dimension #{dimension.name}", "dimension", dimension,
-                        dimension.name, dimension.column)
+                        dataset.model_name, dimension.column, dimension.name)
       end
     end
 
     # min and max return a stored value, so a metric over a column can read that column.
     def check_metric_columns(dataset)
       dataset.metrics.each_value do |metric|
-        check_sensitive("dataset #{dataset.name}, metric #{metric.name}", "metric", metric, metric.column)
+        check_sensitive("dataset #{dataset.name}, metric #{metric.name}", "metric", metric,
+                        dataset.model_name, metric.column)
       end
     end
 
-    def check_sensitive(at, kind, member, *identifiers)
-      if !member.sensitive && sensitive_identifier?(*identifiers)
+    def check_sensitive(at, kind, member, model_name, column, *other_identifiers)
+      if !member.sensitive && (sensitive_identifier?(column, *other_identifiers) || sensitive_for_host?(model_name, column))
         @errors << "#{at}: the name looks sensitive; expose it only with `sensitive: true` and explicit `roles:`"
       end
       @errors << "#{at}: a sensitive #{kind} needs explicit `roles:`" if member.sensitive && member.roles.nil?
@@ -176,6 +179,14 @@ module DataTeller
                      "#{dataset.roles.inspect} (members can only narrow)"
         end
       end
+    end
+
+    def sensitive_for_host?(model_name, column)
+      klass = ModelLookup.active_record_class(model_name)
+      return false unless klass && column
+
+      owner, name = ModelLookup.column_owner(klass, column)
+      owner ? ModelLookup.sensitive_for_host?(owner, name) : false
     end
 
     def sensitive_identifier?(*identifiers)

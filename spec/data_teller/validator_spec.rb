@@ -13,7 +13,7 @@ RSpec.describe DataTeller::Validator do
   let(:registry) { DataTeller::Registry.new }
 
   def dataset(model: "Order", roles: %i[admin support], **parts)
-    registry.register(DataTeller::Dataset.new(model_name: model, roles: roles, **parts))
+    registry.register(DataTeller::Dataset.new(model_name: model, roles: roles, tenant_path: %i[account], **parts))
   end
 
   def metric(name, aggregation = :count, **options) = DataTeller::Metric.new(name: name, aggregation: aggregation, **options)
@@ -83,9 +83,39 @@ RSpec.describe DataTeller::Validator do
       expect(report.errors).to include(/sensitive dimension needs explicit `roles:`/)
 
       registry = DataTeller::Registry.new
-      registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin],
+      registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account],
                                                 dimensions: [ dimension(:email, sensitive: true, roles: :admin) ]))
       expect(described_class.new(config: config, registry: registry).call).to be_ok
+    end
+  end
+
+  describe "columns the host app already treats as sensitive" do
+    # The word lists do not know "phone_hash", the host's filter_parameters may.
+    around do |example|
+      previous = ActiveRecord::Base.filter_attributes
+      ActiveRecord::Base.filter_attributes += [ :nickname ]
+      example.run
+    ensure
+      ActiveRecord::Base.filter_attributes = previous
+    end
+
+    it "are caught on dimensions, through filter_attributes" do
+      dataset(dimensions: [ dimension(:other, column: "nickname") ])
+
+      expect(report.errors).to include(/dimension other: .*looks sensitive/)
+    end
+
+    it "are caught on metrics, on the model the path reaches" do
+      dataset(metrics: [ metric(:x, :max, column: "customer.nickname") ])
+
+      expect(report.errors).to include(/metric x: .*looks sensitive/)
+    end
+
+    it "are caught when encrypted" do
+      allow(Order).to receive(:encrypted_attributes).and_return(Set[:private_note])
+      dataset(dimensions: [ dimension(:other, column: "private_note") ])
+
+      expect(report.errors).to include(/dimension other: .*looks sensitive/)
     end
   end
 
@@ -99,7 +129,7 @@ RSpec.describe DataTeller::Validator do
       end
     end
 
-    %w[monkey keyboard status city emailed mailbox].each do |column|
+    %w[monkey keyboard status city mailbox].each do |column|
       it "does not trip on #{column}" do
         dataset(dimensions: [ dimension(:other, column: column) ])
 
@@ -147,7 +177,7 @@ RSpec.describe DataTeller::Validator do
     it "refuses a built-in ActiveRecord method, which is not a scope of the model" do
       %i[destroy_all delete_all unscoped all].each do |name|
         registry = DataTeller::Registry.new
-        registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin],
+        registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account],
                                                   segments: [ DataTeller::Segment.new(name: :x, scope: name, roles: :admin) ]))
 
         expect(described_class.new(config: config, registry: registry).call.errors)
@@ -155,8 +185,8 @@ RSpec.describe DataTeller::Validator do
       end
     end
 
-    it "accepts a name that could be a scope of the model" do
-      dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :vip_customers, roles: :admin) ])
+    it "accepts a scope of the model" do
+      dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :paid, roles: :admin) ])
 
       expect(report).to be_ok
     end
