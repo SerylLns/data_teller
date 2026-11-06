@@ -4,6 +4,11 @@ namespace :data_teller do
     DataTeller.defer_boot!
   end
 
+  desc "Print the JSON schema the LLM gets for some roles, e.g. rake \"data_teller:schema[admin,support]\""
+  task :schema, [] => :environment do |_task, args|
+    puts JSON.pretty_generate(DataTeller::SchemaGenerator.for_roles(args.extras))
+  end
+
   desc "Validate the DataTeller declarations, columns included (run it in CI and after migrations)"
   task check: %i[defer_boot environment] do
     report = DataTeller.check(Rails.root, schema: true)

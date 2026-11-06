@@ -17,6 +17,10 @@ module DataTeller
       schemer.valid?(query)
     end
 
+    def self.definition
+      @definition ||= JSON.parse(File.read(PATH)).freeze
+    end
+
     # Returns the JSON pointers and error types, which the eval can aggregate.
     def self.errors(query)
       schemer.validate(query).map { |e| { pointer: e["data_pointer"], type: e["type"] } }
