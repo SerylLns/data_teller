@@ -28,6 +28,30 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "limits" do
+    it "has defaults" do
+      expect(config).to have_attributes(statement_timeout: 5, default_max_groups: 50, max_rows: 1_000, max_time_points: 366, max_joins: 5)
+    end
+
+    it "can be set" do
+      config.statement_timeout = 0.5
+      config.max_rows = 10
+
+      expect(config).to have_attributes(statement_timeout: 0.5, max_rows: 10)
+    end
+
+    # A timeout of 0 means no timeout at all in Postgres: a typo must not switch the protection off.
+    it "refuses zero, negatives and anything that is not a number" do
+      expect { config.statement_timeout = 0 }.to raise_error(DataTeller::ConfigurationError, /statement_timeout/)
+      expect { config.statement_timeout = -1 }.to raise_error(DataTeller::ConfigurationError, /statement_timeout/)
+      expect { config.statement_timeout = "5; DROP" }.to raise_error(DataTeller::ConfigurationError, /statement_timeout/)
+      expect { config.max_rows = 0 }.to raise_error(DataTeller::ConfigurationError, /max_rows/)
+      expect { config.max_joins = 1.5 }.to raise_error(DataTeller::ConfigurationError, /max_joins/)
+      expect { config.default_max_groups = nil }.to raise_error(DataTeller::ConfigurationError, /default_max_groups/)
+      expect { config.max_time_points = "many" }.to raise_error(DataTeller::ConfigurationError, /max_time_points/)
+    end
+  end
+
   describe "ui" do
     it "rejects unknown modes and themes" do
       expect { config.ui.mode = :page }.to raise_error(DataTeller::ConfigurationError, /ui.mode/)

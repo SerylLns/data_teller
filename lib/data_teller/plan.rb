@@ -6,7 +6,9 @@ module DataTeller
       def value = rows.first&.last
     end
 
-    def initialize(relation:, columns:, selection:, decoders:, limit:)
+    # refuse_when_cut: a date series beyond its cap is refused rather than truncated (ADR 0004 D3).
+    def initialize(relation:, columns:, selection:, decoders:, limit:, refuse_when_cut: false)
+      @refuse_when_cut = refuse_when_cut
       @relation = relation
       @columns = columns
       @selection = selection
@@ -22,6 +24,7 @@ module DataTeller
       raw = limited.pluck(*aliased_selection)
       raw = raw.map { |value| [ value ] } if @selection.one?
       rows = raw.map { |row| decode(row) }
+      raise Compiler::Refused.new(:too_many_groups) if @refuse_when_cut && truncated?(rows)
 
       Result.new(columns: @columns, rows: rows.first(@limit || rows.size), truncated: truncated?(rows))
     end

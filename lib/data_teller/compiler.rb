@@ -11,9 +11,6 @@ module DataTeller
       end
     end
 
-    DEFAULT_MAX_GROUPS = 50
-    ROW_CAP = 1_000
-
     # A parameter the database receives apart from the SQL: the query's text can never become part of the statement.
     def self.bind(klass, column, value)
       Arel::Nodes::BindParam.new(
@@ -46,6 +43,7 @@ module DataTeller
     private
 
     def build_plan
+      check_join_cap
       check_default_scopes
       # A default order cannot apply to an aggregate. Everything else a default_scope could hold is refused just above.
       relation = apply_scope_segments(@klass.all.unscope(:order))
@@ -61,7 +59,7 @@ module DataTeller
         raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
       end
 
-      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit)
+      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, refuse_when_cut: time_series?)
     end
 
     # ---- what the query touches
@@ -87,6 +85,13 @@ module DataTeller
     end
 
     # ---- segments and joins
+
+    def check_join_cap
+      joined = touched_datasets.size - 1
+      return if joined <= limits.max_joins
+
+      raise Refused.new(:unsupported_query, "#{joined} tables joined, the limit is #{limits.max_joins}")
+    end
 
     def check_default_scopes
       touched_datasets.each { |dataset| ScopeInspector.check_default_scope(dataset.model_name.constantize) }
@@ -305,10 +310,18 @@ module DataTeller
     # Grouping by a high-cardinality dimension is capped, the query's own limit can only lower that (ADR 0004 D3).
     def row_limit
       return nil if group_nodes.empty?
+      return limits.max_time_points if time_series?
 
-      cap = high_cardinality_field ? (high_cardinality_field.dimension.max_groups || DEFAULT_MAX_GROUPS) : ROW_CAP
+      cap = high_cardinality_field ? (high_cardinality_field.dimension.max_groups || limits.default_max_groups) : limits.max_rows
       [ @query["limit"], cap ].compact.min
     end
+
+    # A series the user did not cap themselves. Cutting it would hide its end: "by day over 5 years" needs a wider granularity.
+    def time_series?
+      @query["limit"].nil? && !high_cardinality_field && group_fields.any?(&:date?)
+    end
+
+    def limits = DataTeller.config
 
     def selection = [ *group_nodes, metric_node ]
     def columns = [ *group_items.map { |item| item["dimension"] }, @metric.name.to_s ]

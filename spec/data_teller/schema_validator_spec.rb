@@ -136,13 +136,12 @@ RSpec.describe DataTeller::SchemaValidator do
       expect(scope_errors(:not_a_relation)).to contain_exactly(/segment x: scope :not_a_relation/)
     end
 
-    it "rolls back a scope that writes while being inspected" do
+    it "reports a scope that writes while being inspected, without letting it write" do
       account = Account.create!(name: "Spec", time_zone: "UTC")
       customer = account.customers.create!(name: "Spec", email: "spec@example.test")
       order = account.orders.create!(customer: customer, status: :paid, total_cents: 1, ordered_at: Time.current)
 
-      scope_errors(:writes)
-
+      expect(scope_errors(:writes)).to contain_exactly(/segment x: scope :writes failed when called, it may be trying to write/)
       expect(order.reload.status).to eq("paid")
     ensure
       order&.destroy

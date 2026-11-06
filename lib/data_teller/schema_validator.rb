@@ -5,6 +5,7 @@ module DataTeller
     NUMBER_TYPES = %i[integer bigint decimal float].freeze
     DATE_TYPES = %i[date datetime timestamp timestamptz].freeze
     TEXT_TYPES = %i[string text citext].freeze
+    SCOPE_CHECK_TIMEOUT = 5
 
     def initialize(registry:)
       @registry = registry
@@ -87,15 +88,14 @@ module DataTeller
     end
 
     # Calling a scope is the only way to inspect it, and only what `scope` defined gets called, so a class method never is.
-    # The rollback is there because a scope is still code: it should not write, but this must not find out the hard way
-    # on a CI or staging database.
+    # Read-only because a scope is still code: it should not write, but this must not find out the hard way on a CI or
+    # staging database.
     def check_scope(at, klass, name)
-      klass.transaction(requires_new: true) do
-        ScopeInspector.conditions(klass, name)
-        raise ActiveRecord::Rollback
-      end
+      ReadOnlyExecution.run(klass, timeout: SCOPE_CHECK_TIMEOUT) { ScopeInspector.conditions(klass, name) }
     rescue ScopeInspector::Rejected => e
       @errors << "#{at}: #{e.message}"
+    rescue ActiveRecord::StatementInvalid => e
+      @errors << "#{at}: scope :#{name} failed when called, it may be trying to write (#{e.class})"
     end
 
     def check_default_scope(dataset, klass)

@@ -35,6 +35,8 @@ RSpec.describe "Tenant isolation matrix" do
     lock: [ :refuse, -> { lock } ],
     another_model: [ :refuse, -> { Customer.where(city: "Paris") } ],
     not_a_relation: [ :refuse, -> { 42 } ],
+    writes_when_called: [ :refuse, -> { unscoped.update_all(total_cents: SENTINEL) && where(status: 1) } ],
+    deletes_when_called: [ :refuse, -> { unscoped.delete_all && where(status: 1) } ],
     calls_unscoped: [ :narrow, -> { unscoped } ],
     unscoped_with_another_tenant: [ :narrow, -> { unscoped.where(account_id: Account.find_by!(name: "Globex").id) } ],
     rewhere_another_tenant: [ :refuse, -> { rewhere(account_id: Account.find_by!(name: "Globex").id) } ],
@@ -93,9 +95,15 @@ RSpec.describe "Tenant isolation matrix" do
   def attempt(catalog, dataset, shape, extra_filters: [])
     query = { "version" => 1, "intent" => "answer", "dataset" => dataset }.merge(shape)
     query["filters"] = Array(query["filters"]) + extra_filters
-    DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current).call(query).execute.rows
-  rescue DataTeller::Compiler::Refused
+    model = catalog.dataset(dataset).model_name.constantize
+
+    DataTeller::ReadOnlyExecution.run(model, timeout: 5) do
+      DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current).call(query).execute.rows
+    end
+  rescue DataTeller::Compiler::Refused, ActiveRecord::StatementInvalid
     :refused
+  ensure
+    expect(Order.where(account: acme).sum(:total_cents)).to eq(OWN_TOTAL) # nothing was written, whatever happened
   end
 
   def expect_no_leak(outcome)

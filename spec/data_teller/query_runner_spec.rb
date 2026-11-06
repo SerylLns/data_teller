@@ -523,6 +523,145 @@ RSpec.describe DataTeller::QueryRunner do
     end
   end
 
+  describe "execution guards" do
+    # The published config is frozen: a variant built the same way a file would, with the settings of the example.
+    def with_settings(**settings)
+      config = DataTeller::Loader.capture do
+        DataTeller.configure do |c|
+          c.tenant do
+            model Account
+            resolve { |user| user.account }
+            time_zone(&:time_zone)
+          end
+          c.roles { |user| user.roles }
+          settings.each { |name, value| c.public_send("#{name}=", value) }
+        end
+      end.config
+      allow(DataTeller).to receive(:config).and_return(config)
+    end
+
+    describe "read-only" do
+      before(:all) do
+        Object.const_set(:SpecWriter, Class.new(ApplicationRecord))
+        SpecWriter.class_eval do
+          self.table_name = "orders"
+          belongs_to :account
+
+          scope :writes_when_called, -> { update_all(total_cents: 0) && where(status: 1) }
+        end
+      end
+
+      after(:all) { Object.send(:remove_const, :SpecWriter) }
+
+      # Calling a scope runs its code, at compile time: compilation has to be guarded too, not only the final query.
+      it "covers the compilation, where scopes are called" do
+        registry = DataTeller::Registry.new
+        registry.register(DataTeller::Dataset.new(model_name: "SpecWriter", roles: %i[admin], tenant_path: %i[account],
+                                                  metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
+                                                  segments: [ DataTeller::Segment.new(name: :x, scope: :writes_when_called, roles: :admin) ]))
+        catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+        allow(DataTeller::Catalog).to receive(:new).and_return(catalog)
+
+        outcome = run_query(answer("spec_writers", filters: [ { "segment" => "x" } ]))
+
+        expect(outcome.refusal.reason).to eq(:unsupported_query)
+        expect(Order.where(account: acme).sum(:total_cents)).to eq(4500)
+      end
+
+      it "runs the query in a read-only transaction" do
+        statements = sql_of { run_query(answer) }.map { |s| s[:sql] }
+
+        expect(statements).to include("SET TRANSACTION READ ONLY")
+        expect(statements.index("SET TRANSACTION READ ONLY")).to be < statements.index { |sql| sql.include?(%(FROM "orders")) }
+      end
+    end
+
+    describe "statement timeout" do
+      it "uses the configured value" do
+        with_settings(statement_timeout: 2)
+
+        expect(sql_of { run_query(answer) }.map { |s| s[:sql] }).to include("SET LOCAL statement_timeout = 2000")
+      end
+
+      it "gives a dedicated refusal, and the host's transaction goes on" do
+        with_settings(statement_timeout: 0.05)
+        allow_any_instance_of(DataTeller::Plan).to receive(:execute) { Order.with_connection { |c| c.execute("SELECT pg_sleep(2)") } }
+        allow(Rails.logger).to receive(:error)
+
+        expect(run_query(answer).refusal.reason).to eq(:query_timeout)
+        expect { alice.update!(city: "Nice") }.not_to raise_error
+      end
+    end
+
+    describe "time series (ADR 0004 D3)" do
+      before do
+        with_settings(max_time_points: 2)
+        3.times { |i| order(acme, alice, ordered_at: Time.utc(2026, 1 + i, 15)) }
+      end
+
+      def by_month(**rest) = answer(group_by: [ by("ordered_at", "month") ], **rest)
+
+      # A top N of days means nothing: the user has to ask for a wider granularity.
+      it "are refused with too_many_groups beyond the cap, not truncated" do
+        expect(run_query(by_month).refusal.reason).to eq(:too_many_groups)
+      end
+
+      it "are answered when the period keeps them under the cap" do
+        period = { "dimension" => "ordered_at", "range" => { "between" => { "from" => "2026-01-01", "to" => "2026-02-28" } } }
+
+        expect(run_query(by_month(period: period)).result.rows.size).to eq(2)
+      end
+
+      it "are answered with an explicit top N, which the user asked for" do
+        result = run_query(by_month(order_by: { "by" => "metric", "dir" => "desc" }, limit: 2)).result
+
+        expect(result.rows.size).to eq(2)
+        expect(result.truncated).to be(true)
+      end
+
+      it "do not apply when a high-cardinality dimension already caps the query" do
+        expect(run_query(answer(group_by: [ by("customer.name"), by("ordered_at", "month") ])).status).to eq(:answered)
+      end
+    end
+
+    describe "row and group caps" do
+      it "uses max_rows on any grouped query" do
+        with_settings(max_rows: 1)
+
+        result = run_query(answer(group_by: [ by("status") ])).result
+
+        expect(result.rows.size).to eq(1)
+        expect(result.truncated).to be(true)
+      end
+
+      it "uses default_max_groups when a dimension has no max_groups" do
+        with_settings(default_max_groups: 1)
+        registry = DataTeller::Registry.new
+        registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account],
+                                                  metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
+                                                  dimensions: [ DataTeller::Dimension.new(name: :customer_id, group: true) ]))
+        catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+        allow(DataTeller::Catalog).to receive(:new).and_return(catalog)
+
+        expect(run_query(answer(group_by: [ by("customer_id") ])).result.rows.size).to eq(1)
+      end
+    end
+
+    describe "join cap (ADR 0001 D4)" do
+      it "refuses a query joining too many tables" do
+        with_settings(max_joins: 0)
+
+        expect(run_query(answer(filters: [ filter("customer.city", "eq", "Paris") ])).refusal.reason).to eq(:unsupported_query)
+      end
+
+      it "accepts one under the cap" do
+        with_settings(max_joins: 1)
+
+        expect(run_query(answer(filters: [ filter("customer.city", "eq", "Paris") ])).status).to eq(:answered)
+      end
+    end
+  end
+
   describe "refusals" do
     it "refuses what the validator refuses, without running anything" do
       statements = sql_of { expect(run_query(answer("invoices")).refusal.reason).to eq(:unknown_dataset) }

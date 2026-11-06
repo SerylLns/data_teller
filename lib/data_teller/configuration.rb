@@ -6,7 +6,19 @@ module DataTeller
   class Configuration
     ON_INVALID_CONFIG = %i[raise disable].freeze
 
-    attr_reader :on_invalid_config, :ui, :roles_resolver
+    LIMITS = {
+      # Seconds. Postgres reads 0 as "no timeout", which is why zero is refused below.
+      statement_timeout: 5,
+      # Applies to a high-cardinality group_by whose dimension has no max_groups (ADR 0004 D3).
+      default_max_groups: 50,
+      max_rows: 1_000,
+      # Beyond this a date series is refused, not cut: a top N of days means nothing.
+      max_time_points: 366,
+      # Tables joined for one query (ADR 0001 D4).
+      max_joins: 5
+    }.freeze
+
+    attr_reader :on_invalid_config, :ui, :roles_resolver, *LIMITS.keys
     attr_accessor :llm
 
     def initialize
@@ -17,6 +29,27 @@ module DataTeller
       @roles_resolver = nil
       @llm = nil
       @authorization = nil
+      LIMITS.each { |name, value| instance_variable_set(:"@#{name}", value) }
+    end
+
+    # A typo here must never mean "no limit".
+    def statement_timeout=(value)
+      unless value.is_a?(Numeric) && value.positive?
+        raise ConfigurationError, "statement_timeout must be a positive number of seconds, got #{value.inspect}"
+      end
+
+      @statement_timeout = value
+    end
+
+    LIMITS.keys.without(:statement_timeout).each do |name|
+      define_method(:"#{name}=") do |value|
+        minimum = name == :max_joins ? 0 : 1
+        unless value.is_a?(Integer) && value >= minimum
+          raise ConfigurationError, "#{name} must be an Integer of at least #{minimum}, got #{value.inspect}"
+        end
+
+        instance_variable_set(:"@#{name}", value)
+      end
     end
 
     # The published configuration holds the tenant resolver: nothing may swap it once it has been validated.

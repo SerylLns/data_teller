@@ -29,8 +29,12 @@ module DataTeller
     rescue Compiler::Refused => e
       Rails.logger&.info("[DataTeller] query refused by the compiler: #{e.reason}")
       refused(e.reason)
+    rescue ActiveRecord::QueryCanceled => e
+      Rails.logger&.error("[DataTeller] query cancelled by the statement timeout: #{e.class}")
+      refused(:query_timeout)
     rescue ActiveRecord::StatementInvalid => e
-      # A column missing despite `rake data_teller:check` (ADR 0004 D6). Only the class: the message holds SQL and values.
+      # A column missing despite `rake data_teller:check` (ADR 0004 D6), or a scope that tried to write.
+      # Only the class: the message holds SQL and values.
       Rails.logger&.error("[DataTeller] query failed in the database: #{e.class}")
       refused(:unsupported_query)
     end
@@ -41,8 +45,12 @@ module DataTeller
       time_zone = needs_time_zone? ? DataTeller.config.time_zone_for(tenant) : Time.zone
       return refused(:unsupported_query) unless time_zone
 
-      plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
-      Outcome.new(status: :answered, query: @query, result: plan.execute, refusal: nil)
+      model = catalog.dataset(@query["dataset"]).model_name.constantize
+      result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout) do
+        Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query).execute
+      end
+
+      Outcome.new(status: :answered, query: @query, result: result, refusal: nil)
     end
 
     # A count has no "today": a tenant's broken time zone must not refuse it.
