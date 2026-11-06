@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders\nDROP TABLE orders",
+  "metric": "count"
+}

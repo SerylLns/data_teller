@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "metric": "count",
+  "period": { "dimension": "ordered_at", "range": { "on": "2024-99-99" } }
+}

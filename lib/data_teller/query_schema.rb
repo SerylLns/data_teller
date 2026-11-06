@@ -7,8 +7,10 @@ module DataTeller
   module QuerySchema
     PATH = File.expand_path("schema/query_v1.json", __dir__)
 
+    # ECMA is the regexp dialect of JSON Schema. With the default Ruby dialect `^` and `$` match at every line,
+    # so "orders\nDROP TABLE orders" would satisfy an anchored pattern.
     def self.schemer
-      @schemer ||= JSONSchemer.schema(Pathname.new(PATH))
+      @schemer ||= JSONSchemer.schema(Pathname.new(PATH), regexp_resolver: "ecma")
     end
 
     def self.valid?(query)
