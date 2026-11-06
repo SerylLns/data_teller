@@ -142,6 +142,25 @@ RSpec.describe "DataTeller declarations" do
       expect(different.freeze!.version).not_to eq(first)
     end
 
+    def version_of(**parts)
+      described_class.new.tap { |r| r.register(DataTeller::Dataset.new(model_name: "Order", roles: [ :admin ], **parts)) }.freeze!.version
+    end
+
+    it "does not depend on the order of roles or of a condition's keys and lists" do
+      metric = ->(roles) { [ DataTeller::Metric.new(name: :x, aggregation: :count, roles: roles) ] }
+      segment = ->(where) { [ DataTeller::Segment.new(name: :x, where: where) ] }
+
+      expect(version_of(metrics: metric.call(%i[a b]))).to eq(version_of(metrics: metric.call(%i[b a])))
+      expect(version_of(segments: segment.call({ a: 1, b: 2 }))).to eq(version_of(segments: segment.call({ b: 2, a: 1 })))
+      expect(version_of(segments: segment.call({ a: %i[x y] }))).to eq(version_of(segments: segment.call({ a: %i[y x] })))
+    end
+
+    it "keeps the order of a ratio, where a / b is not b / a" do
+      ratio = ->(of) { [ DataTeller::Metric.new(name: :x, aggregation: :ratio, of: of) ] }
+
+      expect(version_of(metrics: ratio.call(%i[a b]))).not_to eq(version_of(metrics: ratio.call(%i[b a])))
+    end
+
     it "does not depend on declaration order for the version" do
       one = described_class.new
       two = described_class.new

@@ -26,13 +26,26 @@ module DataTeller
         model: model_name,
         roles: roles&.sort,
         synonyms: synonyms.sort,
-        metrics: metrics.sort.to_h { |key, metric| [ key, metric.to_h ] },
-        dimensions: dimensions.sort.to_h { |key, dimension| [ key, dimension.to_h ] },
-        segments: segments.sort.to_h { |key, segment| [ key, segment.to_h ] }
+        metrics: metrics.sort.to_h { |key, metric| [ key, canonical_member(metric) ] },
+        dimensions: dimensions.sort.to_h { |key, dimension| [ key, canonical_member(dimension) ] },
+        segments: segments.sort.to_h { |key, segment| [ key, canonical_member(segment) ] }
       }
     end
 
     private
+
+    # `of` keeps its order: a / b is not b / a. Everything else is a set, or a condition whose order means nothing.
+    def canonical_member(member)
+      member.to_h.to_h { |key, value| [ key, key == :of ? value : canonical(value) ] }
+    end
+
+    def canonical(value)
+      case value
+      when Hash then value.sort_by { |key, _| key.to_s }.to_h { |key, item| [ key, canonical(item) ] }
+      when Array then value.map { |item| canonical(item) }.sort_by(&:to_s)
+      else value
+      end
+    end
 
     # model_name is passed in because the reader returns nil until `super` has run.
     def index_by_name(model_name, items, kind)
