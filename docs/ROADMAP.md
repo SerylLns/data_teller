@@ -23,6 +23,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, group_by cardinality cap, join cap. `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** resolved in the compiler.
 - **T35 Permission basics.** Roles on dataset / metric / dimension; path permissions inherited from target. `[sec]`
+  Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.
 - **T36 Aggregate disclosure.** Declarative `min_group_size`, small-cell suppression; documents the differencing limit. `[sec]`
 - **T37 Database read-only role.** SELECT-only role with column-level GRANTs on exposed columns; boot check; recommended, not mandatory. `[sec]`
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
@@ -53,6 +54,10 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T32 Per-tenant/user rate limit + token budget.** `[perf]` `[sec]`
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Install generator.** Core piece since ADR 0001 D4. Consider pulling it forward.
+- **T40 `data_teller-demo` repository** (after M3 and T33). Separate Rails app using the gem like an integrator: Accounts/Users/roles,
+  Pundit, several tenants, reusing the dummy's models and fake seeds. Scripted security demo = the Security Test Kit scenarios
+  (other-tenant data, forbidden column, injection attempt), with a replay mode of recorded LLM responses so it is deterministic.
+  Wording: even if the LLM is fooled, the query stays inside tenant and column limits. Product ranking starts from a LineItem dataset (belongs_to path).
 - **T39 Optional Postgres RLS** (`SET LOCAL` tenant id), defense in depth. `[sec]`
 
 ## V1
