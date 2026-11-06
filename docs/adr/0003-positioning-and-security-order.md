@@ -15,7 +15,7 @@ layer that is ActiveRecord-native (business concepts, not free schema exploratio
 (Cube, dbt); the Rails-native, authorization-aware, end-user angle is what we claim.
 
 Claims rule: no absolute wording ("impossible to bypass"). Every guarantee is stated as something the Security Test Kit verifies.
-TODO before part 0 is published: a short competitive check so "why not use what exists" is accurate.
+A competitive check was done on 2026-11-06 (see below). Re-verify the closest projects directly on GitHub/rubygems before part 0 is published.
 
 ## Security additions (new tickets T35-T39)
 
@@ -43,3 +43,27 @@ eval + LLM baseline -> RAG -> trust UX -> hardening. The LLM lands around series
 Why: coherent with a security positioning, avoids building LLM flows on an unsafe base, and the core is cheap to test
 without a model. Rejected: strict security-first order with the LLM sixth of eight (months without any AI content,
 which contradicts the project's learning goal), and keeping the previous order (compiler after the LLM and RAG).
+
+## Competitive check (2026-11-06)
+
+Source: web research by a subagent; much of it comes from marketing pages and listicles. Treat as a starting point, not proof.
+
+Rails/Ruby ecosystem (all small and young, admin-oriented):
+- `blazer-ai`, `query_lens`, `rails-nl2sql`: text-to-SQL for admins. `query_lens` and `Glancer` already have read-only transactions,
+  timeouts and audit logs (these are table stakes, not differentiators).
+- `Glancer`: RAG chat engine; default mode generates SQL, `:activerecord` mode generates Ruby filtered by a denylist.
+  No tenant handling or host authorization found.
+- `ai_record_finder`: **closest Rails project**. LLM emits a JSON DSL validated and compiled to ActiveRecord with an association
+  whitelist; claims "tenant-safe" without documenting how. AGPL-3.0, very few downloads. No semantic layer, Pundit or test kit found.
+  Verify its maintenance status directly (conflicting signals).
+- Outside Rails: Cube (semantic layer with an AI API and multi-tenancy; same philosophy, but an external service over a warehouse),
+  Metabase (AI in the open-source edition), Vanna (archived), WrenAI, and embedded-analytics products (Luzmo, Holistics, Explo, ThoughtSpot).
+  Not verified in depth.
+
+What holds up: end-user orientation within the Rails ecosystem; reuse of the host app's authorization (Pundit), found nowhere else;
+an ActiveRecord-native declarative semantic layer. What does not hold as a unique claim: "no text-to-SQL" (Cube, ai_record_finder),
+"tenant-safe NL queries", "no data sent to the LLM".
+
+Claims to avoid: "first NL query for Rails", "first to avoid text-to-SQL", presenting read-only/audit/timeouts as differentiators.
+Claim the mechanism instead (compiler-injected tenant scope, host authorization reuse, declared semantic layer) and the evidence
+(Security Test Kit). Honest framing vs Cube: it lives inside the Rails app, queries its own models and reuses its authorization.
