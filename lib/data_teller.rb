@@ -38,6 +38,32 @@ module DataTeller
       registry.register(builder.build)
     end
 
+    # Loads, validates and, only if everything is valid, freezes the declarations and enables the engine.
+    # Both failure modes leave the engine disabled (fail closed); the setting decides whether the host app also
+    # refuses to boot (ADR 0004 D6). A broken declaration file is treated like any other invalid configuration.
+    def boot!(root)
+      problems = begin
+        Loader.load!(root)
+        Validator.new.call.errors
+      rescue Error => e
+        [ e.message ]
+      end
+
+      @enabled = problems.empty?
+      return registry.freeze! if @enabled
+
+      message = Validator::Report.new(errors: problems, warnings: []).message
+      raise ConfigurationError, message if config.on_invalid_config == :raise
+
+      Rails.logger&.error("[DataTeller] DISABLED, configuration is invalid and on_invalid_config is :disable. #{message}")
+      nil
+    end
+
+    # False until a boot validated the configuration, so that nothing is served by default.
+    def enabled?
+      @enabled == true
+    end
+
     # Development reloads: declarations are rebuilt, global settings are kept.
     def registry_reset!
       @registry = nil
@@ -47,6 +73,7 @@ module DataTeller
     def reset!
       @config = nil
       @registry = nil
+      @enabled = false
     end
   end
 end
