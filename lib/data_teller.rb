@@ -18,7 +18,7 @@ module DataTeller
     # What is published here has been validated. Until a boot succeeds these are an empty configuration, so no tenant
     # and no role, and an empty frozen registry, so nothing is exposed.
     def config
-      @config ||= Configuration.new
+      @config ||= Configuration.new.freeze
     end
 
     def registry
@@ -106,7 +106,7 @@ module DataTeller
     end
 
     def open!(report)
-      @config = report.config
+      @config = report.config.freeze
       @registry = report.registry.freeze!
       @enabled = true
     end

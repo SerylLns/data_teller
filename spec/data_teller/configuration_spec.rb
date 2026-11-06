@@ -96,6 +96,31 @@ RSpec.describe DataTeller::Configuration do
   end
 end
 
+RSpec.describe "The published configuration" do
+  it "cannot be changed once the engine is running, so a resolver cannot be swapped at runtime" do
+    expect(DataTeller).to be_enabled
+
+    expect { DataTeller.config.tenant { |user| user } }.to raise_error(FrozenError)
+    expect { DataTeller.config.expose "Hack" }.to raise_error(FrozenError)
+    expect { DataTeller.config.on_invalid_config = :disable }.to raise_error(FrozenError)
+    expect { DataTeller.config.ui.theme = :dark }.to raise_error(FrozenError)
+  end
+
+  it "cannot be filled in behind the validator while the engine is closed" do
+    DataTeller.reset!
+
+    expect { DataTeller.config.tenant { |user| user } }.to raise_error(FrozenError)
+  ensure
+    DataTeller.boot!(Rails.root)
+  end
+
+  it "stays writable while a file is being loaded" do
+    loaded = DataTeller::Loader.capture { DataTeller.configure { |c| c.tenant { |user| user } } }
+
+    expect(loaded.config.tenant_resolver).to be_present
+  end
+end
+
 RSpec.describe "DataTeller.configure" do
   it "writes into the configuration being loaded" do
     config = DataTeller::Loader.capture do

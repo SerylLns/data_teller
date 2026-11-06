@@ -18,6 +18,13 @@ module DataTeller
       @authorization = nil
     end
 
+    # The published configuration holds the tenant resolver: nothing may swap it once it has been validated.
+    def freeze
+      @ui.freeze
+      @exposed_models.freeze
+      super
+    end
+
     # Both modes fail closed (ADR 0004 D6); the choice is about the host app's availability.
     def on_invalid_config=(value)
       unless ON_INVALID_CONFIG.include?(value)
