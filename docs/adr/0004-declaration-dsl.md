@@ -26,9 +26,31 @@ Rejected: concern inside each model (touches models, scatters the exposed surfac
 a single initializer for everything (unreadable beyond a few models); autoloaded `app/data_teller/` (code-like, harder to review as config).
 Possible later: support the autoloaded layout without breaking this one.
 
+## D2 — Metrics: closed aggregation vocabulary, segments for business logic, `ratio:` for derived metrics (decided, "B")
+
+```ruby
+metric :count                                    # implicit
+metric :revenue,    sum: :total_cents, format: :money
+metric :avg_basket, ratio: [:revenue, :count]    # division guarded against zero by the compiler
+metric :customers,  count_distinct: :customer_id
+```
+
+- Aggregations are a closed set: `count`, `sum`, `avg`, `min`, `max`, `count_distinct`. A metric never contains free code.
+- Business logic lives in segments (e.g. "to ship tomorrow" = segment `paid` + period `ship_on: tomorrow`), not in metrics.
+- Four distinct responsibilities: metric (what is measured), segment (reusable business definition, developer-declared),
+  filter (dynamic condition, LLM-filled and validated), period (time, LLM-filled and validated; ADR 0001 D1).
+- A segment never contains a relative date ("tomorrow", "last month"): time is resolved by the compiler with the tenant time zone.
+
+Why: validated, explained and tested by the compiler alone; no way for a metric to bypass the tenant scope or read a hidden column;
+consistent with ADR 0001 D6 (one metric per query, derived metrics declared by the developer).
+
+Performance: `avg` and `count_distinct` cost more than `count`; the complexity budget (T38) can flag heavy metrics.
+
+Rejected: free lambdas in metrics (date frozen at load time, tenant time zone ignored, arbitrary code, not describable in one sentence);
+aggregations only with no ratio (cannot express average basket without a developer-written query).
+
 ## Pending
 
-- D2 how metrics are declared (sum/count/avg, business scopes, derived metrics)
 - D3 dimensions and their types (date, enum, lookup, hidden)
 - D4 segments (reuse existing scopes by name vs inline definitions)
 - D5 roles and permissions in the DSL
