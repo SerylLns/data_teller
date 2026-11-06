@@ -29,7 +29,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T23 Compiler IR -> ActiveRecord.** Bound parameters only, whitelisted operators, escape LIKE wildcards. A column missing at execution means a refusal (ADR 0004 D6). `[sec]`
 - **T24 Tenant path + injection** on every table touched (joins, lookups), applied last on top of segments with a structural presence check. Specs: default_scope, soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards.** Read-only transaction, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
-  (`max_groups` per dimension, `LIMIT n+1` check, top-N required for high-cardinality group_by, time-series point cap). `[perf]` `[sec]`
+  (`max_groups` per dimension with a global default, automatic top-N with `LIMIT n+1` and a `truncated` flag, time-series point cap, `too_many_groups` refusal). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** resolved in the compiler.
 - **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
   inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`
@@ -57,7 +57,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). `[sec]`
 
 ## M5 — Trust UX
-- **T28 Deterministic explanation** (i18n templates, escaped values). Missing I18n keys become warnings in `Report#warnings`, empty until then. `[sec]`
+- **T28 Deterministic explanation** (i18n templates, escaped values, says when a result is truncated). Missing I18n keys become warnings in `Report#warnings`, empty until then. `[sec]`
 - **T29 Clarification + refusal** (ADR 0001 D5).
 - **T30 Engine endpoint + production UI** (builds on T13b).
 

@@ -82,13 +82,14 @@ list of customers in disguise, i.e. row-level disclosure presented as an aggrega
   Dates are bounded by period and granularity. The install generator can read `pg_stats.n_distinct` to suggest the class.
 - **Default.** `group` is allowed by default only on low-cardinality dimensions; high-cardinality ones need `group: true`
   with an explicit `max_groups` (global default configurable, e.g. 50).
-- **Enforcement at execution.** The grouped query runs with `LIMIT max_groups + 1`; if the extra row appears the result is
-  truncated to the top N (a high-cardinality `group_by` requires `order_by` and `limit`, otherwise it is refused).
-- **Time series.** A date granularity over a long period is capped (a maximum number of points, e.g. 366); beyond it the query is refused.
-- **Two group_by.** The cap applies to the product of both dimensions, so two high-cardinality dimensions cannot be combined.
+- **Enforcement at execution** (amended 2026-11-06). A `group_by` on a high-cardinality dimension without `order_by` or `limit` is not refused: "revenue per customer"
+  is a normal question. The compiler orders by the metric, descending, and caps at `max_groups`. It runs with `LIMIT max_groups + 1`; if the extra row appears the
+  result is truncated and marked `truncated`, and the explanation says so ("the top 20 customers"), otherwise the user would take it for the full list.
+- **Time series.** A date granularity over a long period is capped (a maximum number of points, e.g. 366); beyond it the query is refused, because a top N of days means nothing. The user can ask for a wider granularity.
+- **Two group_by.** Two high-cardinality dimensions cannot be combined: a top N of that cross rarely answers the question, so the query is refused.
 - **Privacy.** `min_group_size` (T36) applies per group on top of this: small groups are suppressed even within the top N.
-- **Refusals** use the same structured payload as ADR 0001 D5. Open point: reuse `unsupported_query` or add a dedicated
-  reason (e.g. `too_many_groups`) to the closed list; decide before the validator ticket (T22).
+- **Refusals.** The two cases above use a dedicated reason, `too_many_groups`, because the user only has to narrow the question, unlike `unsupported_query`.
+  Only the engine can know this, so it is a reason of the engine's refusal (T22, T25), and not a value the LLM can pick: it stays out of `query_v1.json`.
 
 Why: explicit exposure kept, types not duplicated, and the cost and leak potential of grouping is a declared, enforced limit
 instead of a hope.
