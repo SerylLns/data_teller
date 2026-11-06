@@ -9,6 +9,7 @@ require "data_teller/dataset"
 require "data_teller/dataset_builder"
 require "data_teller/registry"
 require "data_teller/loader"
+require "data_teller/validator"
 require "data_teller/engine"
 require "data_teller/query_schema"
 
