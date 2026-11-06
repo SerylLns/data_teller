@@ -97,21 +97,24 @@ RSpec.describe DataTeller::Configuration do
 end
 
 RSpec.describe "DataTeller.configure" do
-  after { DataTeller.reset! }
+  it "writes into the configuration being loaded" do
+    config = DataTeller::Loader.capture do
+      DataTeller.configure do |c|
+        c.on_invalid_config = :disable
+        c.ui.theme = :dark
+      end
+    end.config
 
-  it "yields the global configuration and keeps it" do
-    DataTeller.configure do |c|
-      c.on_invalid_config = :disable
-      c.ui.theme = :dark
-    end
-
-    expect(DataTeller.config.on_invalid_config).to eq(:disable)
-    expect(DataTeller.config.ui.theme).to eq(:dark)
+    expect(config.on_invalid_config).to eq(:disable)
+    expect(config.ui.theme).to eq(:dark)
   end
 
-  it "starts clean after reset!" do
-    DataTeller.configure { |c| c.ui.mode = :inline }
-    DataTeller.reset!
+  it "does not touch the live configuration" do
+    live = DataTeller.config
+
+    DataTeller::Loader.capture { DataTeller.configure { |c| c.ui.mode = :inline } }
+
+    expect(DataTeller.config).to equal(live)
     expect(DataTeller.config.ui.mode).to eq(:modal)
   end
 end

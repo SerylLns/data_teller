@@ -5,5 +5,13 @@ module DataTeller
   class ConfigurationError < Error; end
 
   # Raised for an invalid dataset, metric, dimension or segment declaration.
-  class DeclarationError < Error; end
+  # A refine block can hold several mistakes; `problems` lets the report list each of them.
+  class DeclarationError < Error
+    attr_reader :problems
+
+    def initialize(problems = nil)
+      @problems = Array(problems)
+      super(@problems.join("; "))
+    end
+  end
 end

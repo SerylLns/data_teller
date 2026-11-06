@@ -1,30 +1,38 @@
 require "rails_helper"
-require "rake"
-require "tmpdir"
+require "open3"
 
+# Run for real, in a separate process: under the default :raise, an in-process spec with a stubbed :environment task
+# would hide the fact that the boot raises before the task gets to report anything.
 RSpec.describe "rake data_teller:check" do
-  before(:all) do
-    Rake::Task.define_task(:environment)
-    load File.expand_path("../../lib/tasks/data_teller_tasks.rake", __dir__)
+  let(:dummy) { Rails.root }
+  let(:broken_file) { dummy.join("config/data_teller/zz_broken_by_check_task_spec.rb") }
+
+  def run_task
+    Open3.capture3({ "RAILS_ENV" => "test" }, "bundle", "exec", "rake", "data_teller:check", chdir: dummy.to_s)
   end
 
-  before { Rake::Task["data_teller:check"].reenable }
-  # Rails.root is stubbed in one example and after hooks run before stubs are removed, hence the explicit path.
-  after { DataTeller.boot!(Pathname(File.expand_path("../dummy", __dir__))) }
+  it "reports the declared datasets and exits 0 when the configuration is valid" do
+    stdout, _stderr, status = run_task
 
-  it "reports the declared datasets when the configuration is valid" do
-    expect { Rake::Task["data_teller:check"].invoke }.to output(/DataTeller: OK \(2 datasets: customers, orders\)/).to_stdout
+    expect(stdout).to include("DataTeller: OK (2 datasets: customers, orders)")
+    expect(status.exitstatus).to eq(0)
   end
 
-  it "exits non-zero and prints every problem when it is invalid" do
-    Dir.mktmpdir do |dir|
-      root = Pathname(dir)
-      allow(Rails).to receive(:root).and_return(root)
-      DataTeller.reset!
+  it "exits 1 and prints every problem itself when the configuration is invalid" do
+    broken_file.write(<<~RUBY)
+      DataTeller.refine "Invoice" do
+        metric :x, median: :a
+      end
+    RUBY
 
-      expect { Rake::Task["data_teller:check"].invoke }
-        .to raise_error(SystemExit) { |error| expect(error.status).to eq(1) }
-        .and output(/no tenant resolver/).to_stderr
-    end
+    stdout, stderr, status = run_task
+
+    expect(status.exitstatus).to eq(1)
+    expect(stderr).to include("DataTeller configuration is invalid")
+    expect(stderr).to match(/zz_broken_by_check_task_spec\.rb:\d+: .*aggregation/)
+    expect(stderr).not_to include("rake aborted")
+    expect(stdout).not_to include("OK")
+  ensure
+    broken_file.delete if broken_file.exist?
   end
 end

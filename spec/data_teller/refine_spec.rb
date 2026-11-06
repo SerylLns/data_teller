@@ -1,12 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "DataTeller.refine" do
-  before { DataTeller.reset! }
-  after { DataTeller.reset! }
-
   def refine_orders(&block)
-    DataTeller.refine(Order, &block)
-    DataTeller.registry.dataset(:orders)
+    DataTeller::Loader.capture { DataTeller.refine(Order, &block) }.registry.dataset(:orders)
   end
 
   it "builds a dataset from the block and registers it" do
@@ -29,8 +25,8 @@ RSpec.describe "DataTeller.refine" do
   end
 
   it "accepts the model as a class or as a name" do
-    DataTeller.refine("Order") { roles :admin }
-    expect(DataTeller.registry.dataset(:orders).model_name).to eq("Order")
+    registry = DataTeller::Loader.capture { DataTeller.refine("Order") { roles :admin } }.registry
+    expect(registry.dataset(:orders).model_name).to eq("Order")
   end
 
   it "adds the implicit count metric unless it is declared" do
@@ -48,7 +44,7 @@ RSpec.describe "DataTeller.refine" do
 
   describe "declaration errors" do
     it "needs a block" do
-      expect { DataTeller.refine(Order) }.to raise_error(DataTeller::DeclarationError, /block/)
+      expect { DataTeller::Loader.capture { DataTeller.refine(Order) } }.to raise_error(DataTeller::DeclarationError, /block/)
     end
 
     it "rejects a metric without an aggregation, or with two" do
@@ -77,8 +73,11 @@ RSpec.describe "DataTeller.refine" do
 
     it "rejects a duplicate name inside a dataset and a dataset declared twice" do
       expect { refine_orders { dimension :status; dimension :status } }.to raise_error(DataTeller::DeclarationError, /twice/)
-      DataTeller.refine(Order) { roles :admin }
-      expect { DataTeller.refine(Order) { roles :admin } }.to raise_error(DataTeller::DeclarationError, /twice/)
+      expect do
+        DataTeller::Loader.capture do
+          2.times { DataTeller.refine(Order) { roles :admin } }
+        end
+      end.to raise_error(DataTeller::DeclarationError, /twice/)
     end
   end
 end

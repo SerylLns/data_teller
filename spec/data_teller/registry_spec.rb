@@ -153,13 +153,23 @@ RSpec.describe "DataTeller declarations" do
   end
 
   describe "DataTeller.registry" do
-    after { DataTeller.reset! }
+    after do
+      DataTeller.reset!
+      DataTeller.boot!(Rails.root)
+    end
 
     it "is shared until reset" do
       expect(DataTeller.registry).to equal(DataTeller.registry)
       first = DataTeller.registry
       DataTeller.reset!
       expect(DataTeller.registry).not_to equal(first)
+    end
+
+    it "is empty and frozen until a boot has validated declarations" do
+      DataTeller.reset!
+
+      expect(DataTeller.registry.datasets).to be_empty
+      expect(DataTeller.registry).to be_frozen
     end
   end
 end

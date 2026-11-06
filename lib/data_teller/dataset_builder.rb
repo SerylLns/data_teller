@@ -1,6 +1,7 @@
 module DataTeller
   # The block given to `DataTeller.refine`. It only collects declarations and hands them to the immutable value
   # objects, which do the validation: nothing in here evaluates user input or reads the database.
+  # A bad line does not stop the block, so that one run reports every mistake of a dataset.
   class DatasetBuilder
     METRIC_OPTIONS = %i[format sensitive roles].freeze
 
@@ -12,6 +13,7 @@ module DataTeller
       @metrics = []
       @dimensions = []
       @segments = []
+      @problems = []
     end
 
     def roles(*names)
@@ -23,22 +25,27 @@ module DataTeller
     end
 
     def metric(name, **options)
-      @metrics << build_metric(name, options)
+      collect_problems { @metrics << build_metric(name, options) }
     end
 
     def dimension(name, **options)
-      @dimensions << collect_errors { Dimension.new(name: name, **options) }
+      collect_problems { @dimensions << Dimension.new(name: name, **options) }
     end
 
     def segment(name, **options)
-      @segments << collect_errors { Segment.new(name: name, **options) }
+      collect_problems { @segments << Segment.new(name: name, **options) }
     end
 
     def build
-      Dataset.new(
-        model_name: @model_name, name: @name, roles: @roles, synonyms: @synonyms,
-        metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments
-      )
+      dataset = collect_problems do
+        Dataset.new(
+          model_name: @model_name, name: @name, roles: @roles, synonyms: @synonyms,
+          metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments
+        )
+      end
+      raise DeclarationError.new(@problems) if @problems.any?
+
+      dataset
     end
 
     private
@@ -62,12 +69,10 @@ module DataTeller
       aggregation, argument = :count, true if aggregations.empty? && name.to_s == "count"
       raise DeclarationError, "metric #{name.inspect}: give an aggregation, e.g. sum: :total_cents" if aggregation.nil?
 
-      collect_errors do
-        case aggregation
-        when :count then count_metric(name, argument, common)
-        when :ratio then Metric.new(name: name, aggregation: :ratio, of: argument, **common)
-        else Metric.new(name: name, aggregation: aggregation, column: argument, **common)
-        end
+      case aggregation
+      when :count then count_metric(name, argument, common)
+      when :ratio then Metric.new(name: name, aggregation: :ratio, of: argument, **common)
+      else Metric.new(name: name, aggregation: aggregation, column: argument, **common)
       end
     end
 
@@ -78,10 +83,14 @@ module DataTeller
     end
 
     # Unknown keywords surface as ArgumentError from Data.define; report them like any other declaration error.
-    def collect_errors
+    def collect_problems
       yield
+    rescue DeclarationError => e
+      @problems.concat(e.problems)
+      nil
     rescue ArgumentError => e
-      raise DeclarationError, "dataset #{@model_name}: #{e.message}"
+      @problems << "dataset #{@model_name}: #{e.message}"
+      nil
     end
   end
 end

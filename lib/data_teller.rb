@@ -15,67 +15,100 @@ require "data_teller/query_schema"
 
 module DataTeller
   class << self
+    # What is published here has been validated. Until a boot succeeds these are an empty configuration, so no tenant
+    # and no role, and an empty frozen registry, so nothing is exposed.
     def config
       @config ||= Configuration.new
     end
 
     def registry
-      @registry ||= Registry.new
+      @registry ||= Registry.new.freeze!
     end
 
+    # Only valid inside config/data_teller.rb. From an initializer the settings would be lost at the next load:
+    # refusing is better than a resolver that silently disappears.
     def configure
-      yield config
-      config
+      context = Loader.current
+      unless context
+        raise ConfigurationError, "DataTeller.configure belongs in #{Loader::GLOBAL_FILE}, which is loaded by the engine"
+      end
+
+      yield context.config
+      context.config
     end
 
     # Declares what is exposed for one model. Takes the class or its name, so a declaration file does not need the
-    # model to be loaded first.
+    # model to be loaded first. Only valid inside config/data_teller/*.rb, for the same reason as configure.
     def refine(model, name: nil, &block)
+      context = Loader.current
+      unless context
+        raise DeclarationError, "DataTeller.refine #{model.inspect} belongs in #{File.dirname(Loader::DATASET_FILES)}/, which is loaded by the engine"
+      end
       raise DeclarationError, "refine #{model.inspect} needs a block" unless block
 
       builder = DatasetBuilder.new(model.respond_to?(:name) ? model.name : model.to_s, name: name)
       builder.instance_eval(&block)
-      registry.register(builder.build)
+      context.registry.register(builder.build)
     end
 
-    # Loads and validates without side effects beyond (re)building the registry. Used by boot! and by
-    # `rake data_teller:check`. A broken declaration file is reported like any other invalid configuration.
+    # Loads and validates the files without touching the running engine: it is safe from a console or a health check.
     def check(root)
-      Loader.load!(root)
-      Validator.new.call
-    rescue Error => e
-      Validator::Report.new(errors: [ e.message ], warnings: [])
+      loaded = Loader.call(root)
+      Validator.new(
+        config: loaded.config, registry: loaded.registry,
+        load_errors: loaded.errors, skipped_checks: loaded.skipped_checks
+      ).call
     end
 
-    # Loads, validates and, only if everything is valid, freezes the declarations and enables the engine.
-    # Both failure modes leave the engine disabled (fail closed); the setting decides whether the host app also
-    # refuses to boot (ADR 0004 D6).
+    # The engine is closed first and opened last, so every way out of this method other than success leaves it closed.
+    # on_invalid_config comes from the file being loaded: if that file breaks before setting it, the default :raise
+    # applies, which is the loud and safe side (ADR 0004 D6).
     def boot!(root)
-      report = check(root)
-      @enabled = report.ok?
-      return registry.freeze! if @enabled
+      close!
+      return if @boot_deferred
 
-      raise ConfigurationError, report.message if config.on_invalid_config == :raise
+      unless Loader.configured?(root)
+        Rails.logger&.warn("[DataTeller] not configured, the engine is off. Run `rails generate data_teller:install`.")
+        return
+      end
+
+      report = check(root)
+      return open!(report) if report.ok?
+
+      raise ConfigurationError, report.message if report.config.on_invalid_config == :raise
 
       Rails.logger&.error("[DataTeller] DISABLED, configuration is invalid and on_invalid_config is :disable. #{report.message}")
       nil
     end
 
-    # False until a boot validated the configuration, so that nothing is served by default.
+    # For `rake data_teller:check`, which must get to report the problems itself instead of dying during the boot.
+    # The engine stays closed, so this cannot expose anything.
+    def defer_boot!
+      @boot_deferred = true
+    end
+
     def enabled?
       @enabled == true
     end
 
-    # Development reloads: declarations are rebuilt, global settings are kept.
-    def registry_reset!
+    # For tests only.
+    def reset!
+      close!
+      @boot_deferred = false
+    end
+
+    private
+
+    def close!
+      @enabled = false
+      @config = nil
       @registry = nil
     end
 
-    # For tests only.
-    def reset!
-      @config = nil
-      @registry = nil
-      @enabled = false
+    def open!(report)
+      @config = report.config
+      @registry = report.registry.freeze!
+      @enabled = true
     end
   end
 end

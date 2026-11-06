@@ -14,7 +14,7 @@ module DataTeller
       date_of_birth social_security tax_id national_id
     ].freeze
 
-    Report = Data.define(:errors, :warnings) do
+    Report = Data.define(:errors, :warnings, :config, :registry) do
       def ok?
         errors.empty?
       end
@@ -25,20 +25,24 @@ module DataTeller
       end
     end
 
-    def initialize(config: DataTeller.config, registry: DataTeller.registry)
+    # load_errors and skipped_checks come from the Loader: its problems are reported along with ours, minus the checks
+    # that would only repeat them.
+    def initialize(config:, registry:, load_errors: [], skipped_checks: [])
       @config = config
       @registry = registry
+      @load_errors = load_errors
+      @skipped_checks = skipped_checks
     end
 
     def call
-      @errors = []
+      @errors = @load_errors.dup
       @warnings = []
 
-      check_tenant
-      check_exposure
+      check_tenant unless @skipped_checks.include?(:tenant)
+      check_exposure unless @skipped_checks.include?(:exposure)
       @registry.datasets.each { |dataset| check_dataset(dataset) }
 
-      Report.new(errors: @errors.freeze, warnings: @warnings.freeze)
+      Report.new(errors: @errors.freeze, warnings: @warnings.freeze, config: @config, registry: @registry)
     end
 
     private

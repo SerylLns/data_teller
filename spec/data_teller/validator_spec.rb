@@ -25,9 +25,7 @@ RSpec.describe DataTeller::Validator do
   end
 
   it "accepts the dummy app declarations" do
-    DataTeller::Loader.load!(Rails.root)
-
-    expect(described_class.new.call.errors).to eq([])
+    expect(DataTeller.check(Rails.root).errors).to eq([])
   end
 
   it "requires a tenant resolver" do
