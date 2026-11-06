@@ -39,7 +39,9 @@ metric :customers,  count_distinct: :customer_id
 - Business logic lives in segments (e.g. "to ship tomorrow" = segment `paid` + period `ship_on: tomorrow`), not in metrics.
 - Four distinct responsibilities: metric (what is measured), segment (reusable business definition, developer-declared),
   filter (dynamic condition, LLM-filled and validated), period (time, LLM-filled and validated; ADR 0001 D1).
-- A segment never contains a relative date ("tomorrow", "last month"): time is resolved by the compiler with the tenant time zone.
+- A segment never contains **code** that computes a date (no lambda, no `Date.tomorrow`): that would ignore the tenant time zone.
+  A declarative relative offset (`created_before: { days_ago: 30 }`) is data, resolved by the compiler with the tenant time zone, and is allowed.
+  Period expressions like "tomorrow" stay in `period`, not in segments.
 
 Why: validated, explained and tested by the compiler alone; no way for a metric to bypass the tenant scope or read a hidden column;
 consistent with ADR 0001 D6 (one metric per query, derived metrics declared by the developer).
