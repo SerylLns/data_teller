@@ -30,8 +30,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T23 Compiler** — done (ADR 0005). Bound parameters, whitelisted operators, LIKE escaped, truncation (`max_groups`, `truncated`), a missing column means a refusal. `QueryRunner` is the entry point. `[sec]`
 - **T24 Tenant injection** — done (ADR 0005 D1). A sub-query on every table touched (joins, metric paths), applied last on top of segments, with a structural presence check.
   `scope:` and `default_scope` limited to a whitelist (ADR 0004 D4). `spec/security/`: a matrix of attack vectors against query shapes, on real rows and two tenants, including the two regressions that returned 2001 instead of 1. Still to cover in T31a: soft-delete, STI, nullable tenant. `[sec]`
-- **T25 Execution guards.** Read-only transaction, compilation included since a scope is code that runs, statement timeout, row limit, join cap; cardinality rule of ADR 0004 D3
-  (`max_groups` per dimension with a global default, automatic top-N with `LIMIT n+1` and a `truncated` flag, time-series point cap, `too_many_groups` refusal). `[perf]` `[sec]`
+- **T25 Execution guards** — done (ADR 0005 D3). Read-only transaction, compilation included, statement timeout (`query_timeout`), row, join and group caps as settings, automatic top-N with `truncated`, time-series point cap (`too_many_groups`). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone.** Done for periods and date grouping. Left: `compare`, refused until then, and relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
 - **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
   inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`

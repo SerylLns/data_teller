@@ -6,7 +6,7 @@ A mountable Rails engine for multi-tenant apps: your users ask questions about t
 to ActiveRecord with the tenant filter added by the compiler.
 
 > **Status: early work in progress. It does not answer questions yet.**
-> A hand-written JSON query runs, but there is no LLM integration and no UI so far, and queries don't yet run read-only. It is not on RubyGems, and it must not be used in production.
+> A hand-written JSON query runs, but there is no LLM integration and no UI so far. It is not on RubyGems, and it must not be used in production.
 
 ## Why not text-to-SQL
 
@@ -63,7 +63,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Per-role catalog, schema generated for the LLM | Done |
 | Query validator | Done |
 | Compiler, tenant filter on every table, running a hand-written JSON query | Done |
-| Execution guards (read-only, timeout), `compare`, entity lookups | Next |
+| Execution guards: read-only transaction, statement timeout, row and group caps | Done |
+| `compare`, permissions on real users, database role, security test kit | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 
@@ -142,7 +143,8 @@ These are the rules the project is built around. **Only what is marked as enforc
 | Values are bound parameters; column names come from declarations, never from the query | Enforced |
 | The tenant filter is applied last, on every table touched, and checked before running | Enforced |
 | A `scope:` used as a segment can only add structured conditions | Enforced: raw SQL, `from`, `joins` and the like are refused |
-| Read-only execution, timeouts, minimum group size | Planned |
+| Queries run in a read-only transaction with a timeout, enforced by the database | Enforced |
+| Minimum group size, read-only database role | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
 
 Isolation is tested in `spec/security/` against hostile scopes and values, on real rows across two tenants. That shows the cases tried, not all possible ones.

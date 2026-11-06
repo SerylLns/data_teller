@@ -36,12 +36,32 @@ Rejected: a join (natural SQL, often the fastest, but the filter gets mixed with
 - **`not_eq` and `not_in` follow SQL**: a row with no value does not match. "Orders not in Paris" leaves out customers with no city.
 - **"The last 7 days" includes today**, on a rolling basis. "This month" covers the whole month, so that a future `ship_on` can match. `between` includes both ends. Weeks start on Monday.
 - **Postgres only**, for `date_trunc` and `AT TIME ZONE`. pgvector requires it for retrieval anyway.
-- **Bounded results.** A high-cardinality grouping is capped at `max_groups` (default 50) with the metric descending, per ADR 0004 D3. Any grouped query has a hard cap of 1,000 rows until T25 refines it.
-  One extra row is fetched to know whether the result is `truncated`.
+- **Bounded results.** A high-cardinality grouping is capped at `max_groups` (`default_max_groups`, 50) with the metric descending, per ADR 0004 D3. Any other grouped query is capped at `max_rows` (1,000).
+  One extra row is fetched to know whether the result is `truncated`. A date series with no limit of its own is capped at `max_time_points` (366) and refused beyond it with `too_many_groups`, rather than cut.
+- **Joined tables are capped** at `max_joins` (5).
 - **A ratio over a metric with a path is refused at boot.** The join would change what the denominator counts.
 - **A metric path touches each table once, and never a `has_many :through`.** Columns and filters are built by table name, so a table met twice would be read under the wrong alias, and the table inside a `through` would have no tenant filter. Refused at boot.
 - **A descending order puts `NULL` last**: Postgres puts it first, and a group with no value would take a slot of a top N.
 - **Date grouping needs timestamps stored in UTC**, or a column with a time zone. With `default_timezone = :local` it is refused rather than shifted.
+
+## D3 — Execution: read-only and timed out, enforced by the database (T25)
+
+```sql
+BEGIN
+SET TRANSACTION READ ONLY
+SET LOCAL statement_timeout = 5000
+-- compilation, then the query
+ROLLBACK
+```
+
+- **Compilation runs inside**, not only the final query, because calling a scope runs its code.
+- **Always rolled back.** Nothing was written anyway, and inside a host transaction this is a savepoint: releasing it would keep the read-only mode and the timeout for the rest of the host's transaction. A rollback restores both, and a failed query does not poison the host's transaction.
+- **The database enforces it**, whatever the code tries, raw SQL and `SET TRANSACTION READ WRITE` included. A cancelled query gives its own refusal, `query_timeout`.
+- **Limits** are settings (`statement_timeout`, `default_max_groups`, `max_rows`, `max_time_points`, `max_joins`). A value that would mean "no limit", such as a timeout of 0, is a configuration error.
+
+Performance: three more round trips per query (`BEGIN`, two `SET`), and a `ROLLBACK`. Not measured.
+
+Limit: this does not stop what a scope does outside SQL, and it only covers the connection of the dataset's model. The database role of T37 covers the rest of the writes at another level.
 
 ## Not implemented yet: refused, never approximated
 
