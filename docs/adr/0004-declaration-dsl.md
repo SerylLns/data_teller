@@ -1,6 +1,6 @@
 # ADR 0004 — Declaration DSL
 
-Status: accepted (D1-D6 decided one at a time)
+Status: accepted (D1-D7 decided one at a time)
 
 Context: the developer declares what is exposed (datasets, metrics, dimensions, segments, vocabulary).
 Nothing is exposed until it is in a visible, versioned file (ADR 0001, README principle).
@@ -165,8 +165,8 @@ free lambdas in the DSL (arbitrary code); "no `roles:` means visible to all" (to
 
 - The registry holds everything the DSL declared. It is validated once at boot (rebuilt on reload in development through
   `to_prepare`), then **frozen**: no runtime mutation, safe across threads. It carries a version, reused in the cache fingerprint (D5).
-- Validation collects **all** errors and reports them together. Checks: `c.tenant` defined; a tenant path found for every exposed
-  model (ambiguous = error); explicit `roles:` on every dataset; at most one `time:` dimension per dataset; no cycles between derived
+- Validation collects **all** errors and reports them together. Checks: `c.tenant` defined; a valid `tenant_path` on every exposed
+  model (D7); explicit `roles:` on every dataset; at most one `time:` dimension per dataset; no cycles between derived
   metrics; existing columns and associations; `scope:` segments pass the lint (D4); sensitive dimensions justified; missing I18n keys
   are warnings.
 - **The boot never reads the database** (amended 2026-11-06, option "A"). `db:create` and `db:migrate` load the environment, so a boot that
@@ -199,6 +199,44 @@ Also rejected for columns: reading the database at boot and only closing the eng
 down at boot leaves the engine off until the next restart); reading it and raising except during `db:*` tasks (detecting tasks is fragile,
 and any tool we did not foresee stays blocked).
 
+## D7 — Tenant declaration: a `c.tenant` block and a mandatory `tenant_path` (decided)
+
+```ruby
+DataTeller.configure do |c|
+  c.tenant do
+    model Account
+    resolve { |user| user.account }
+  end
+end
+
+DataTeller.refine Order do
+  tenant_path :account
+end
+
+DataTeller.refine LineItem do
+  tenant_path :order, :account
+end
+```
+
+- `model` tells the boot which model every path must reach, since `resolve` only runs on a request. Both are required. The block leaves room for what the
+  tenant still needs, e.g. its time zone (T26).
+- At request time the result of `resolve` must be an instance of `model`. Anything else, an error included, means no tenant, so a refusal (fail closed).
+- `tenant_path` is mandatory on every dataset and written in full. There is no inference: `Order` already has two paths to `Account` (`account` and
+  `customer.account`), and picking the shortest would be an implicit rule on the most sensitive point of the project. It shows up in diffs like `roles`.
+- The boot checks without reading the database that each step exists, is a non-polymorphic `belongs_to`, and that the last one reaches `model`.
+- **Limit.** The boot checks that the path reaches the right model, not that it means the right thing: `belongs_to :billing_account, class_name: "Account"` passes.
+  Reviewing the file is what catches that, which is why it is explicit; the Security Test Kit can check it on data (T31a).
+- **Only exception:** a dataset on the tenant model itself has no path; the filter is `id = tenant.id`.
+- **Shared reference data** (`Country`, `Currency`) cannot be exposed for now. An escape hatch such as `tenant_path :none` would break the simple rule that
+  every table is filtered, so it waits for a real case. A table reached by a path must be exposed too (ADR 0001 D4), metric paths included, so every table
+  touched has a declared `tenant_path`.
+
+Why: the tenant is the most sensitive declaration, so it must be explicit and verifiable, at boot and on each request.
+
+Rejected: `c.tenant(Account) { ... }` (shorter, but no room for the tenant's other settings); `c.tenant_column :account_id` (`LineItem` and `Shipment` have no such
+column); finding a `belongs_to :account` by convention (it may be a billing account, and nothing would flag it); shortest path with a declaration only on a tie
+(implicit, and it changes silently when an association is added).
+
 ## Status
 
-All decisions D1-D6 are taken. Next: implement T06 (DSL and registry), T07 (mandatory tenant), T08 (schema from the registry).
+All decisions D1-D7 are taken. Next: implement T06 (DSL and registry), T07 (mandatory tenant), T08 (schema from the registry).
