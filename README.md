@@ -66,7 +66,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Execution guards: read-only transaction, statement timeout, row and group caps | Done |
 | Period comparison (`compare`) | Done |
 | Permissions by role, on every use of a name | Done |
-| Minimum group size, database role, complexity budget, security test kit | Next |
+| Read-only database role, limited to the declared columns | Done |
+| Minimum group size, complexity budget, security test kit | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 
@@ -147,7 +148,8 @@ These are the rules the project is built around. **Only what is marked as enforc
 | The tenant filter is applied last, on every table touched, and checked before running | Enforced |
 | A `scope:` used as a segment, and a `default_scope`, can only hold comparisons of the model's columns to plain values | Enforced: raw SQL, sub-queries, `from`, `joins` and the like are refused |
 | Queries run in a read-only transaction with a timeout, enforced by the database | Enforced |
-| Minimum group size, read-only database role | Planned |
+| With `c.database_role`, queries run as a Postgres role that reads the declared columns only | Enforced by the database, opt-in; checked by `rake data_teller:check` |
+| Minimum group size | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
 
 Isolation is tested in `spec/security/` against hostile scopes and values, on real rows across two tenants. That shows the cases tried, not all possible ones.

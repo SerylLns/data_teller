@@ -68,7 +68,7 @@ ROLLBACK
 
 Performance: four more round trips per query (`BEGIN`, two `SET`, `SELECT 1`), and a `ROLLBACK`. Not measured.
 
-Limit: this does not stop what a scope does outside SQL, and it only covers the connection of the dataset's model. The database role of T37 covers the rest of the writes at another level.
+Limit: this does not stop what a scope does outside SQL, and it only covers the connection of the dataset's model. The database role of D6 limits the columns read on the same connection.
 
 ## D4 — `compare`: two full plans (T26)
 
@@ -101,6 +101,35 @@ outcome.trace.sql      # the SQL that ran, in order: two statements for a compar
 - **Security:** the trace names tables and columns, and holds the SQL with its values inline. With `hidden`, it also names what the user may not see. It is for the developer and must never reach an end user. Off unless asked for, and nothing else changes when it is off.
 
 Rejected: nothing in the gem (the demo keeps an approximation of what the gem does, and diverges from it as the gem changes).
+
+## D6 — A database role that reads the declared columns only (T37, decided "A", 2026-11-07)
+
+```ruby
+c.database_role = "data_teller_reader"   # nil by default: recommended, not mandatory
+```
+
+```sql
+BEGIN
+SET TRANSACTION READ ONLY
+SELECT 1
+SET LOCAL ROLE "data_teller_reader"
+SET LOCAL statement_timeout = 5000
+-- compilation, then the query
+ROLLBACK
+```
+
+- **What it protects:** columns. The role has `SELECT` on the columns a query can touch and nothing else, so a bug of the validator or the compiler that let `customers.email` through gets `permission denied` from Postgres. It does **not** protect rows: the role reads every tenant's orders. That is RLS (T39).
+- **`SET LOCAL ROLE`, on the app's connection.** The rollback gives the connection back to the app's user, a savepoint's included. Nothing to add to `database.yml`.
+- **The grants come from the declarations** (`ReaderGrants`): declared columns, both keys of every join of a path, every column of the tenant filter, and the columns compared by scopes and `default_scope`s. `rake data_teller:grants` prints the SQL: create the role if needed, make the app's user a member, revoke everything on the schema, grant the columns. The gem never runs it: creating roles is the database owner's job, and the SQL is meant to be reviewed.
+- **`rake data_teller:check` verifies it**, never the boot (ADR 0004 D6): the role exists, is not a superuser, the app's user can switch to it (tried for real), and the columns it can read are exactly the ones needed. Too few refuse legitimate queries. Too many void the role while the developer believes it holds, which is why it is an error too; a grant to `PUBLIC` counts.
+- **At runtime, a missing grant is a refusal,** `unsupported_query`, logged with `PG::InsufficientPrivilege`. Fail closed.
+- **Proof:** `spec/security/database_role_spec.rb` generates every kind of query from the admin's catalog (each metric, by each groupable field, each filter, segment, period and comparison) and requires the same answer under the role as without it. Mutations of `ReaderGrants` that drop a kind of column are all caught.
+
+Limit: code in a scope can `RESET ROLE`, as it can change its own `statement_timeout`. This guards against a bug in the gem, not against the host's code.
+
+Performance: one more round trip per query (`SET LOCAL ROLE`). Not measured.
+
+Rejected for now, may become an option: a separate connection with its own login (`connects_to`). Stronger, since the app's code could no longer take its rights back, but a second pool and an entry in `database.yml` for every integrator, for a role the ticket calls recommended, not mandatory.
 
 ## Not implemented yet: refused, never approximated
 
