@@ -71,6 +71,11 @@ Guard rails:
 - Max depth 2, capped number of joins per query.
 - A path inherits the permissions of its target dimension, not only those of the starting dataset.
 - Two paths leading to the same dimension fail at boot with a message; the developer disambiguates with an alias.
+  Amended 2026-11-07 (decided "A"): when the paths have different lengths, the shortest is kept and the others are left out, with a
+  note from `rake data_teller:check` (`subscription.customer` is left out, `customer` reaches Customer in fewer steps). Only paths of
+  the same length (`customer` and `billing_customer`) are still refused. Why: an invoice with its customer and its subscription's
+  customer is a common schema, and the boot refused it. Rejected: an `ignore_path` declaration (new syntax, met only after the
+  error), keeping both (a bigger, more confusing catalog for no gain). Each path keeps its own tenant filter either way.
 - Labels are derived from association + target label, overridable.
 
 Consequences: the install generator becomes a core piece of the product (it prepares the exposed

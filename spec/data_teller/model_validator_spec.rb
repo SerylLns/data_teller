@@ -158,6 +158,21 @@ RSpec.describe DataTeller::ModelValidator do
         .to include(/dataset spec_records: customer and billing_customer both lead to Customer/)
     end
 
+    it "keep the shortest one, and are fine then" do
+      registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: [ :admin ], tenant_path: %i[account],
+                                                dimensions: [ DataTeller::Dimension.new(name: :city) ]))
+      registry.register(DataTeller::Dataset.new(model_name: "Subscription", roles: [ :admin ], tenant_path: %i[account]))
+      invoices = DataTeller::Dataset.new(model_name: "Invoice", roles: [ :admin ], tenant_path: %i[account])
+      registry.register(invoices)
+
+      hops = DataTeller::DimensionPaths.hops(invoices, registry: registry, tenant_model_name: "Account")
+
+      expect(hops.map(&:prefix)).to contain_exactly("customer", "subscription")
+      expect(DataTeller::DimensionPaths.shadowed(invoices, registry: registry, tenant_model_name: "Account").map { |left, kept| [ left.prefix, kept.prefix ] })
+        .to eq([ %w[subscription.customer customer] ])
+      expect(described_class.new(config: config, registry: registry).call.grep(/both lead/)).to eq([])
+    end
+
     it "are fine when the target is not exposed" do
       expect(errors_for("SpecRecord", %i[customer account]).grep(/both lead/)).to eq([])
     end

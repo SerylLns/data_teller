@@ -93,6 +93,14 @@ module DataTeller
       check_metrics(dataset)
       check_metric_columns(dataset)
       check_role_narrowing(dataset)
+      note_shadowed_paths(dataset)
+    end
+
+    # Not a mistake, but a dimension the developer may look for: say where it went.
+    def note_shadowed_paths(dataset)
+      DimensionPaths.shadowed(dataset, registry: @registry, tenant_model_name: @config.tenant_model_name).each do |left_out, kept|
+        @warnings << "dataset #{dataset.name}: #{left_out.prefix} is left out, #{kept.prefix} reaches #{kept.target.model_name} in fewer steps"
+      end
     end
 
     def check_time_dimensions(dataset)

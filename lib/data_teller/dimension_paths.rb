@@ -12,11 +12,29 @@ module DataTeller
 
     module_function
 
+    # When a dataset is reached by paths of different lengths, the shortest is kept (ADR 0001 D4, amended 2026-11-07): an invoice
+    # has its customer, and its subscription's customer too. Paths of the same length to one dataset are all kept, and the boot
+    # refuses them: customer and billing_customer are a real ambiguity.
     def hops(dataset, registry:, tenant_model_name:)
+      every = all_hops(dataset, registry, tenant_model_name)
+      every.reject { |hop| shadowed?(hop, every) }
+    end
+
+    # The paths left out by `hops`, for `rake data_teller:check` to say so.
+    def shadowed(dataset, registry:, tenant_model_name:)
+      every = all_hops(dataset, registry, tenant_model_name)
+      every.select { |hop| shadowed?(hop, every) }.map { |hop| [ hop, every.find { |other| other.target.name == hop.target.name && !shadowed?(other, every) } ] }
+    end
+
+    def all_hops(dataset, registry, tenant_model_name)
       klass = ModelLookup.active_record_class(dataset.model_name)
       return [] unless klass
 
       walk(klass, [], [], [ klass.table_name ], registry, tenant_model_name)
+    end
+
+    def shadowed?(hop, every)
+      every.any? { |other| other.target.name == hop.target.name && other.steps.size < hop.steps.size }
     end
 
     # The tenant model is left out: inside a tenant-scoped query every row has the same value there.
