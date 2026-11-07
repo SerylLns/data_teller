@@ -20,7 +20,10 @@ module DataTeller
       max_joins: 5
     }.freeze
 
-    attr_reader :on_invalid_config, :ui, :roles_resolver, *LIMITS.keys
+    # A plain Postgres name: it is quoted in the SQL anyway, and this keeps a typo from becoming a role nobody created.
+    DATABASE_ROLE = /\A[a-z_][a-z0-9_]{0,62}\z/
+
+    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, *LIMITS.keys
     attr_accessor :llm
 
     def initialize
@@ -31,7 +34,17 @@ module DataTeller
       @roles_resolver = nil
       @llm = nil
       @authorization = nil
+      @database_role = nil
       LIMITS.each { |name, value| instance_variable_set(:"@#{name}", value) }
+    end
+
+    # The Postgres role each query runs as (T37, ADR 0005 D6). nil, the default, keeps the app's own database user.
+    def database_role=(value)
+      unless value.nil? || (value.is_a?(String) && DATABASE_ROLE.match?(value))
+        raise ConfigurationError, "database_role must be a lowercase Postgres role name such as \"data_teller_reader\", or nil, got #{value.inspect}"
+      end
+
+      @database_role = value&.dup&.freeze
     end
 
     # A typo here must never mean "no limit".

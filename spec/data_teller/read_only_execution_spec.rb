@@ -45,6 +45,45 @@ RSpec.describe DataTeller::ReadOnlyExecution do
     end
   end
 
+  # T37: the role reads the declared columns only. Created inside the spec's transaction, so it is gone afterwards.
+  describe "with a database role" do
+    let(:role) { "data_teller_spec_reader" }
+
+    before do
+      Order.with_connection do |connection|
+        connection.execute("CREATE ROLE #{role} NOLOGIN")
+        connection.execute("GRANT SELECT (id, total_cents) ON orders TO #{role}")
+      end
+    end
+
+    def current_user = Order.with_connection { |connection| connection.select_value("SELECT current_user") }
+
+    it "runs the block as that role, and gives the connection back to the app's user" do
+      app_user = current_user
+
+      expect(described_class.run(Order, timeout: 5, role: role) { current_user }).to eq(role)
+      expect(current_user).to eq(app_user)
+    end
+
+    it "reads what the role was granted, and nothing else" do
+      expect(described_class.run(Order, timeout: 5, role: role) { Order.sum(:total_cents) }).to eq(100)
+      expect { described_class.run(Order, timeout: 5, role: role) { Order.pluck(:status) } }
+        .to raise_error(ActiveRecord::StatementInvalid, /permission denied/)
+    end
+
+    it "gives the connection back after a refusal too" do
+      app_user = current_user
+
+      expect { described_class.run(Order, timeout: 5, role: role) { Customer.pluck(:email) } }.to raise_error(ActiveRecord::StatementInvalid)
+      expect(current_user).to eq(app_user)
+    end
+
+    it "is quoted, whatever it holds" do
+      expect { described_class.run(Order, timeout: 5, role: %(x"; RESET ROLE; --)) { nil } }
+        .to raise_error(ActiveRecord::StatementInvalid, /does not exist/)
+    end
+  end
+
   # The host app may call this inside its own transaction: nothing must leak out of the guard, and a failure must not poison it.
   describe "inside a host transaction" do
     it "leaves it writable, with its settings" do
@@ -73,7 +112,7 @@ RSpec.describe DataTeller::ReadOnlyExecution do
 end
 
 # As in production. With transactional fixtures the guard is a savepoint, and Postgres then refuses to go back to read-write on its
-# own: a spec inside a transaction would pass with the guard broken. Nothing here writes, so nothing needs cleaning.
+# own: a spec inside a transaction would pass with the guard broken. Nothing here writes data; the one role created is dropped.
 RSpec.describe DataTeller::ReadOnlyExecution, "outside of any transaction" do
   self.use_transactional_tests = false
 
@@ -104,6 +143,20 @@ RSpec.describe DataTeller::ReadOnlyExecution, "outside of any transaction" do
     end
 
     expect(statements).to include("SET LOCAL statement_timeout = 1")
+  end
+
+  # A top-level transaction ends with a ROLLBACK, not a savepoint's: SET LOCAL ROLE must not outlive it on a pooled connection.
+  it "gives the connection back to the app's user" do
+    app_user = Account.with_connection { |c| c.select_value("SELECT current_user") }
+    execute("CREATE ROLE data_teller_spec_outside NOLOGIN")
+
+    begin
+      expect(described_class.run(Account, timeout: 5, role: "data_teller_spec_outside") { Account.with_connection { |c| c.select_value("SELECT current_user") } })
+        .to eq("data_teller_spec_outside")
+      expect(Account.with_connection { |c| c.select_value("SELECT current_user") }).to eq(app_user)
+    ensure
+      execute("DROP ROLE data_teller_spec_outside")
+    end
   end
 
   it "leaves the connection as it was" do

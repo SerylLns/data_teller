@@ -47,9 +47,9 @@ module DataTeller
       Rails.logger&.error("[DataTeller] query cancelled by the statement timeout: #{e.class}")
       refused(:query_timeout)
     rescue ActiveRecord::StatementInvalid => e
-      # A column missing despite `rake data_teller:check` (ADR 0004 D6), or a scope that tried to write.
-      # Only the class: the message holds SQL and values.
-      Rails.logger&.error("[DataTeller] query failed in the database: #{e.class}")
+      # A column missing despite `rake data_teller:check` (ADR 0004 D6), a scope that tried to write, or a column the database
+      # role cannot read. Only the classes: the message holds SQL and values. The cause tells a permission from the rest.
+      Rails.logger&.error("[DataTeller] query failed in the database: #{e.class} (#{e.cause.class})")
       refused(:unsupported_query)
     end
 
@@ -62,7 +62,7 @@ module DataTeller
       return refused(:unsupported_query) unless time_zone
 
       model = catalog.dataset(@query["dataset"]).model_name.constantize
-      result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout) do
+      result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout, role: DataTeller.config.database_role) do
         plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
         @stage = :execution
         plan.execute(recorder: (->(sql) { @sql << sql } if @trace))

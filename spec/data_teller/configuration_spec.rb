@@ -28,6 +28,26 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "database_role" do
+    it "is off by default" do
+      expect(config.database_role).to be_nil
+    end
+
+    it "takes a plain role name, and nil to turn it off again" do
+      config.database_role = "data_teller_reader"
+      expect(config.database_role).to eq("data_teller_reader")
+
+      config.database_role = nil
+      expect(config.database_role).to be_nil
+    end
+
+    it "refuses anything that is not a plain lowercase name" do
+      [ "", "Reader", "1reader", "reader; DROP TABLE orders", %("reader"), "a" * 64, :data_teller_reader ].each do |value|
+        expect { config.database_role = value }.to raise_error(DataTeller::ConfigurationError, /database_role/), value.inspect
+      end
+    end
+  end
+
   describe "limits" do
     it "has defaults" do
       expect(config).to have_attributes(statement_timeout: 5, default_max_groups: 50, max_rows: 1_000, max_time_points: 366, max_joins: 5)
