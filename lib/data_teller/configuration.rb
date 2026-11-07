@@ -6,6 +6,8 @@ module DataTeller
   class Configuration
     ON_INVALID_CONFIG = %i[raise disable].freeze
 
+    MIN_STATEMENT_TIMEOUT = 0.001
+
     LIMITS = {
       # Seconds. Postgres reads 0 as "no timeout", which is why zero is refused below.
       statement_timeout: 5,
@@ -34,8 +36,9 @@ module DataTeller
 
     # A typo here must never mean "no limit".
     def statement_timeout=(value)
-      unless value.is_a?(Numeric) && value.positive?
-        raise ConfigurationError, "statement_timeout must be a positive number of seconds, got #{value.inspect}"
+      # Below a millisecond it would round to 0, which Postgres reads as no timeout.
+      unless value.is_a?(Numeric) && value.real? && value.finite? && value >= MIN_STATEMENT_TIMEOUT
+        raise ConfigurationError, "statement_timeout must be a number of seconds, of at least #{MIN_STATEMENT_TIMEOUT}, got #{value.inspect}"
       end
 
       @statement_timeout = value

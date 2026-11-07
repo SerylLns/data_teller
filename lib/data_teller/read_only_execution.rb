@@ -11,7 +11,11 @@ module DataTeller
       model.transaction(requires_new: true) do
         model.with_connection do |connection|
           connection.execute("SET TRANSACTION READ ONLY")
-          connection.execute("SET LOCAL statement_timeout = #{(timeout * 1000).to_i}")
+          # Postgres lets a top-level transaction go back to read-write until its first query, and a SET does not count as one.
+          # Without this, code in a scope could undo the guard. Before the timeout, which must not cancel it.
+          connection.select_value("SELECT 1")
+          # Code in a scope can still change this one. It is the host's own code, and nothing in a transaction can stop that.
+          connection.execute("SET LOCAL statement_timeout = #{(timeout * 1000).ceil}")
         end
         result = yield
         raise ActiveRecord::Rollback

@@ -71,3 +71,45 @@ RSpec.describe DataTeller::ReadOnlyExecution do
     end
   end
 end
+
+# As in production. With transactional fixtures the guard is a savepoint, and Postgres then refuses to go back to read-write on its
+# own: a spec inside a transaction would pass with the guard broken. Nothing here writes, so nothing needs cleaning.
+RSpec.describe DataTeller::ReadOnlyExecution, "outside of any transaction" do
+  self.use_transactional_tests = false
+
+  def guarded(timeout: 5, &block) = described_class.run(Account, timeout: timeout, &block)
+  def execute(sql) = Account.with_connection { |connection| connection.execute(sql) }
+
+  it "runs in a real transaction, not a savepoint" do
+    expect(guarded { Account.with_connection(&:open_transactions) }).to eq(1)
+  end
+
+  it "cannot be switched back to read-write from inside" do
+    expect { guarded { execute("SET TRANSACTION READ WRITE") } }.to raise_error(ActiveRecord::StatementInvalid, /read-write/)
+  end
+
+  it "stays read-only for a write from a scope, as the first thing it does" do
+    expect { guarded { Account.update_all(name: "Overwritten") } }.to raise_error(ActiveRecord::StatementInvalid, /read-only transaction/)
+  end
+
+  # Read from the statement: a query under a 1ms limit may or may not be cancelled.
+  it "keeps a limit for the shortest timeout accepted" do
+    statements = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| statements << payload[:sql] }
+
+    begin
+      guarded(timeout: DataTeller::Configuration::MIN_STATEMENT_TIMEOUT) { nil }
+    ensure
+      ActiveSupport::Notifications.unsubscribe(subscriber)
+    end
+
+    expect(statements).to include("SET LOCAL statement_timeout = 1")
+  end
+
+  it "leaves the connection as it was" do
+    guarded { Account.count }
+
+    expect(Account.with_connection { |c| c.select_value("SHOW transaction_read_only") }).to eq("off")
+    expect(Account.with_connection { |c| c.select_value("SHOW statement_timeout") }).not_to eq("5s")
+  end
+end
