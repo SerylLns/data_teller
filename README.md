@@ -65,7 +65,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Compiler, tenant filter on every table, running a hand-written JSON query | Done |
 | Execution guards: read-only transaction, statement timeout, row and group caps | Done |
 | Period comparison (`compare`) | Done |
-| Permissions on real users, database role, security test kit, entity lookups | Next |
+| Permissions by role, on every use of a name | Done |
+| Minimum group size, database role, complexity budget, security test kit | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 
@@ -141,6 +142,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 | The schema generated for the LLM only contains names the role can see | Enforced, but not a security boundary: the query validator re-checks everything |
 | A resolver returning anything but the tenant model means no tenant | Enforced |
 | A forbidden name and an unknown one get the same refusal | Enforced by the query validator |
+| A permission applies to every use of a name: reading, filtering, grouping, ordering, and through paths, ratios and segments | Enforced |
 | Values are bound parameters; column names come from declarations, never from the query | Enforced |
 | The tenant filter is applied last, on every table touched, and checked before running | Enforced |
 | A `scope:` used as a segment can only add structured conditions | Enforced: raw SQL, `from`, `joins` and the like are refused |
@@ -170,7 +172,7 @@ To run a JSON query on them and see the SQL:
 ```bash
 cd spec/dummy
 bundle exec rails db:create db:migrate db:seed
-bundle exec rake "try[Acme,admin]" QUERY='{"version":1,"intent":"answer","dataset":"orders","metric":"revenue"}'
+bundle exec rake "try[Acme,admin]" QUERY='{"version":1,"intent":"answer","dataset":"orders","metric":"revenue"}'   # admin, support or member
 ```
 
 The design decisions, with the options that were rejected, are in [docs/adr](docs/adr).

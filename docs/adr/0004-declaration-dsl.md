@@ -148,7 +148,9 @@ Rules:
 - Derived metrics (`ratio:`) are visible only if all their dependencies are visible in the user's effective (unioned) catalog.
   Otherwise `count` + `avg_basket` would reveal `revenue`.
 - Segments inherit the permissions of the columns they reference. A `scope:` segment cannot be analyzed, so it must declare `roles:` explicitly.
-- A dotted dimension inherits the permissions of its target column (ADR 0001 D4).
+- A dotted dimension inherits the permissions of its target column, and needs every dataset on the way to be visible (ADR 0001 D4).
+- A metric inherits the permissions of the column it reads, on its own table or at the end of a path: `max: :total_cents` reads that column.
+- Two dimensions on one column with different roles are refused at boot: a second name must not reopen a column.
 - **One choke point:** a per-request "visible catalog" object, used by schema generation, retrieval, suggestions, explanations and the
   validator, so consistency across the whole chain is testable by the Security Test Kit.
 - The LLM schema is generated per role (forbidden names are absent), but **that is not a security boundary**: the validator always

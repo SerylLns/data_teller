@@ -32,9 +32,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   `scope:` and `default_scope` limited to a whitelist (ADR 0004 D4). `spec/security/`: a matrix of attack vectors against query shapes, on real rows and two tenants, including the two regressions that returned 2001 instead of 1. Still to cover in T31a: soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards** — done (ADR 0005 D3). Read-only transaction, compilation included, statement timeout (`query_timeout`), row, join and group caps as settings, automatic top-N with `truncated`, time-series point cap (`too_many_groups`). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** — done (ADR 0005 D2, D4). Periods, date grouping, `compare`. Left, refused until then: relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
-- **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
-  inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`
-  Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.
+- **T35 Permission basics** — done (ADR 0004 D5). Mandatory dataset roles, narrowing, derived metrics, segments and metrics inherit their columns, paths inherit every dataset on the way, fail-closed resolver,
+  one catalog per request (`Catalog.for_user`). Two dimensions on one column with different roles refused at boot. Users and roles (admin / support / member) in the dummy, with fake seeds. `spec/security/permissions_matrix_spec.rb`: every role against every use of a name, and the catalog, the schema and the validator agreeing. `[sec]`
 - **T36 Aggregate disclosure.** Declarative `min_group_size`, small-cell suppression; documents the differencing limit. `[sec]`
 - **T37 Database read-only role.** SELECT-only role with column-level GRANTs on exposed columns; boot check; recommended, not mandatory. `[sec]`
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
