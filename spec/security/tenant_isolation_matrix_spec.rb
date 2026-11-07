@@ -20,6 +20,19 @@ RSpec.describe "Tenant isolation matrix" do
     raw_sql_harmless_looking: [ :refuse, -> { where("total_cents > 0") } ],
     arel_literal: [ :refuse, -> { where(Arel.sql("1=1) OR (1=1")) } ],
     or_with_raw_sql: [ :refuse, -> { where(status: 1).or(where("1=1")) } ],
+    # Regressions from the third review: each of these got past a check that looked for what is dangerous.
+    raw_in_an_attribute_name: [ :refuse, -> { where(arel_table[Arel.sql("id = id OR 1")].eq(1)) } ],
+    raw_in_a_table_name: [ :refuse, -> { where(Arel::Table.new(Arel.sql("orders WHERE 1=1 OR 1"))[:id].eq(1)) } ],
+    or_without_parentheses: [ :refuse, -> { where(Arel::Nodes::Or.new([ arel_table[:id].gt(0), arel_table[:id].lt(0) ])) } ],
+    exists_reading_another_tenant: [ :refuse, -> { where(Order.unscoped.where(total_cents: SENTINEL).arel.exists) } ],
+    in_a_sub_query: [ :refuse, -> { where(id: Order.unscoped.select(:id)) } ],
+    raw_inside_a_sub_query: [ :refuse, -> { where(id: Order.unscoped.where("1=1)) OR ((1=1").select(:id)) } ],
+    bound_raw_sql: [ :refuse, -> { where("1=1) OR (1=?", 1) } ],
+    raw_next_to_an_and: [ :refuse, -> { where(arel_table[:status].eq(1).and(Arel.sql("1=1 OR 1=1"))) } ],
+    sql_function: [ :refuse, -> { where(arel_table[:status].lower.eq("x")) } ],
+    column_of_another_table: [ :refuse, -> { where(Customer.arel_table[:city].eq("Paris")) } ],
+    an_alias_of_the_table: [ :refuse, -> { where(arel_table.alias("x")[:status].eq(1)) } ],
+    a_literal_as_a_value: [ :refuse, -> { where(arel_table[:status].eq(Arel.sql("status OR 1=1"))) } ],
     none: [ :refuse, -> { none } ],
     unscope_where: [ :refuse, -> { unscope(where: :account_id) } ],
     joins_inner: [ :refuse, -> { joins(:customer) } ],
@@ -43,7 +56,21 @@ RSpec.describe "Tenant isolation matrix" do
     where_another_tenant: [ :narrow, -> { where(account_id: Account.find_by!(name: "Globex").id) } ],
     or_everything: [ :narrow, -> { where(status: 1).or(where.not(status: 1)) } ],
     or_another_tenant: [ :narrow, -> { where(status: 1).or(where(account_id: Account.find_by!(name: "Globex").id)) } ],
-    plain_condition: [ :narrow, -> { where(status: 1) } ]
+    plain_condition: [ :narrow, -> { where(status: 1) } ],
+    # What a segment is for: these must stay accepted, in every form Rails builds them.
+    a_list: [ :narrow, -> { where(status: [ 1, 2 ]) } ],
+    not_a_list: [ :narrow, -> { where.not(status: [ 3, 4 ]) } ],
+    a_null: [ :narrow, -> { where(ship_on: nil) } ],
+    a_list_with_a_null: [ :narrow, -> { where(ship_on: [ nil, Date.current ]) } ],
+    a_range: [ :narrow, -> { where(total_cents: 0..SENTINEL) } ],
+    an_open_range: [ :narrow, -> { where(total_cents: 0..) } ],
+    an_exclusive_range: [ :narrow, -> { where(total_cents: 0...SENTINEL) } ],
+    two_conditions_negated: [ :narrow, -> { where.not(status: 4, total_cents: 0) } ],
+    arel_comparison: [ :narrow, -> { where(arel_table[:total_cents].gt(0)) } ],
+    arel_list: [ :narrow, -> { where(arel_table[:status].in([ 1, 2 ])) } ],
+    arel_between: [ :narrow, -> { where(arel_table[:total_cents].between(0..SENTINEL)) } ],
+    arel_or: [ :narrow, -> { where(arel_table[:status].eq(1).or(arel_table[:status].eq(2))) } ],
+    two_columns_compared: [ :narrow, -> { where(arel_table[:total_cents].gt(arel_table[:status])) } ]
   }.freeze
 
   QUERY_SHAPES = {
@@ -165,6 +192,16 @@ RSpec.describe "Tenant isolation matrix" do
       raw_comment: [ :refuse, -> { where("1=1) --") } ],
       raw_comment_block: [ :refuse, -> { where("1=1 /* x") } ],
       raw_statement_end: [ :refuse, -> { where("1=1; SELECT 1") } ],
+      # Regressions from the third review.
+      raw_in_an_attribute_name: [ :refuse, -> { where(arel_table[Arel.sql("id = id OR 1")].eq(1)) } ],
+      or_without_parentheses: [ :refuse, -> { where(Arel::Nodes::Or.new([ arel_table[:id].gt(0), arel_table[:id].lt(0) ])) } ],
+      bound_raw_breaking_out: [ :refuse, -> { where("1=1) OR (1=?", 1) } ],
+      raw_next_to_an_and: [ :refuse, -> { where(arel_table[:status].eq(1).and(Arel.sql("1=1 OR 1=1"))) } ],
+      exists_reading_another_tenant: [ :refuse, -> { where(Order.unscoped.where(total_cents: SENTINEL).arel.exists) } ],
+      bound_sub_query: [ :refuse, -> { where("id IN (?)", Order.unscoped.select(:id)) } ],
+      a_list: [ :narrow, -> { where(status: [ 1, 2 ]) } ],
+      bound_raw_sql: [ :narrow, -> { where("orders.total_cents >= ?", 0) } ],
+      named_bound_raw_sql: [ :narrow, -> { where("orders.total_cents >= :min", min: 0) } ],
       order: [ :narrow, -> { order(:ordered_at) } ],
       soft_delete_shaped_raw_sql: [ :narrow, -> { where("orders.total_cents >= 0") } ],
       plain_condition: [ :narrow, -> { where(status: 1) } ]
