@@ -198,6 +198,21 @@ RSpec.describe DataTeller::Validator do
     expect(report.errors).to include(/segment vip: a `scope:` segment needs explicit `roles:`/)
   end
 
+  # A permission applies to every use of a column (ADR 0004 D5): a second name must not reopen it.
+  describe "two dimensions on the same column" do
+    it "are refused with different roles" do
+      dataset(dimensions: [ dimension(:status, roles: :admin), dimension(:state, column: :status) ])
+
+      expect(report.errors).to include(/dimensions status and state read the same column with different roles/)
+    end
+
+    it "are accepted with the same roles" do
+      dataset(dimensions: [ dimension(:status, roles: :admin), dimension(:state, column: :status, roles: :admin) ])
+
+      expect(report).to be_ok
+    end
+  end
+
   describe "derived metrics" do
     it "refuses a ratio of an unknown metric" do
       dataset(metrics: [ metric(:avg_basket, :ratio, of: %i[revenue count]) ])

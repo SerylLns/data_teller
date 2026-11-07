@@ -77,6 +77,7 @@ module DataTeller
 
       check_time_dimensions(dataset)
       check_dimensions(dataset)
+      check_same_column_same_roles(dataset)
       check_segments(dataset)
       check_metrics(dataset)
       check_metric_columns(dataset)
@@ -94,6 +95,15 @@ module DataTeller
       dataset.dimensions.each_value do |dimension|
         check_sensitive("dataset #{dataset.name}, dimension #{dimension.name}", "dimension", dimension,
                         dataset.model_name, dimension.column, dimension.name)
+      end
+    end
+
+    # A permission applies to every use of a column (ADR 0004 D5): a second name must not reopen it.
+    def check_same_column_same_roles(dataset)
+      dataset.dimensions.values.group_by(&:column).each_value do |same_column|
+        next if same_column.map { |dimension| (dimension.roles || dataset.roles).to_a.sort }.uniq.size < 2
+
+        @errors << "dataset #{dataset.name}: dimensions #{same_column.map(&:name).join(' and ')} read the same column with different roles"
       end
     end
 

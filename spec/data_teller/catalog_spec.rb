@@ -155,6 +155,14 @@ RSpec.describe DataTeller::Catalog do
       expect(fields_of(:support, datasets: [ orders, hidden ])).to eq([ :status ])
     end
 
+    # order.customer.city would otherwise reveal which customers placed orders, to a role that cannot see orders.
+    it "needs every dataset on the way to be visible, not only the last one" do
+      items = dataset("LineItem", tenant_path: %i[order account], dimensions: [ dimension(:quantity) ])
+      hidden_orders = dataset("Order", roles: %i[admin], dimensions: [ dimension(:status) ])
+
+      expect(catalog(:support, datasets: [ items, hidden_orders, customers ]).dataset(:line_items).fields.map(&:name)).to eq([ :quantity ])
+    end
+
     it "never exposes a column that is not declared on its own model" do
       expect(fields_of(:admin, datasets: [ orders, customers ])).not_to include(:"customer.email")
     end

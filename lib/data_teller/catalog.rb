@@ -51,6 +51,11 @@ module DataTeller
       new(roles.flatten)
     end
 
+    # The way in for a request. Recomputed each time: a role change takes effect on the next question (ADR 0004 D5).
+    def self.for_user(user)
+      new(DataTeller.config.roles_for(user))
+    end
+
     def initialize(roles, registry: DataTeller.registry, tenant_model_name: DataTeller.config.tenant_model_name)
       @roles = Array(roles).map(&:to_sym).uniq
       @registry = registry

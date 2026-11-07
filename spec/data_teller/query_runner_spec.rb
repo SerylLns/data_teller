@@ -560,7 +560,7 @@ RSpec.describe DataTeller::QueryRunner do
                                                   metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
                                                   segments: [ DataTeller::Segment.new(name: :x, scope: :writes_when_called, roles: :admin) ]))
         catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
-        allow(DataTeller::Catalog).to receive(:new).and_return(catalog)
+        allow(DataTeller::Catalog).to receive(:for_user).and_return(catalog)
 
         outcome = run_query(answer("spec_writers", filters: [ { "segment" => "x" } ]))
 
@@ -641,7 +641,7 @@ RSpec.describe DataTeller::QueryRunner do
                                                   metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
                                                   dimensions: [ DataTeller::Dimension.new(name: :customer_id, group: true) ]))
         catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
-        allow(DataTeller::Catalog).to receive(:new).and_return(catalog)
+        allow(DataTeller::Catalog).to receive(:for_user).and_return(catalog)
 
         expect(run_query(answer(group_by: [ by("customer_id") ])).result.rows.size).to eq(1)
       end
@@ -839,7 +839,7 @@ RSpec.describe DataTeller::QueryRunner do
                                                 metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
                                                 dimensions: [ DataTeller::Dimension.new(name: :nope) ]))
       catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
-      allow(DataTeller::Catalog).to receive(:new).and_return(catalog)
+      allow(DataTeller::Catalog).to receive(:for_user).and_return(catalog)
       allow(Rails.logger).to receive(:error)
 
       outcome = run_query(answer(filters: [ filter("nope", "eq", "x") ]))

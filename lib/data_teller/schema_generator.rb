@@ -9,6 +9,10 @@ module DataTeller
       new(Catalog.for(*roles)).call
     end
 
+    def self.for_user(user)
+      new(Catalog.for_user(user)).call
+    end
+
     def initialize(catalog)
       @catalog = catalog
       @base = QuerySchema.definition

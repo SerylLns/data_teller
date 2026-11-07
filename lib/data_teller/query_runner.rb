@@ -20,7 +20,7 @@ module DataTeller
       tenant = DataTeller.config.tenant_for(@user)
       return refused(:no_tenant) unless tenant
 
-      catalog = Catalog.new(DataTeller.config.roles_for(@user))
+      catalog = Catalog.for_user(@user)
       validation = QueryValidator.new(catalog).call(@query)
       return log_and_refuse(validation) unless validation.ok?
       return passed_through unless @query["intent"] == "answer"
