@@ -284,6 +284,20 @@ RSpec.describe DataTeller::QueryValidator do
     end
   end
 
+  describe "compare" do
+    let(:with_period) { { period: period({ "relative" => "last_month" }), compare: "previous_period" } }
+
+    it "accepts a value, and a group that exists in both periods" do
+      expect(validate(answer(**with_period))).to be_accepted
+      expect(validate(answer(**with_period, group_by: [ { "dimension" => "status" } ]))).to be_accepted
+    end
+
+    # October's weeks and September's weeks are different groups: nothing lines them up.
+    it "refuses a date group, whose values differ between the two periods" do
+      expect(validate(answer(**with_period, group_by: [ { "dimension" => "ordered_at", "granularity" => "week" } ]))).to be_refused_with(:unsupported_query)
+    end
+  end
+
   describe "clarify" do
     def clarify(*options) = { "version" => 1, "intent" => "clarify", "clarify" => { "reason" => "ambiguous_metric", "options" => options } }
 

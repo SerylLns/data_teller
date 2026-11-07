@@ -29,7 +29,6 @@ module DataTeller
       validation = QueryValidator.new(@catalog).call(query)
       raise Refused.new(validation.refusal.reason) unless validation.ok?
       raise Refused.new(:unsupported_query, "only an answer compiles") unless query["intent"] == "answer"
-      raise Refused.new(:unsupported_query, "compare is not implemented yet") if query["compare"]
 
       @group_nodes = nil
       @query = query
@@ -37,12 +36,27 @@ module DataTeller
       @klass = @entry.model_name.constantize
       @metric = @entry.metrics.find { |metric| metric.name.to_s == query["metric"] }
 
-      build_plan
+      query["compare"] ? build_comparison : build_plan(current_period)
     end
 
     private
 
-    def build_plan
+    def periods = PeriodResolver.new(time_zone: @time_zone, now: @now)
+    def current_period = @query["period"] && periods.call(@query["period"]["range"])
+
+    def build_comparison
+      compared = periods.compared(@query["period"]["range"], @query["compare"])
+
+      ComparedPlan.new(
+        current: build_plan(compared.current),
+        previous: build_plan(compared.previous),
+        group_columns: group_fields.map { |found| [ found.model, found.dimension.column ] },
+        metric_name: @metric.name
+      )
+    end
+
+    def build_plan(period)
+      @period = period
       check_join_cap
       check_default_scopes
       # A default order cannot apply to an aggregate. Everything else a default_scope could hold is refused just above.
@@ -59,7 +73,7 @@ module DataTeller
         raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
       end
 
-      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, refuse_when_cut: time_series?)
+      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, refuse_when_cut: time_series?, period: period)
     end
 
     # ---- what the query touches
@@ -170,7 +184,7 @@ module DataTeller
       klass = found.model
       column = found.dimension.column
       attribute = klass.arel_table[column]
-      from, to = PeriodResolver.new(time_zone: @time_zone, now: @now).call(@query["period"]["range"])
+      from, to = @period
 
       attribute.gteq(self.class.bind(klass, column, boundary(klass, column, from)))
                .and(attribute.lt(self.class.bind(klass, column, boundary(klass, column, to))))

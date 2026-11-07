@@ -68,6 +68,14 @@ module DataTeller
       Array(query["filters"]).each_with_index { |filter, index| check_filter(entry, filter, "/filters/#{index}") }
       check_group_by(entry, Array(query["group_by"]))
       check_order_by(query["order_by"], Array(query["group_by"])) if query["order_by"]
+      check_compare(entry, Array(query["group_by"])) if query["compare"]
+    end
+
+    # October's weeks and September's weeks are different groups: nothing lines them up.
+    def check_compare(entry, group_items)
+      return unless group_items.any? { |item| field(entry, item["dimension"])&.date? }
+
+      problem("/compare", :compare_with_date_group)
     end
 
     def field(entry, name)

@@ -4,6 +4,8 @@ module DataTeller
   # Turns a `range` of the query into two dates, the end being exclusive, in the tenant's time zone (ADR 0001 D1).
   # Only here: neither the LLM nor a declaration ever computes a date.
   class PeriodResolver
+    Comparison = Data.define(:current, :previous)
+
     def initialize(time_zone:, now:)
       @today = now.in_time_zone(time_zone).to_date
     end
@@ -16,7 +18,47 @@ module DataTeller
       end
     end
 
+    # A period still in progress stops at today, on both sides: 4 days of November against all of October would always look
+    # like a collapse. "This month" without a comparison keeps the whole month (ADR 0005 D2).
+    def compared(range, mode)
+      from, to = call(range)
+      step_back = mode == "previous_year" ? ->(day) { day.years_ago(1) } : step_back_for(range, from, to)
+      to = @today + 1 if from <= @today && @today + 1 < to
+
+      Comparison.new(current: [ from, to ], previous: [ step_back.call(from), step_back.call(to) ])
+    end
+
     private
+
+    # Calendar units step back by calendar units, so that last month compares to the whole month before, whatever their lengths.
+    def step_back_for(range, from, to)
+      if range["relative"] then step_back_relative(range["relative"])
+      elsif range["last"] then step_back_last(range["last"])
+      else days_back(to - from)
+      end
+    end
+
+    def step_back_relative(name)
+      case name
+      when /week\z/ then days_back(7)
+      when /month\z/ then months_back(1)
+      when /quarter\z/ then months_back(3)
+      when /year\z/ then months_back(12)
+      else days_back(1)
+      end
+    end
+
+    def step_back_last(spec)
+      case spec["unit"]
+      when "day" then days_back(spec["n"])
+      when "week" then days_back(spec["n"] * 7)
+      when "month" then months_back(spec["n"])
+      when "year" then months_back(spec["n"] * 12)
+      end
+    end
+
+    def days_back(count) = ->(day) { day - count }
+    def months_back(count) = ->(day) { day.months_ago(count) }
 
     def relative(name)
       case name

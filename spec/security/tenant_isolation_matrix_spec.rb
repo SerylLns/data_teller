@@ -52,7 +52,9 @@ RSpec.describe "Tenant isolation matrix" do
     "a filter" => { "metric" => "revenue", "filters" => [ { "dimension" => "status", "op" => "gte", "value" => 0 } ] },
     "a group_by" => { "metric" => "revenue", "group_by" => [ { "dimension" => "status" } ] },
     "a path" => { "metric" => "revenue", "group_by" => [ { "dimension" => "customer.name" } ] },
-    "a top N" => { "metric" => "revenue", "group_by" => [ { "dimension" => "status" } ], "order_by" => { "by" => "metric", "dir" => "desc" }, "limit" => 1 }
+    "a top N" => { "metric" => "revenue", "group_by" => [ { "dimension" => "status" } ], "order_by" => { "by" => "metric", "dir" => "desc" }, "limit" => 1 },
+    # Two queries: the second one is as much of a target as the first.
+    "a comparison" => { "metric" => "revenue", "period" => { "dimension" => "ordered_at", "range" => { "last" => { "n" => 1, "unit" => "day" } } }, "compare" => "previous_period" }
   }.freeze
 
   before(:all) do
@@ -79,9 +81,11 @@ RSpec.describe "Tenant isolation matrix" do
       acme.orders.create!(customer: alice, status: status, total_cents: total, ordered_at: Time.current)
     end
     3.times { globex.orders.create!(customer: other, status: 1, total_cents: SENTINEL, ordered_at: Time.current) }
+    # In the previous period of the "comparison" shape: there, the previous value is the one that would leak.
+    globex.orders.create!(customer: other, status: 1, total_cents: SENTINEL, ordered_at: 1.day.ago)
   end
 
-  def catalog_for(model, segments: [], dimensions: [ DataTeller::Dimension.new(name: :status, group: true) ])
+  def catalog_for(model, segments: [], dimensions: [ DataTeller::Dimension.new(name: :status, group: true), DataTeller::Dimension.new(name: :ordered_at) ])
     registry = DataTeller::Registry.new
     registry.register(DataTeller::Dataset.new(model_name: model, roles: %i[admin], tenant_path: %i[account], segments: segments, dimensions: dimensions,
                                               metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count),
@@ -232,7 +236,7 @@ RSpec.describe "Tenant isolation matrix" do
 
           expect(%i[answered refused]).to include(outcome.status)
           expect(outcome.result.value).to be <= OWN_TOTAL if outcome.result
-          expect(Order.where(account: globex).count).to eq(3)
+          expect(Order.where(account: globex).count).to eq(4)
         end
       end
     end
@@ -249,10 +253,10 @@ RSpec.describe "Tenant isolation matrix" do
     let(:base) { { "version" => 1, "intent" => "answer", "dataset" => "orders" } }
 
     {
-      "a count" => [ { "metric" => "count" }, 3, 3 ],
-      "a sum" => [ { "metric" => "revenue" }, OWN_TOTAL, SENTINEL * 3 ],
-      "a filter on a path" => [ { "metric" => "count", "filters" => [ { "dimension" => "customer.city", "op" => "eq", "value" => "Paris" } ] }, 3, 3 ],
-      "a segment" => [ { "metric" => "count", "filters" => [ { "segment" => "paid" } ] }, 2, 3 ],
+      "a count" => [ { "metric" => "count" }, 3, 4 ],
+      "a sum" => [ { "metric" => "revenue" }, OWN_TOTAL, SENTINEL * 4 ],
+      "a filter on a path" => [ { "metric" => "count", "filters" => [ { "dimension" => "customer.city", "op" => "eq", "value" => "Paris" } ] }, 3, 4 ],
+      "a segment" => [ { "metric" => "count", "filters" => [ { "segment" => "paid" } ] }, 2, 4 ],
       "a distinct count" => [ { "metric" => "customers" }, 1, 1 ]
     }.each do |label, (shape, for_acme, for_globex)|
       it "gives each tenant its own answer, with #{label}" do

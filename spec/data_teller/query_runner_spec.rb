@@ -662,6 +662,125 @@ RSpec.describe DataTeller::QueryRunner do
     end
   end
 
+  describe "compare" do
+    # Now is 2026-11-04: last_month is October, and the period before it is September.
+    def on_ordered(range = { "relative" => "last_month" }) = { "dimension" => "ordered_at", "range" => range }
+    def compare_query(metric = "revenue", mode = "previous_period", **rest)
+      answer("orders", metric, period: on_ordered, compare: mode, **rest)
+    end
+
+    before do
+      order(acme, alice, status: :paid, total: 100, ordered_at: Time.utc(2026, 10, 10))
+      order(acme, bruno, status: :shipped, total: 200, ordered_at: Time.utc(2026, 10, 20))
+      order(acme, alice, status: :paid, total: 50, ordered_at: Time.utc(2026, 9, 10))
+      order(acme, alice, status: :paid, total: 7, ordered_at: Time.utc(2025, 10, 10))
+    end
+
+    it "gives both values, and the two periods" do
+      result = run_query(compare_query).result
+
+      expect(result.value).to eq(300)
+      expect(result.previous_value).to eq(50)
+      expect(result.columns).to eq(%w[revenue previous_revenue])
+      expect(result.period).to eq([ Date.new(2026, 10, 1), Date.new(2026, 11, 1) ])
+      expect(result.compared_period).to eq([ Date.new(2026, 9, 1), Date.new(2026, 10, 1) ])
+    end
+
+    it "compares to the same dates a year earlier" do
+      expect(run_query(compare_query("revenue", "previous_year")).result.previous_value).to eq(7)
+    end
+
+    it "gives the period to a query without compare, with no comparison" do
+      result = run_query(answer("orders", "revenue", period: on_ordered)).result
+
+      expect(result.value).to eq(300)
+      expect(result.period).to eq([ Date.new(2026, 10, 1), Date.new(2026, 11, 1) ])
+      expect(result.compared_period).to be_nil
+      expect(result.previous_value).to be_nil
+    end
+
+    # The second query is a query too: the leak would be easy to miss, in a number shown as a comparison.
+    it "applies the tenant filter to both periods" do
+      order(globex, other, total: 500_000, ordered_at: Time.utc(2026, 9, 10))
+
+      expect(run_query(compare_query).result.previous_value).to eq(50)
+
+      statements = sql_of { run_query(compare_query) }.map { |s| s[:sql] }.select { |sql| sql.include?(%(FROM "orders")) }
+      expect(statements.size).to eq(2)
+      expect(statements).to all(match(/"orders"\."account_id" = \$\d/))
+    end
+
+    it "runs both queries in the same read-only transaction" do
+      statements = sql_of { run_query(compare_query) }.map { |s| s[:sql] }
+
+      expect(statements.count("SET TRANSACTION READ ONLY")).to eq(1)
+    end
+
+    it "gives 0 for a sum and no value for a ratio when the previous period is empty" do
+      query = answer("orders", "revenue", period: on_ordered({ "on" => "2026-10-10" }), compare: "previous_period")
+      ratio = answer("orders", "avg_basket", period: on_ordered({ "on" => "2026-10-10" }), compare: "previous_period")
+
+      expect(run_query(query).result.previous_value).to eq(0)
+      expect(run_query(ratio).result.previous_value).to be_nil
+    end
+
+    describe "with a group_by" do
+      it "lines each group up with its previous value, enums by their name" do
+        result = run_query(compare_query(group_by: [ by("status") ])).result
+
+        expect(result.columns).to eq(%w[status revenue previous_revenue])
+        expect(result.rows).to contain_exactly([ "paid", 100, 50 ], [ "shipped", 200, 0 ])
+      end
+
+      it "gives 0 to a group that did not exist before" do
+        rows = run_query(compare_query(group_by: [ by("customer.name") ])).result.rows
+
+        expect(rows).to contain_exactly([ "Alice", 100, 50 ], [ "Bruno", 200, 0 ])
+      end
+
+      it "lines up two dimensions" do
+        rows = run_query(compare_query(group_by: [ by("status"), by("customer.name") ])).result.rows
+
+        expect(rows).to contain_exactly([ "paid", "Alice", 100, 50 ], [ "shipped", "Bruno", 200, 0 ])
+      end
+
+      # The previous value of a top group must not depend on where that group ranked back then.
+      it "finds the previous value of a group that was not in the previous top N" do
+        order(acme, bruno, status: :shipped, total: 1, ordered_at: Time.utc(2026, 9, 11))
+        order(acme, alice, status: :paid, total: 5_000, ordered_at: Time.utc(2026, 9, 12))
+
+        result = run_query(compare_query(group_by: [ by("customer.name") ], order_by: { "by" => "metric", "dir" => "desc" }, limit: 1)).result
+
+        expect(result.rows).to eq([ [ "Bruno", 200, 1 ] ])
+        expect(result.truncated).to be(true)
+      end
+
+      it "lines up a group with no value" do
+        alice.update!(city: nil)
+        registry = DataTeller::Registry.new
+        registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account], dimensions: [ DataTeller::Dimension.new(name: :ordered_at, time: true) ],
+                                                  metrics: [ DataTeller::Metric.new(name: :revenue, aggregation: :sum, column: :total_cents) ]))
+        registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: %i[admin], tenant_path: %i[account], dimensions: [ DataTeller::Dimension.new(name: :city, group: true) ]))
+        catalog = DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+        plan = DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+                                   .call(compare_query(group_by: [ by("customer.city") ]))
+
+        expect(plan.execute.rows).to contain_exactly([ nil, 100, 50 ], [ "Lyon", 200, 0 ])
+      end
+
+      it "binds the group values of the second query" do
+        statements = sql_of { run_query(compare_query(group_by: [ by("customer.name") ])) }.map { |s| s[:sql] }.select { |sql| sql.include?(%(FROM "orders")) }
+
+        expect(statements.last).to match(/"customers"\."name" IN \(\$\d/)
+        expect(statements.last).not_to include("Alice")
+      end
+    end
+
+    it "refuses a date group" do
+      expect(run_query(compare_query(group_by: [ by("ordered_at", "month") ])).refusal.reason).to eq(:unsupported_query)
+    end
+  end
+
   describe "refusals" do
     it "refuses what the validator refuses, without running anything" do
       statements = sql_of { expect(run_query(answer("invoices")).refusal.reason).to eq(:unknown_dataset) }
@@ -687,12 +806,6 @@ RSpec.describe DataTeller::QueryRunner do
     end
 
     # Not implemented yet: a refusal, never an approximation (ADR 0005).
-    it "refuses compare until it exists" do
-      query = answer(period: { "dimension" => "ship_on", "range" => { "relative" => "today" } }, compare: "previous_period")
-
-      expect(run_query(query).refusal.reason).to eq(:unsupported_query)
-    end
-
     it "refuses a lookup until it exists" do
       query = answer(filters: [ filter("customer.name", "eq", { "lookup" => "Dupont" }) ])
 
