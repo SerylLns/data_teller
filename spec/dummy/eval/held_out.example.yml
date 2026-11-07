@@ -1,0 +1,22 @@
+# Template for held_out.yml, the 10 questions the author writes (ADR 0006 D3). Copy it to held_out.yml and replace the example.
+# Ask the way a real user of a merchant back-office would: typos, shortcuts, vague wording are welcome. Write the French yourself
+# rather than translating word for word. Keep them out of tuning until they are measured.
+#
+# `bundle exec rspec spec/dummy_app/eval_dataset_spec.rb` checks the file: both languages, a known role, and expected queries the
+# role's schema, the validator and the compiler all accept (failures name the question by its id only).
+# Names to use: `bin/rails "data_teller:schema[admin]"` from spec/dummy, or the declarations in spec/dummy/config/data_teller/.
+today: "2026-11-04"
+tenant: Acme
+
+questions:
+  - id: example_paid_orders_last_week   # lowercase, unique
+    role: admin                         # optional: admin (default), support or member
+    en: how many paid orders last wk
+    fr: combien de commandes payées la semaine derniere
+    tags: [segment, period]             # free, used to break the score down
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: count, filters: [ { segment: paid } ],
+        period: { dimension: ordered_at, range: { relative: last_week } } }
+    also_accepted:                      # optional: other queries that answer just as well
+      - { version: 1, intent: answer, dataset: orders, metric: count, filters: [ { dimension: status, op: eq, value: paid } ],
+          period: { dimension: ordered_at, range: { relative: last_week } } }

@@ -1,0 +1,274 @@
+# Evaluation questions, working set (T09, ADR 0006). The domain is the dummy app's: FAKE data.
+# Each question in English (the main set) and French (a faithful translation), the role it is asked with, and the query expected.
+# also_accepted lists other queries that answer the same question just as well; nothing else scores.
+#
+# today: the day the questions are asked. Relative periods are resolved by the compiler, but a question naming a month needs it.
+# Tuning happens on this file only: held_out.yml is written by the author and kept out of it (ADR 0006 D3).
+today: "2026-11-04"
+tenant: Acme
+
+questions:
+  # ---- plain questions, everyday words
+
+  - id: orders_this_month
+    en: How many orders did we get this month?
+    fr: Combien de commandes avons-nous reçues ce mois-ci ?
+    tags: [plain, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: count,
+        period: { dimension: ordered_at, range: { relative: this_month } } }
+
+  - id: revenue_last_month
+    en: What was our revenue last month?
+    fr: Quel a été notre chiffre d'affaires le mois dernier ?
+    tags: [plain, synonym, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue,
+        period: { dimension: ordered_at, range: { relative: last_month } } }
+
+
+  # orders.customers counts the customers who ordered: not the question.
+  - id: customer_count
+    en: How many customers do we have?
+    fr: Combien de clients avons-nous ?
+    tags: [plain, confusable_metric]
+    expected: { version: 1, intent: answer, dataset: customers, metric: count }
+
+  - id: units_last_week
+    en: How many units did we sell last week?
+    fr: Combien d'unités avons-nous vendues la semaine dernière ?
+    tags: [plain, path, period]
+    expected:
+      { version: 1, intent: answer, dataset: line_items, metric: units,
+        period: { dimension: order.ordered_at, range: { relative: last_week } } }
+
+  # Cancelled subscriptions keep their mrr_cents: the current MRR is the active ones'.
+  - id: current_mrr
+    en: What is our current MRR?
+    fr: Quel est notre MRR actuel ?
+    tags: [plain, segment]
+    expected:
+      { version: 1, intent: answer, dataset: subscriptions, metric: mrr,
+        filters: [ { segment: active } ] }
+
+  # ---- metrics with close names
+
+  - id: net_revenue_last_month
+    en: How much did we earn last month after refunds?
+    fr: Combien avons-nous gagné le mois dernier, remboursements déduits ?
+    tags: [confusable_metric, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: net_revenue,
+        period: { dimension: ordered_at, range: { relative: last_month } } }
+
+  - id: refunded_this_quarter
+    en: How much have we refunded this quarter?
+    fr: Combien avons-nous remboursé ce trimestre ?
+    tags: [confusable_metric, period]
+    expected:
+      { version: 1, intent: answer, dataset: refunds, metric: refunded_amount,
+        period: { dimension: refunded_at, range: { relative: this_quarter } } }
+
+  # The cost of promo codes is on the orders, not on the coupons.
+  - id: promo_cost_this_year
+    en: How much did promo codes cost us this year?
+    fr: Combien les codes promo nous ont-ils coûté cette année ?
+    tags: [confusable_metric, confusable_dataset, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: discounts,
+        period: { dimension: ordered_at, range: { relative: this_year } } }
+
+  - id: invoiced_last_month
+    en: How much did we invoice last month?
+    fr: Combien avons-nous facturé le mois dernier ?
+    tags: [confusable_metric, period]
+    expected:
+      { version: 1, intent: answer, dataset: invoices, metric: invoiced,
+        period: { dimension: issued_on, range: { relative: last_month } } }
+
+  # ---- which date
+
+  - id: orders_shipping_tomorrow
+    en: How many orders ship tomorrow?
+    fr: Combien de commandes partent demain ?
+    tags: [which_date]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: count,
+        period: { dimension: ship_on, range: { relative: tomorrow } } }
+
+  - id: invoices_paid_last_week
+    en: How many invoices were paid last week?
+    fr: Combien de factures ont été réglées la semaine dernière ?
+    tags: [which_date, synonym]
+    expected:
+      { version: 1, intent: answer, dataset: invoices, metric: count,
+        period: { dimension: paid_at, range: { relative: last_week } } }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: invoices, metric: count, filters: [ { segment: paid } ],
+          period: { dimension: paid_at, range: { relative: last_week } } }
+
+  - id: tickets_resolved_yesterday
+    en: How many support tickets were resolved yesterday?
+    fr: Combien de tickets de support ont été résolus hier ?
+    tags: [which_date]
+    expected:
+      { version: 1, intent: answer, dataset: support_tickets, metric: count,
+        period: { dimension: resolved_at, range: { relative: yesterday } } }
+
+  - id: revenue_in_october
+    en: What was our revenue in October?
+    fr: Quel a été notre chiffre d'affaires en octobre ?
+    tags: [absolute_period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue,
+        period: { dimension: ordered_at, range: { between: { from: "2026-10-01", to: "2026-10-31" } } } }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: orders, metric: revenue,
+          period: { dimension: ordered_at, range: { relative: last_month } } }
+
+  # ---- segments
+
+  - id: unpaid_amount
+    en: How much is still unpaid on our invoices?
+    fr: Quel montant reste impayé sur nos factures ?
+    tags: [segment, synonym]
+    expected:
+      { version: 1, intent: answer, dataset: invoices, metric: invoiced,
+        filters: [ { segment: unpaid } ] }
+
+  - id: urgent_open_tickets
+    en: How many urgent tickets are still open?
+    fr: Combien de tickets urgents sont encore ouverts ?
+    tags: [segment]
+    expected:
+      { version: 1, intent: answer, dataset: support_tickets, metric: count,
+        filters: [ { segment: urgent }, { segment: unresolved } ] }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: support_tickets, metric: count,
+          filters: [ { segment: urgent }, { dimension: status, op: eq, value: open } ] }
+
+  - id: orders_with_coupon_this_month
+    en: How many orders used a promo code this month?
+    fr: Combien de commandes ont utilisé un code promo ce mois-ci ?
+    tags: [segment, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: count, filters: [ { segment: with_coupon } ],
+        period: { dimension: ordered_at, range: { relative: this_month } } }
+
+  # ---- filters
+
+  - id: mobile_revenue_last_month
+    en: What was the revenue from the mobile app last month?
+    fr: Quel a été le chiffre d'affaires de l'appli mobile le mois dernier ?
+    tags: [filter, enum_value, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue,
+        filters: [ { dimension: channel, op: eq, value: mobile } ],
+        period: { dimension: ordered_at, range: { relative: last_month } } }
+
+  # "sacs" has to become the stored value "Bags".
+  - id: average_bag_price
+    en: What's the average price of our bags?
+    fr: Quel est le prix moyen de nos sacs ?
+    tags: [filter, value_translation]
+    expected:
+      { version: 1, intent: answer, dataset: products, metric: avg_price,
+        filters: [ { dimension: category, op: eq, value: Bags } ] }
+
+  # ---- grouping, ordering, top N
+
+  - id: top_customers_this_year
+    en: Who are our top 5 customers by revenue this year?
+    fr: Quels sont nos 5 meilleurs clients en chiffre d'affaires cette année ?
+    tags: [group, top_n, path, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue,
+        group_by: [ { dimension: customer.name } ], order_by: { by: metric, dir: desc }, limit: 5,
+        period: { dimension: ordered_at, range: { relative: this_year } } }
+
+  - id: revenue_by_month_this_year
+    en: Revenue by month this year
+    fr: Chiffre d'affaires par mois cette année
+    tags: [group, granularity, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue,
+        group_by: [ { dimension: ordered_at, granularity: month } ],
+        period: { dimension: ordered_at, range: { relative: this_year } } }
+
+
+  # ---- comparisons
+
+  - id: revenue_vs_last_month
+    en: How is revenue this month compared to last month?
+    fr: Comment évolue le chiffre d'affaires ce mois-ci par rapport au mois dernier ?
+    tags: [compare]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue, compare: previous_period,
+        period: { dimension: ordered_at, range: { relative: this_month } } }
+
+  - id: orders_vs_last_year
+    en: Orders last month versus the same month last year
+    fr: Les commandes du mois dernier par rapport au même mois l'an dernier
+    tags: [compare]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: count, compare: previous_year,
+        period: { dimension: ordered_at, range: { relative: last_month } } }
+
+  # ---- clarifications: guessing would be wrong
+
+  - id: revenue_by_date
+    en: Revenue by date
+    fr: Le chiffre d'affaires par date
+    tags: [clarify, which_date]
+    expected:
+      { version: 1, intent: clarify, clarify: { reason: ambiguous_dimension, options: [ ordered_at, ship_on ] } }
+
+  - id: how_many_active
+    en: How many active ones do we have right now?
+    fr: Combien en avons-nous d'actifs en ce moment ?
+    tags: [clarify, confusable_dataset]
+    expected:
+      { version: 1, intent: clarify, clarify: { reason: ambiguous_dataset, options: [ products, subscriptions ] } }
+
+  # ---- out of scope: nothing to answer with
+
+  - id: gross_margin
+    en: What's our gross margin this month?
+    fr: Quelle est notre marge brute ce mois-ci ?
+    tags: [out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unknown_metric } }
+
+  - id: employees
+    en: How many employees do we have?
+    fr: Combien d'employés avons-nous ?
+    tags: [out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unknown_dataset } }
+
+  - id: weather
+    en: What's the weather like in Paris tomorrow?
+    fr: Quel temps fera-t-il à Paris demain ?
+    tags: [out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: not_a_data_question } }
+
+  # ---- roles and tenants: the catalog the LLM gets has no such name
+
+  - id: revenue_as_support
+    role: support
+    en: What was our revenue last month?
+    fr: Quel a été notre chiffre d'affaires le mois dernier ?
+    tags: [permission, out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unknown_metric } }
+
+  - id: customers_as_member
+    role: member
+    en: How many customers do we have?
+    fr: Combien de clients avons-nous ?
+    tags: [permission, out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unknown_dataset } }
+
+  # Another merchant's data: no query can name a tenant. Whatever comes back, the compiler keeps it to Acme.
+  - id: other_merchant
+    en: How many orders did Globex get last month?
+    fr: Combien de commandes Globex a-t-il reçues le mois dernier ?
+    tags: [cross_tenant, out_of_scope]
+    expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unsupported_query } }

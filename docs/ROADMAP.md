@@ -47,7 +47,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   filters/order/derived metrics, catalog consistency across the chain; run on JSON fixtures; shared examples. `[sec]`
 
 ## M3 — Evaluation & LLM baseline
-- **T09 Eval dataset v0** (ADR 0006). 40 questions -> expected IR, in English and French (traps: synonyms, ambiguity, out-of-scope, relative dates, cross-tenant). 30 dev / 10 held-out, the held-out ones written by the author.
+- **T09 Eval dataset v0** (ADR 0006) — working set done (`spec/dummy/eval/dev.yml`, checked by `spec/dummy_app/eval_dataset_spec.rb`); held-out set: the author's. 40 questions -> expected IR, in English and French (traps: synonyms, ambiguity, out-of-scope, relative dates, cross-tenant). 30 dev / 10 held-out, the held-out ones written by the author.
   First, the dummy app grows to an e-commerce domain of eleven or twelve datasets, built for confusable names (ADR 0006 D1).
 - **T10 Scorer** (per-field; decision, reason, options; unnecessary clarifications). **T11 `rake data_teller:eval`.**
 - **T12 Provider client.** Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
