@@ -36,6 +36,12 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   one catalog per request (`Catalog.for_user`). Two dimensions on one column with different roles refused at boot. Users and roles (admin / support / member) in the dummy, with fake seeds. `spec/security/permissions_matrix_spec.rb`: every role against every use of a name, and the catalog, the schema and the validator agreeing. `[sec]`
 - **T36 Aggregate disclosure.** Declarative `min_group_size`, small-cell suppression; documents the differencing limit. `[sec]`
 - **T37 Database read-only role** — done (ADR 0005 D6). `c.database_role`, switched to with `SET LOCAL ROLE`; `rake data_teller:grants` prints the column GRANTs from the declarations; `rake data_teller:check` refuses too few and too many. Columns only, not rows (T39). Recommended, not mandatory. A separate connection may become an option. `[sec]`
+- **T39 Optional Postgres RLS** (`SET LOCAL` tenant id), defense in depth. `[sec]` Moved up from M6 (2026-11-07): the seven tenant leaks of the third review all came from code
+  judging SQL; the LLM adds a new source of unexpected queries, so the database should hold the tenant line before it is plugged in. Builds on the role of T37.
+  Unlocks, if real scopes need it at T40: a per-segment escape from the scope whitelist (ADR 0004 D4), like Rust's `unsafe`, so that it is done knowingly.
+  Proposed shape, not decided: `segment :vip, scope: :vip_customers, unsafe: "uses LOWER(city), reviewed in #123"`. A reason, not `true`; never a global setting;
+  listed by `rake data_teller:check` and warned at boot; refused at boot unless RLS is on, since without it the code is the only line and this would reopen the leaks of the third review.
+  First add to the whitelist what is safe by construction (`LOWER`, `LIKE`), and consider sub-queries compiled with their own tenant filter.
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
 - **T31a Security Test Kit v0.** Cross-tenant ids, forbidden columns and associations, sensitive aggregates, hostile scopes, inference via
   filters/order/derived metrics, catalog consistency across the chain; run on JSON fixtures; shared examples. `[sec]`
@@ -79,11 +85,6 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   - one more scenario: `account_id` declared as a dimension anyway, and filtering on another tenant still returns nothing (the tenant filter is ANDed);
   - hosting hardened: a request rate limit (Rails' `rate_limit`, no new dependency) and the read-only role of T37, since the sandbox runs arbitrary JSON from anyone;
   - decide what of `Catalog` is public API (the roles page reads `Catalog::Entry#fields`), before 0.1.
-- **T39 Optional Postgres RLS** (`SET LOCAL` tenant id), defense in depth. `[sec]`
-  Unlocks, if real scopes need it at T40: a per-segment escape from the scope whitelist (ADR 0004 D4), like Rust's `unsafe`, so that it is done knowingly.
-  Proposed shape, not decided: `segment :vip, scope: :vip_customers, unsafe: "uses LOWER(city), reviewed in #123"`. A reason, not `true`; never a global setting;
-  listed by `rake data_teller:check` and warned at boot; refused at boot unless RLS is on, since without it the code is the only line and this would reopen the leaks of the third review.
-  First add to the whitelist what is safe by construction (`LOWER`, `LIKE`), and consider sub-queries compiled with their own tenant filter.
 
 ## V1
 Saved/shared questions as RAG examples · 👍/👎 feedback -> eval dataset · audit log + token cost per tenant ·
