@@ -25,6 +25,21 @@ RSpec.describe DataTeller::QueryValidator do
     failure_message { |result| "expected it to be accepted, got #{result.refusal&.reason} #{result.problems}" }
   end
 
+  describe "numbers no JSON schema can judge" do
+    {
+      "a filter value" => '{"filters":[{"dimension":"total_cents","op":"gt","value":1e400}]}',
+      "a negative one" => '{"filters":[{"dimension":"total_cents","op":"gt","value":-1e400}]}',
+      "a value in a list" => '{"filters":[{"dimension":"total_cents","op":"in","value":[1,1e400]}]}',
+      "the limit" => '{"limit":1e400}',
+      "a period length" => '{"period":{"dimension":"ordered_at","range":{"last":{"n":1e400,"unit":"day"}}}}',
+      "the version" => '{"version":1e400}'
+    }.each do |label, json|
+      it "refuses an infinite number in #{label}, without raising" do
+        expect(validate(answer.merge(JSON.parse(json)))).to be_refused_with(:unsupported_query)
+      end
+    end
+  end
+
   describe "structure" do
     [ nil, "orders", 42, [], {}, { "version" => 2, "intent" => "answer", "dataset" => "orders", "metric" => "count" } ].each do |bad|
       it "refuses #{bad.inspect[0, 30]}" do

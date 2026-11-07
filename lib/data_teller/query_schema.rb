@@ -14,7 +14,7 @@ module DataTeller
     end
 
     def self.valid?(query)
-      schemer.valid?(query)
+      finite?(query) && schemer.valid?(query)
     end
 
     def self.definition
@@ -23,7 +23,20 @@ module DataTeller
 
     # Returns the JSON pointers and error types, which the eval can aggregate.
     def self.errors(query)
+      return [ { pointer: "", type: "not_finite" } ] unless finite?(query)
+
       schemer.validate(query).map { |e| { pointer: e["data_pointer"], type: e["type"] } }
+    end
+
+    # JSON.parse reads 1e400 as Infinity, which is a number to the schema, and raises in the schemer on an integer field.
+    # Before anything else, so that an LLM's output cannot turn into an exception.
+    def self.finite?(value)
+      case value
+      when Numeric then value.finite?
+      when Hash then value.values.all? { |item| finite?(item) }
+      when Array then value.all? { |item| finite?(item) }
+      else true
+      end
     end
   end
 end
