@@ -31,7 +31,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T24 Tenant injection** — done (ADR 0005 D1). A sub-query on every table touched (joins, metric paths), applied last on top of segments, with a structural presence check.
   `scope:` and `default_scope` limited to a whitelist (ADR 0004 D4). `spec/security/`: a matrix of attack vectors against query shapes, on real rows and two tenants, including the two regressions that returned 2001 instead of 1. Still to cover in T31a: soft-delete, STI, nullable tenant. `[sec]`
 - **T25 Execution guards** — done (ADR 0005 D3). Read-only transaction, compilation included, statement timeout (`query_timeout`), row, join and group caps as settings, automatic top-N with `truncated`, time-series point cap (`too_many_groups`). `[perf]` `[sec]`
-- **T26 Relative dates + tenant time zone.** Done for periods and date grouping. Left: `compare`, refused until then, and relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
+- **T26 Relative dates + tenant time zone** — done (ADR 0005 D2, D4). Periods, date grouping, `compare`. Left, refused until then: relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
 - **T35 Permission basics** (ADR 0004 D5). Dataset roles mandatory, narrowing inheritance, derived-metric intersection, segment
   inheritance, fail-closed role resolver, single per-request visible-catalog object. `[sec]`
   Adds Users and roles (admin / support / member) to the dummy app, with fake seeds.
@@ -64,7 +64,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 
 ## M6 — Hardening & release
 - **T31b Full adversarial suite** incl. prompt injection; shipped as shared examples. `[sec]`
-- **T32 Per-tenant/user rate limit + token budget.** `[perf]` `[sec]`
+- **T32 Per-tenant/user rate limit + token budget.** `[perf]` `[sec]` Decide there whether the execution limits of T25 can vary per tenant or role; they are global today.
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
   this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.

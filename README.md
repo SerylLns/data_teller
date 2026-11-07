@@ -64,7 +64,8 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Query validator | Done |
 | Compiler, tenant filter on every table, running a hand-written JSON query | Done |
 | Execution guards: read-only transaction, statement timeout, row and group caps | Done |
-| `compare`, permissions on real users, database role, security test kit | Next |
+| Period comparison (`compare`) | Done |
+| Permissions on real users, database role, security test kit, entity lookups | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
 

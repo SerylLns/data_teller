@@ -63,8 +63,17 @@ Performance: three more round trips per query (`BEGIN`, two `SET`), and a `ROLLB
 
 Limit: this does not stop what a scope does outside SQL, and it only covers the connection of the dataset's model. The database role of T37 covers the rest of the writes at another level.
 
+## D4 — `compare`: two full plans (T26)
+
+- A comparison is two queries from the compiler, each with its own tenant filter and its own check, in the same read-only transaction. The second one is as much of a target as the first, so it gets nothing less.
+- **Calendar units step back by calendar units:** last month against the month before, whatever their lengths. `last` steps back by its N, `on` and `between` by their length. `previous_year` takes the same dates a year earlier (February 29 gives February 28).
+- **A period still in progress stops at today, on both sides.** On November 4, "this month" compares November 1-4 with October 1-4: 4 days against all of October would always look like a collapse. This also cuts future rows, such as a `ship_on` later this month. Without `compare`, "this month" keeps the whole month. The result carries both periods, so the explanation can state them (T28).
+- **The result follows the current period:** its top N, with each group's previous value. The second query is narrowed to those groups rather than cut by rank, since a group's previous value must not depend on how it ranked then. A group that did not exist before gets 0 for a sum or a count, and no value for an average or a ratio. A group that only existed before does not appear.
+- **A date group is refused:** October's weeks and September's weeks are different groups, and nothing lines them up.
+
+Performance: two queries, so up to twice the cost, in one statement timeout each.
+
 ## Not implemented yet: refused, never approximated
 
-- `compare` (rest of T26).
 - `{ "lookup": ... }` values (T27).
 - Relative conditions in a segment, such as `{ days_ago: 30 }`: their exact syntax still has to be decided.
