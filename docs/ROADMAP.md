@@ -74,17 +74,20 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
   this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.
-- **T40 `data_teller-demo` repository** (after M3 and T33). Separate Rails app using the gem like an integrator: Accounts/Users/roles,
-  Pundit, several tenants, reusing the dummy's models and fake seeds. Scripted security demo = the Security Test Kit scenarios
-  (other-tenant data, forbidden column, injection attempt), with a replay mode of recorded LLM responses so it is deterministic.
-  Wording: even if the LLM is fooled, the query stays inside tenant and column limits. Product ranking starts from a LineItem dataset (belongs_to path).
-  **Started early, now frozen** (local repo, no remote): a JSON sandbox with the gem's trace, a page comparing what two roles see,
-  and nine security scenarios with computed verdicts. Two uses: the public showcase of the gem, and screenshots for the series.
-  Until M3 it is presented as "the security layer, before the LLM". Before it goes public:
+- **T40 `data_teller-demo` repository** (after T13b). Separate Rails app using the gem like an integrator. Decided 2026-11-07, two parts in one app:
+  - **The demo: a fake merchant back-office** (dashboard, orders, a customer page; 3 or 4 read-only pages, generated from fake seeds, no real
+    back-office features) with the DataTeller palette of T13b as the point of it: an end user asks, and gets the answer the way a real app would show it.
+    Same domain as the dummy app's evaluation domain (ADR 0006 D1), so that the eval, the demo and the articles talk about the same data.
+    Scripted security demo with a replay mode of recorded LLM responses so it is deterministic. Wording: even if the LLM is fooled,
+    the query stays inside tenant and column limits.
+  - **"Under the hood", for developers: the pages already built** while the demo was frozen (local repo, no remote): the JSON sandbox with
+    the gem's trace, the page comparing what two roles see, and nine security scenarios with computed verdicts. Also the series' screenshots.
+  Built once the LLM answers (T13, T13b): a back-office with no working palette is an empty set. Before it goes public:
   - the gem repository is public (the author's call), so the demo's Gemfile and CI stop depending on `../data_teller`;
   - the nine scenarios run as specs in the demo, so the page can never show a green it did not earn;
   - one more scenario: `account_id` declared as a dimension anyway, and filtering on another tenant still returns nothing (the tenant filter is ANDed);
-  - hosting hardened: a request rate limit (Rails' `rate_limit`, no new dependency) and the read-only role of T37, since the sandbox runs arbitrary JSON from anyone;
+  - hosting hardened: a request rate limit (Rails' `rate_limit`, no new dependency), the read-only role of T37 and the row security of T39,
+    since the sandbox runs arbitrary JSON from anyone, and an LLM budget per visitor once the palette calls a provider;
   - decide what of `Catalog` is public API (the roles page reads `Catalog::Entry#fields`), before 0.1.
 
 ## V1
