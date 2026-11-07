@@ -5,5 +5,5 @@ DataTeller.configure do |c|
     time_zone { |account| account.time_zone }
   end
   c.roles { |user| user.roles }
-  c.expose Order, Customer
+  c.expose Order, Customer, Product, LineItem, Shipment, Refund, Coupon, Subscription, Invoice, SupportTicket, Review
 end

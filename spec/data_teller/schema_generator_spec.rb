@@ -15,7 +15,7 @@ RSpec.describe DataTeller::SchemaGenerator do
   let(:support) { schemer_for(:support) }
 
   it "produces one branch per visible dataset, plus clarify and out_of_scope" do
-    expect(schema_for(:admin)["anyOf"].size).to eq(4)
+    expect(schema_for(:admin)["anyOf"].size).to eq(DataTeller::Catalog.for(:admin).datasets.size + 2)
   end
 
   describe "datasets and metrics" do
@@ -30,7 +30,7 @@ RSpec.describe DataTeller::SchemaGenerator do
     end
 
     it "cannot express an unknown dataset or metric" do
-      expect(admin.valid?(answer("invoices"))).to be(false)
+      expect(admin.valid?(answer("quotes"))).to be(false)
       expect(admin.valid?(answer("orders", "margin"))).to be(false)
     end
 

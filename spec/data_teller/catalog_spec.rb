@@ -20,7 +20,7 @@ RSpec.describe DataTeller::Catalog do
     let(:support) { described_class.for(:support) }
 
     it "shows admin everything" do
-      expect(admin.dataset(:orders).metrics.map(&:name)).to contain_exactly(:count, :revenue, :avg_basket, :customers)
+      expect(admin.dataset(:orders).metrics.map(&:name)).to contain_exactly(:count, :revenue, :net_revenue, :discounts, :avg_basket, :customers)
     end
 
     it "hides revenue from support, and the ratio that would reveal it" do
@@ -29,7 +29,7 @@ RSpec.describe DataTeller::Catalog do
 
     it "derives paths from the exposed models" do
       expect(admin.dataset(:orders).fields.map(&:name)).to include(:status, :"customer.city", :"customer.name")
-      expect(admin.dataset(:customers).fields.map(&:name)).to contain_exactly(:city, :name)
+      expect(admin.dataset(:customers).fields.map(&:name)).to contain_exactly(:city, :name, :acquisition_channel, :tier, :signed_up_on)
     end
   end
 

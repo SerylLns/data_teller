@@ -31,9 +31,21 @@ RSpec.describe DataTeller::ReaderGrants do
     columns = described_class.new(registry: DataTeller.registry, tenant_model_name: "Account").columns
 
     expect(columns).to eq(
-      "customers" => %w[account_id city id name],
-      "orders" => %w[account_id customer_id ordered_at ship_on status total_cents]
+      "coupons" => %w[account_id code ends_on id kind starts_on],
+      "customers" => %w[account_id acquisition_channel city id name signed_up_on tier],
+      "invoices" => %w[account_id amount_cents customer_id due_on issued_on paid_at status subscription_id],
+      "line_items" => %w[order_id product_id quantity unit_price_cents],
+      "orders" => %w[account_id channel coupon_id customer_id discount_cents id net_total_cents ordered_at ship_on status total_cents],
+      "products" => %w[account_id active category id launched_on name price_cents],
+      "refunds" => %w[amount_cents order_id reason refunded_at],
+      "reviews" => %w[customer_id product_id published_on rating verified],
+      "shipments" => %w[carrier cost_cents delivered_on order_id shipped_at],
+      "subscriptions" => %w[account_id cancelled_on customer_id id mrr_cents plan started_on status],
+      "support_tickets" => %w[account_id channel customer_id opened_at order_id priority resolution_minutes resolved_at satisfaction status]
     )
+    # What the dummy app keeps out on purpose, and the tables it does not expose.
+    expect(columns["customers"]).not_to include("email", "phone")
+    expect(columns).not_to include("users", "accounts")
   end
 
   describe "everything a query can touch" do
@@ -97,7 +109,7 @@ RSpec.describe DataTeller::ReaderGrants do
       expect(sql).to include(%(GRANT "data_teller_reader" TO "app";))
       expect(sql.index(%(REVOKE ALL ON ALL TABLES IN SCHEMA "public" FROM "data_teller_reader";)))
         .to be < sql.index("GRANT SELECT")
-      expect(sql).to include(%(GRANT SELECT ("account_id", "city", "id", "name") ON "customers" TO "data_teller_reader";))
+      expect(sql).to include(%(GRANT SELECT ("carrier", "cost_cents", "delivered_on", "order_id", "shipped_at") ON "shipments" TO "data_teller_reader";))
     end
 
     it "grants nothing but SELECT on columns" do

@@ -18,13 +18,13 @@ RSpec.describe DataTeller::Loader do
 
     expect(loaded.errors).to eq([])
     expect(loaded.registry.dataset(:orders).metrics.keys).to include(:count, :revenue, :avg_basket, :customers)
-    expect(loaded.config.exposed_models).to contain_exactly("Order", "Customer")
+    expect(loaded.config.exposed_models).to include("Order", "Customer", "Invoice", "Review").and have_attributes(size: 11)
     expect(loaded.registry).not_to equal(DataTeller.registry)
     expect(loaded.config).not_to equal(DataTeller.config)
   end
 
   it "builds fresh objects on every call" do
-    2.times { expect(described_class.call(Rails.root).registry.datasets.size).to eq(2) }
+    2.times { expect(described_class.call(Rails.root).registry.datasets.size).to eq(11) }
   end
 
   it "names the file and the line when a declaration is invalid" do

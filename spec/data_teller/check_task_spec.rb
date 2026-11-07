@@ -20,7 +20,7 @@ RSpec.describe "rake data_teller:check" do
   it "reports the declared datasets and exits 0 when the configuration is valid" do
     stdout, _stderr, status = run_task
 
-    expect(stdout).to include("DataTeller: OK (2 datasets: customers, orders)")
+    expect(stdout).to include("DataTeller: OK (11 datasets: coupons, customers, invoices, line_items, orders, products, refunds, reviews, shipments, subscriptions, support_tickets)")
     expect(status.exitstatus).to eq(0)
   end
 

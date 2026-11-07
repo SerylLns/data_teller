@@ -77,7 +77,7 @@ RSpec.describe DataTeller::QueryValidator do
     end
 
     it "refuses an unknown dataset" do
-      expect(validate(answer("invoices"))).to be_refused_with(:unknown_dataset)
+      expect(validate(answer("quotes"))).to be_refused_with(:unknown_dataset)
     end
 
     it "refuses a metric of another dataset" do

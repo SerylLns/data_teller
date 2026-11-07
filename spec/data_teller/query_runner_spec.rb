@@ -845,7 +845,7 @@ RSpec.describe DataTeller::QueryRunner do
 
   describe "refusals" do
     it "refuses what the validator refuses, without running anything" do
-      statements = sql_of { expect(run_query(answer("invoices")).refusal.reason).to eq(:unknown_dataset) }
+      statements = sql_of { expect(run_query(answer("quotes")).refusal.reason).to eq(:unknown_dataset) }
 
       expect(statements.map { |s| s[:sql] }.grep(/invoices/)).to be_empty
     end
@@ -914,7 +914,7 @@ RSpec.describe DataTeller::QueryRunner do
     it "does not let the compiler run an invalid query, even when called directly" do
       compiler = DataTeller::Compiler.new(catalog: DataTeller::Catalog.for(:admin), tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
 
-      expect { compiler.call(answer("invoices")) }.to raise_error(DataTeller::Compiler::Refused)
+      expect { compiler.call(answer("quotes")) }.to raise_error(DataTeller::Compiler::Refused)
     end
   end
 

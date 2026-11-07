@@ -14,10 +14,11 @@ RSpec.describe DataTeller::RowPolicies do
   def execute(sql) = ActiveRecord::Base.with_connection { |connection| connection.execute(sql) }
 
   it "compares a table's tenant key to the transaction's tenant, cast to the column's type" do
-    expect(described_class.new(registry: DataTeller.registry, tenant_model_name: "Account", role: "data_teller_reader").conditions).to eq(
-      "customers" => %("customers"."account_id" = current_setting('data_teller.tenant_id')::bigint),
-      "orders" => %("orders"."account_id" = current_setting('data_teller.tenant_id')::bigint)
-    )
+    conditions = described_class.new(registry: DataTeller.registry, tenant_model_name: "Account", role: "data_teller_reader").conditions
+
+    expect(conditions.keys).to eq(DataTeller::ReaderGrants.new(registry: DataTeller.registry, tenant_model_name: "Account").columns.keys)
+    expect(conditions["orders"]).to eq(%("orders"."account_id" = current_setting('data_teller.tenant_id')::bigint))
+    expect(conditions["reviews"]).to eq(%(EXISTS (SELECT 1 FROM "products" WHERE "products"."id" = "reviews"."product_id")))
   end
 
   it "keeps the rows of a table with no tenant key whose parent is visible, and gives the parent its own policy" do
