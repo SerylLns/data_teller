@@ -112,7 +112,17 @@ segment :vip,     scope: :vip_customers      # escape hatch, checked at boot
   Its conditions are added with `AND`, never with `merge`, which would replace an earlier condition on the same column.
   Why: a list of forbidden clauses missed `from`. A scope replacing `FROM` with a sub-query that redefines `account_id` read other tenants' rows while the tenant filter was present and the structural check passed; `where("1=1) OR (1=1")` did the same by putting an `OR` outside the filter's `AND`. Both returned 2001 instead of 1 in a spec with two tenants, now permanent regression tests in `spec/security/`.
   **The price:** `where("total_cents > ?", 100)` and scopes with `joins` are refused: write them with a hash, Arel, a declarative segment or a dimension.
+- **The conditions themselves are a whitelist of nodes** (amended 2026-11-07, third review, "A"). Each node must be one of: `AND`, `OR` inside parentheses, `NOT`,
+  `=`, `<>`, `>`, `>=`, `<`, `<=`, `IN`, `NOT IN`, `BETWEEN`, on a column of the model's own table, against plain values (strings, numbers, dates, booleans, `NULL`) or bound parameters.
+  Anything else is refused, by exact class: a sub-query, an `EXISTS`, a SQL function such as `LOWER`, `LIKE`, another table, a table alias, raw SQL in a value or a name.
+  The scope's conditions are then put in their own parentheses before the `AND` with the tenant filter.
+  Why: the first version looked for raw SQL in the nodes and let through whatever it did not know. `arel_table[Arel.sql("id = id OR 1")]` and a hand-built `Arel::Nodes::Or`
+  read other tenants' rows (4,500 expected, 3,004,497 returned), and an `EXISTS` on another table made a count depend on another tenant's data. Same mistake as `from`, one level down.
+  **The price:** `where(id: Order.select(:customer_id))` and `LOWER(city)` are refused in a scope, even when legitimate. To reopen at T40 if real scopes need them.
+  It also fixed false refusals: `where(city: %w[Paris Lyon])` was taken for raw SQL, because the walk saw any string as SQL.
 - **`default_scope` follows the same logic**, since it applies without anyone naming it: conditions and an order only (the compiler drops the order), on the dataset and on every table joined. Raw SQL stays accepted there, because `where("deleted_at IS NULL")` is common, as long as it cannot end its parentheses or the statement.
+  The other nodes go through the same whitelist. Raw SQL with bound values (`where("x > ?", 1)`) is judged without the parentheses Rails adds, which hid `1=1) OR (1=?`.
+  **Open (2026-11-07):** parentheses are counted without reading string literals, so `'(' <> 'x') OR (1=1 OR ')' = 'y'` and the same with `$a$` quotes still escape. Decision pending.
 - **Calling a scope still runs code.** The whitelist judges what it returns, and compilation runs in a read-only transaction, so that a scope writing through SQL gets an error from the database. Anything else its code does, an HTTP call for instance, is out of reach.
 - Where each check runs: the name must be registered by `scope` at boot (a class method could do anything when called, so it is refused and never called);
   the whitelist in `rake data_teller:check`, by calling the scope inside a rolled-back transaction, and on every query by the compiler. "No relative date" cannot be detected from a relation: it stays a documented rule.
