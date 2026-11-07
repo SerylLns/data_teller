@@ -58,6 +58,7 @@ module DataTeller
     def build_plan(period)
       @period = period
       check_join_cap
+      check_tables_joined_once
       check_default_scopes
       # A default order cannot apply to an aggregate. Everything else a default_scope could hold is refused just above.
       relation = apply_scope_segments(@klass.all.unscope(:order))
@@ -107,6 +108,25 @@ module DataTeller
       raise Refused.new(:unsupported_query, "#{joined} tables joined, the limit is #{limits.max_joins}")
     end
 
+    # Rails gives a table joined a second time an alias. The columns and the tenant filter read the table by its name, so they
+    # would all be on the first join: a sum of the wrong rows, and a second join with no filter. Per query, because each path is
+    # fine alone: a dataset can have both, as long as one query does not use both.
+    def check_tables_joined_once
+      reached = { @klass.table_name => [] }
+
+      join_paths.each do |steps|
+        steps.each_index.reduce(@klass) do |klass, index|
+          target = klass.reflect_on_association(steps[index])&.klass
+          raise Refused.new(:unsupported_query, "#{klass.name} has no association #{steps[index]}") unless target
+
+          path = steps[0..index]
+          raise Refused.new(:unsupported_query, "this query reaches #{target.table_name} by two paths") unless (reached[target.table_name] ||= path) == path
+
+          target
+        end
+      end
+    end
+
     def check_default_scopes
       touched_datasets.each { |dataset| ScopeInspector.check_default_scope(dataset.model_name.constantize) }
     rescue ScopeInspector::Rejected => e
@@ -124,10 +144,10 @@ module DataTeller
     end
 
     def apply_joins(relation)
-      paths = [ *fields_used.map(&:steps), metric_steps ].reject(&:empty?).uniq
-
-      paths.reduce(relation) { |current, steps| current.joins(nested(steps)) }
+      join_paths.reduce(relation) { |current, steps| current.joins(nested(steps)) }
     end
+
+    def join_paths = [ *fields_used.map(&:steps), metric_steps ].reject(&:empty?).uniq
 
     def nested(steps)
       steps.reverse.reduce { |inner, step| { step => inner } }

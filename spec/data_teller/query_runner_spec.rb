@@ -593,6 +593,47 @@ RSpec.describe DataTeller::QueryRunner do
       end
     end
 
+    # Each path alone is fine. Together Rails aliases the second join, and the sum and the tenant filter read the first one.
+    describe "two paths to one table in a query" do
+      let(:catalog_models) do
+        order_model = Class.new(ApplicationRecord) do
+          self.table_name = "orders"
+          belongs_to :account
+          belongs_to :featured_product, class_name: "Product", foreign_key: :customer_id
+          has_many :line_items, foreign_key: :order_id
+        end
+        stub_const("SpecTwoPaths", order_model)
+      end
+
+      def two_paths_catalog
+        catalog_models
+        registry = DataTeller::Registry.new
+        registry.register(DataTeller::Dataset.new(model_name: "SpecTwoPaths", roles: %i[admin], tenant_path: %i[account],
+                                                  metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count),
+                                                             DataTeller::Metric.new(name: :catalog_value, aggregation: :sum, column: "line_items.product.price_cents") ]))
+        registry.register(DataTeller::Dataset.new(model_name: "LineItem", roles: %i[admin], tenant_path: %i[order account],
+                                                  dimensions: [ DataTeller::Dimension.new(name: :quantity) ]))
+        registry.register(DataTeller::Dataset.new(model_name: "Product", roles: %i[admin], tenant_path: %i[account],
+                                                  dimensions: [ DataTeller::Dimension.new(name: :name, group: true) ]))
+        DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+      end
+
+      def compiled(query)
+        DataTeller::Compiler.new(catalog: two_paths_catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: Time.current)
+                            .call({ "version" => 1, "intent" => "answer", "dataset" => "spec_two_paths" }.merge(query))
+      end
+
+      it "is refused" do
+        expect { compiled("metric" => "catalog_value", "group_by" => [ { "dimension" => "featured_product.name" } ]) }
+          .to raise_error(DataTeller::Compiler::Refused, /two paths/)
+      end
+
+      it "lets each path through alone" do
+        expect(compiled("metric" => "catalog_value").to_sql).to include("line_items")
+        expect(compiled("metric" => "count", "group_by" => [ { "dimension" => "featured_product.name" } ]).to_sql).to include("products")
+      end
+    end
+
     describe "time series (ADR 0004 D3)" do
       before do
         with_settings(max_time_points: 2)
