@@ -25,10 +25,19 @@ module DataTeller
       step_back = mode == "previous_year" ? ->(day) { day.years_ago(1) } : step_back_for(range, from, to)
       to = @today + 1 if from <= @today && @today + 1 < to
 
-      Comparison.new(current: [ from, to ], previous: [ step_back.call(from), step_back.call(to) ])
+      Comparison.new(current: [ from, to ], previous: [ step_back.call(from), stepped_end(step_back, from, to) ])
     end
 
     private
+
+    # Going back from the last day, not from the exclusive end: month ends clamp, so that the two ends move by different lengths.
+    # From 03-01, a year back is a day too far when the period is the single day of 02-28. Whole months are the exception: all of
+    # February a year back is all of February, the 29th included.
+    def stepped_end(step_back, from, to)
+      return step_back.call(to) if from.day == 1 && to.day == 1
+
+      step_back.call(to - 1) + 1
+    end
 
     # Calendar units step back by calendar units, so that last month compares to the whole month before, whatever their lengths.
     def step_back_for(range, from, to)

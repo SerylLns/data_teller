@@ -103,6 +103,50 @@ RSpec.describe DataTeller::PeriodResolver do
       expect(compared({ "between" => { "from" => "2024-01-11", "to" => "2024-01-20" } }).last).to eq(days("2024-01-01", "2024-01-11"))
     end
 
+    context "around month ends, where stepping back clamps" do
+      def compared_on(today, range, mode = "previous_period")
+        result = described_class.new(time_zone: utc, now: Time.utc(*today, 12)).compared(range, mode)
+        [ result.current, result.previous ]
+      end
+
+      let(:one_month) { { "last" => { "n" => 1, "unit" => "month" } } }
+
+      it "does not count a day in both periods" do
+        expect(compared_on([ 2025, 2, 28 ], one_month)).to eq([ days("2025-01-29", "2025-03-01"), days("2024-12-29", "2025-01-29") ])
+      end
+
+      it "does not lose a day between the two periods" do
+        expect(compared_on([ 2025, 3, 30 ], one_month)).to eq([ days("2025-03-01", "2025-03-31"), days("2025-02-01", "2025-03-01") ])
+      end
+
+      # Every day of two years, one with a February 29th: a rolling previous period always ends where the current one starts.
+      it "keeps a rolling period next to the previous one, whatever the day" do
+        (Date.new(2023, 1, 1)..Date.new(2024, 12, 31)).each do |day|
+          [ 1, 2, 3, 12 ].each do |count|
+            current, previous = compared_on([ day.year, day.month, day.day ], { "last" => { "n" => count, "unit" => "month" } })
+
+            expect(previous.last).to eq(current.first), "last #{count} months on #{day}: #{current} and #{previous}"
+            expect(previous.first).to be < previous.last
+          end
+        end
+      end
+
+      it "compares a single day to a single day" do
+        expect(compared_on([ 2025, 3, 1 ], { "relative" => "yesterday" }, "previous_year").last).to eq(days("2024-02-28", "2024-02-29"))
+        expect(compared_on([ 2024, 3, 1 ], { "relative" => "yesterday" }, "previous_year").last).to eq(days("2023-02-28", "2023-03-01"))
+      end
+
+      it "keeps the whole of February a year back, February 29th included" do
+        expect(compared_on([ 2025, 3, 10 ], { "relative" => "last_month" }, "previous_year").last).to eq(days("2024-02-01", "2024-03-01"))
+        expect(compared_on([ 2024, 3, 10 ], { "relative" => "last_month" }, "previous_year").last).to eq(days("2023-02-01", "2023-03-01"))
+      end
+
+      it "stops a month in progress on the same day of the month, or at the end of a shorter one" do
+        expect(compared_on([ 2025, 3, 15 ], { "relative" => "this_month" })).to eq([ days("2025-03-01", "2025-03-16"), days("2025-02-01", "2025-02-16") ])
+        expect(compared_on([ 2025, 3, 30 ], { "relative" => "this_month" })).to eq([ days("2025-03-01", "2025-03-31"), days("2025-02-01", "2025-03-01") ])
+      end
+    end
+
     it "takes the same dates a year earlier with previous_year" do
       expect(compared({ "relative" => "last_month" }, "previous_year").last).to eq(days("2025-10-01", "2025-11-01"))
       expect(compared({ "relative" => "today" }, "previous_year").last).to eq(days("2025-11-04", "2025-11-05"))
