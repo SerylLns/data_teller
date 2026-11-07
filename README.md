@@ -67,6 +67,7 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Period comparison (`compare`) | Done |
 | Permissions by role, on every use of a name | Done |
 | Read-only database role, limited to the declared columns | Done |
+| Postgres row-level security on the tenant, on top of the compiler's filter | Done |
 | Minimum group size, complexity budget, security test kit | Next |
 | Evaluation suite, LLM client | Not started |
 | Retrieval (RAG), UI, explanations, security test kit | Not started |
@@ -149,6 +150,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 | A `scope:` used as a segment, and a `default_scope`, can only hold comparisons of the model's columns to plain values | Enforced: raw SQL, sub-queries, `from`, `joins` and the like are refused |
 | Queries run in a read-only transaction with a timeout, enforced by the database | Enforced |
 | With `c.database_role`, queries run as a Postgres role that reads the declared columns only | Enforced by the database, opt-in; checked by `rake data_teller:check` |
+| With `c.row_security`, that role sees its tenant's rows only, even if the compiler's filter were gone | Enforced by the database, opt-in; checked by `rake data_teller:check` |
 | Minimum group size | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
 

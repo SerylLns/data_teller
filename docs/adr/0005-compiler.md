@@ -131,6 +131,38 @@ Performance: one more round trip per query (`SET LOCAL ROLE`). Not measured.
 
 Rejected for now, may become an option: a separate connection with its own login (`connects_to`). Stronger, since the app's code could no longer take its rights back, but a second pool and an entry in `database.yml` for every integrator, for a role the ticket calls recommended, not mandatory.
 
+## D7 — Row-level security, chained along the tenant_path (T39, decided "A", 2026-11-07)
+
+```ruby
+c.database_role = "data_teller_reader"
+c.row_security = true                    # false by default; the boot refuses it without database_role
+```
+
+```sql
+SET LOCAL ROLE "data_teller_reader"
+SELECT set_config('data_teller.tenant_id', $1, true)    -- the tenant's primary key, bound, local to the transaction
+
+-- per table, from the tenant_path, printed by rake data_teller:grants:
+CREATE POLICY data_teller_tenant ON "orders" AS RESTRICTIVE FOR SELECT TO "data_teller_reader"
+  USING ("orders"."account_id" = current_setting('data_teller.tenant_id')::bigint);
+CREATE POLICY data_teller_tenant ON "line_items" AS RESTRICTIVE FOR SELECT TO "data_teller_reader"
+  USING (EXISTS (SELECT 1 FROM "orders" WHERE "orders"."id" = "line_items"."order_id"));
+```
+
+- **Why:** the seven tenant leaks of the third review all came from code judging SQL. The compiler's filter stays; the database now holds the same line on its own, so a leak needs both to break. Moved up from M6 to before the LLM, which adds a new source of unexpected queries.
+- **A table with no tenant key keeps the rows whose parent is visible** (decided "A"). Under the role, the parent has its own policy, so Postgres follows the chain. The tables on the way get a policy too. No schema change for the integrator.
+- **Three policies per table.** `data_teller_tenant` is **restrictive**: ANDed with every other policy, so no permissive one, ours or the app's, can widen it. `data_teller_reader_rows` is the permissive policy a restrictive one needs. `data_teller_others` keeps every row, for reading and writing, to every role but DataTeller's: an app whose user is not the tables' owner goes on as before.
+- **A table with row security of its own is refused,** not merged: ours would OR into its permissive policies, enabling row security would switch on policies it had left off, and `data_teller_others` would open a table it keeps closed. One tenant_path per table, ending on the tenant's primary key, for the same reason: one condition, no guess.
+- **Fail closed.** No tenant set means `current_setting` raises or compares to an empty string: no row. Turning `row_security` off while the policies stay refuses every query (`unsupported_query`), it does not answer with the wrong rows.
+- **`rake data_teller:check` tries it for real** under the role: RLS enabled, the three policies present, no row without a tenant, none for a tenant that does not exist. The role must not have `BYPASSRLS` nor own a table, since an owner skips row security. A condition edited by hand that stays strict enough to show nothing for a missing tenant is not caught, and on an empty table the tried part proves nothing.
+- **Proof:** `spec/security/row_security_spec.rb` switches the compiler's tenant filter off. Without row security another tenant's rows come out; with it, totals, counts, joins, filters through a path, comparisons and a table reached through its parent all stay on the tenant's rows. Nine mutations of the policies, the runtime and the check are all caught.
+
+Limit: as for the role, code in a scope can call `set_config` with another tenant. This guards against a bug in the gem, not against the host's code.
+
+Performance: one more round trip per query, and the policy's condition on every row read; the chained one is a sub-query per row, cheap with the usual keys. Not measured; T38 will.
+
+Rejected: requiring a tenant column on every table (a migration, a backfill and app code to keep it right, for every integrator); row security on tables with a tenant column only (the hole would be where joins go, where the leaks were).
+
 ## Not implemented yet: refused, never approximated
 
 - `{ "lookup": ... }` values (T27).
