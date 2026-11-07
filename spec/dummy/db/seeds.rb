@@ -133,11 +133,12 @@ ActiveRecord::Base.transaction do
       while issued_on <= (cancelled_on || today)
         month += 1
         due_on = issued_on + 14
-        status = if due_on > today && rng.rand < 0.7 then "open"
-                 elsif subscription.status_past_due? && issued_on > today - 45 then "open"
-                 elsif rng.rand < 0.04 then "void"
-                 else "paid"
-                 end
+        status =
+          if due_on > today && rng.rand < 0.7 then "open"
+          elsif subscription.status_past_due? && issued_on > today - 45 then "open"
+          elsif rng.rand < 0.04 then "void"
+          else "paid"
+          end
         account.invoices.create!(
           customer:, subscription:, number: "#{spec[:name][0, 3].upcase}-#{format('%04d', n)}-#{format('%02d', month)}",
           status:, amount_cents: subscription.mrr_cents, issued_on:, due_on:,
