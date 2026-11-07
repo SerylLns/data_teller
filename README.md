@@ -128,6 +128,7 @@ A column that isn't declared can't be queried. A `count` metric exists on every 
 ```bash
 bin/rails data_teller:check                # in CI and after migrations: reads the tables and columns too
 bin/rails "data_teller:schema[support]"    # the JSON schema this role would get
+bin/rails "data_teller:catalog[support]"   # the same names, a few lines per dataset, for a person
 ```
 
 An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app

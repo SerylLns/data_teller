@@ -9,6 +9,11 @@ namespace :data_teller do
     puts JSON.pretty_generate(DataTeller::SchemaGenerator.for_roles(args.extras))
   end
 
+  desc "Print what some roles can ask, a few lines per dataset, e.g. rake \"data_teller:catalog[support]\""
+  task :catalog, [] => :environment do |_task, args|
+    print DataTeller::CatalogSummary.new(DataTeller::Catalog.for(args.extras)).call
+  end
+
   desc "Print the SQL giving c.database_role a SELECT on the declared columns only, and its row policies with c.row_security, to review and run"
   task grants: :environment do
     role = DataTeller.config.database_role
