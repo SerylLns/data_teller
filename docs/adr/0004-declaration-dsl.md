@@ -120,9 +120,12 @@ segment :vip,     scope: :vip_customers      # escape hatch, checked at boot
   read other tenants' rows (4,500 expected, 3,004,497 returned), and an `EXISTS` on another table made a count depend on another tenant's data. Same mistake as `from`, one level down.
   **The price:** `where(id: Order.select(:customer_id))` and `LOWER(city)` are refused in a scope, even when legitimate. To reopen at T40 if real scopes need them.
   It also fixed false refusals: `where(city: %w[Paris Lyon])` was taken for raw SQL, because the walk saw any string as SQL.
-- **`default_scope` follows the same logic**, since it applies without anyone naming it: conditions and an order only (the compiler drops the order), on the dataset and on every table joined. Raw SQL stays accepted there, because `where("deleted_at IS NULL")` is common, as long as it cannot end its parentheses or the statement.
-  The other nodes go through the same whitelist. Raw SQL with bound values (`where("x > ?", 1)`) is judged without the parentheses Rails adds, which hid `1=1) OR (1=?`.
-  **Open (2026-11-07):** parentheses are counted without reading string literals, so `'(' <> 'x') OR (1=1 OR ')' = 'y'` and the same with `$a$` quotes still escape. Decision pending.
+- **`default_scope` follows the same logic**, since it applies without anyone naming it: conditions and an order only (the compiler drops the order), on the dataset and on every table joined.
+  The same whitelist of nodes, and **no raw SQL** (amended 2026-11-07, "C"): `where("deleted_at IS NULL")` is written `where(deleted_at: nil)`, which behaves the same for the app.
+  Why: raw SQL was first accepted there as long as its parentheses balanced. Counting them missed those inside a string, `'(' <> 'x') OR (1=1 OR ')' = 'y'`, or between `$a$` quotes,
+  and the bound form `1=1) OR (1=?` once Rails had wrapped it: each put an `OR` outside the tenant filter's `AND` (10 expected, 1,000,009 returned). The third time a judgment on SQL text was wrong.
+  **The price:** a model whose `default_scope` has raw SQL cannot be exposed until it is rewritten with a hash or Arel. The refusal says how.
+  Rejected: refusing only quote characters (keeps `deleted_at IS NULL`, but is still a guess on text); a real SQL parser such as `pg_query` (exact, but a native dependency for a rare case).
 - **Calling a scope still runs code.** The whitelist judges what it returns, and compilation runs in a read-only transaction, so that a scope writing through SQL gets an error from the database. Anything else its code does, an HTTP call for instance, is out of reach.
 - Where each check runs: the name must be registered by `scope` at boot (a class method could do anything when called, so it is refused and never called);
   the whitelist in `rake data_teller:check`, by calling the scope inside a rolled-back transaction, and on every query by the compiler. "No relative date" cannot be detected from a relation: it stays a documented rule.

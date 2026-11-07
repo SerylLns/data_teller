@@ -145,7 +145,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 | A permission applies to every use of a name: reading, filtering, grouping, ordering, and through paths, ratios and segments | Enforced |
 | Values are bound parameters; column names come from declarations, never from the query | Enforced |
 | The tenant filter is applied last, on every table touched, and checked before running | Enforced |
-| A `scope:` used as a segment can only add structured conditions | Enforced: raw SQL, `from`, `joins` and the like are refused |
+| A `scope:` used as a segment, and a `default_scope`, can only hold comparisons of the model's columns to plain values | Enforced: raw SQL, sub-queries, `from`, `joins` and the like are refused |
 | Queries run in a read-only transaction with a timeout, enforced by the database | Enforced |
 | Minimum group size, read-only database role | Planned |
 | No row is sent to the LLM provider | Planned, by construction |
