@@ -38,6 +38,15 @@ RSpec.describe DataTeller::Validator do
     expect(report.errors).to include(/no tenant:/)
   end
 
+  it "refuses row_security without the database role its policies apply to" do
+    dataset(metrics: [ metric(:count) ])
+    config.row_security = true
+    expect(report.errors).to include(/row_security needs database_role/)
+
+    config.database_role = "data_teller_reader"
+    expect(described_class.new(config: config, registry: registry).call).to be_ok
+  end
+
   it "requires both the model and the resolver of the tenant" do
     dataset
     config.instance_variable_set(:@tenant, nil)

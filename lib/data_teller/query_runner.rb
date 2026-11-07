@@ -62,7 +62,8 @@ module DataTeller
       return refused(:unsupported_query) unless time_zone
 
       model = catalog.dataset(@query["dataset"]).model_name.constantize
-      result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout, role: DataTeller.config.database_role) do
+      result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout, role: DataTeller.config.database_role,
+                                            tenant_id: (tenant.id if DataTeller.config.row_security)) do
         plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
         @stage = :execution
         plan.execute(recorder: (->(sql) { @sql << sql } if @trace))

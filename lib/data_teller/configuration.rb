@@ -23,7 +23,7 @@ module DataTeller
     # A plain Postgres name: it is quoted in the SQL anyway, and this keeps a typo from becoming a role nobody created.
     DATABASE_ROLE = /\A[a-z_][a-z0-9_]{0,62}\z/
 
-    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, *LIMITS.keys
+    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, :row_security, *LIMITS.keys
     attr_accessor :llm
 
     def initialize
@@ -35,6 +35,7 @@ module DataTeller
       @llm = nil
       @authorization = nil
       @database_role = nil
+      @row_security = false
       LIMITS.each { |name, value| instance_variable_set(:"@#{name}", value) }
     end
 
@@ -45,6 +46,14 @@ module DataTeller
       end
 
       @database_role = value&.dup&.freeze
+    end
+
+    # Postgres row-level security on top of the compiler's tenant filter (T39, ADR 0005 D7). Needs database_role, which the
+    # policies apply to: the boot refuses one without the other.
+    def row_security=(value)
+      raise ConfigurationError, "row_security must be true or false, got #{value.inspect}" unless [ true, false ].include?(value)
+
+      @row_security = value
     end
 
     # A typo here must never mean "no limit".

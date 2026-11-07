@@ -39,6 +39,7 @@ module DataTeller
       @warnings = []
 
       check_tenant unless @skipped_checks.include?(:tenant)
+      check_row_security
       check_exposure unless @skipped_checks.include?(:exposure)
       @registry.datasets.each { |dataset| check_dataset(dataset) }
       @errors.concat(
@@ -47,6 +48,7 @@ module DataTeller
       @errors.concat(SchemaValidator.new(registry: @registry).call) if @schema
       # Only on valid declarations: the grants are computed from them, and a missing column would be reported twice.
       @errors.concat(RoleValidator.new(config: @config, registry: @registry).call) if @schema && @errors.empty?
+      @errors.concat(RowSecurityValidator.new(config: @config, registry: @registry).call) if @schema && @errors.empty?
 
       Report.new(errors: @errors.freeze, warnings: @warnings.freeze, config: @config, registry: @registry)
     end
@@ -62,6 +64,13 @@ module DataTeller
 
       @errors << "tenant: `model` is missing, e.g. `model Account`" unless @config.tenant_model_name
       @errors << "tenant: `resolve` is missing, e.g. `resolve { |user| user.account }`" unless @config.tenant_resolver
+    end
+
+    # The policies apply to the database role: without one, row_security would protect nothing while looking on.
+    def check_row_security
+      return unless @config.row_security && @config.database_role.nil?
+
+      @errors << "row_security needs database_role, the role its policies apply to: c.database_role = \"data_teller_reader\""
     end
 
     # Exposure must be visible in two places that agree: the `expose` list and a `refine` per model.

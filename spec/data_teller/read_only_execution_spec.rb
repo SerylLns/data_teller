@@ -84,6 +84,20 @@ RSpec.describe DataTeller::ReadOnlyExecution do
     end
   end
 
+  # T39: what the row policies compare to. Local to the transaction, and bound: a quote in it is a character, nothing more.
+  describe "with a tenant id" do
+    def tenant_setting = Order.with_connection { |connection| connection.select_value("SELECT current_setting('data_teller.tenant_id', true)") }
+
+    it "sets it for the block only" do
+      expect(described_class.run(Order, timeout: 5, tenant_id: 42) { tenant_setting }).to eq("42")
+      expect(tenant_setting.to_s).to eq("")
+    end
+
+    it "keeps it a value" do
+      expect(described_class.run(Order, timeout: 5, tenant_id: "1'); RESET ROLE; --") { tenant_setting }).to eq("1'); RESET ROLE; --")
+    end
+  end
+
   # The host app may call this inside its own transaction: nothing must leak out of the guard, and a failure must not poison it.
   describe "inside a host transaction" do
     it "leaves it writable, with its settings" do

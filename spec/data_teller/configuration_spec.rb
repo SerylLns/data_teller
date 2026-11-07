@@ -48,6 +48,18 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "row_security" do
+    it "is off by default, and takes true or false only" do
+      expect(config.row_security).to be(false)
+
+      config.row_security = true
+      expect(config.row_security).to be(true)
+      [ nil, "true", 1, :on ].each do |value|
+        expect { config.row_security = value }.to raise_error(DataTeller::ConfigurationError, /row_security/), value.inspect
+      end
+    end
+  end
+
   describe "limits" do
     it "has defaults" do
       expect(config).to have_attributes(statement_timeout: 5, default_max_groups: 50, max_rows: 1_000, max_time_points: 366, max_joins: 5)
