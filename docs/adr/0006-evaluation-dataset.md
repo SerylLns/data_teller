@@ -42,3 +42,32 @@ the way a real user would ask (typos, shortcuts, vague wording), in both languag
 - **Amended the same day:** the author's first ten were seen during development before being stored. Seen means no longer held out: seven
   joined the working set (now 37; the other three repeated working questions), and the author writes ten new ones, from a user's point
   of view before looking at the catalog, checked locally with the spec and kept away from development.
+
+## D4 — The score: right or wrong per question, after normalization (decided "A", 2026-11-07)
+
+- **The headline number is the share of questions answered right.** A question counts when the model's query, normalized, equals the
+  expected query or one of its `also_accepted`. A query with the wrong metric gives the user a wrong number: partial credit would hide it.
+- **Normalization, each rule listed and tested** (`DataTeller::Evaluation::Normalizer`): filters and groups in any order; `in` with one
+  value is `eq`; a period is compared by the dates it resolves to on the dataset's day (`last_month` is `between 2026-10-01 and 2026-10-31`);
+  an `order_by` the compiler would apply anyway (by the metric, descending, on a high-cardinality group), or one that only changes the
+  order of rows nothing cuts, is dropped; clarification options as a set. `version` is ignored.
+- **Diagnostics, never in the headline:** which fields differ from the expected query; the error class and its severity; and a
+  "to review" flag when a wrong query returns the same rows as an expected one on the seeds, which is usually a missing `also_accepted`.
+
+  | Expected | Model | Class | Severity |
+  |---|---|---|---|
+  | answer | another answer | `wrong_answer` | high |
+  | out_of_scope | an answer | `answered_out_of_scope` | high |
+  | answer | clarify | `unnecessary_clarification` | medium (ADR 0001 D5) |
+  | clarify | an answer | `missed_clarification` | medium |
+  | out_of_scope | clarify | `clarified_out_of_scope` | medium |
+  | clarify | another clarification | `wrong_clarification` | low |
+  | answer or clarify | out_of_scope | `wrongful_refusal` | low |
+  | out_of_scope | another reason | `wrong_reason` | low |
+  | anything | unreadable, or refused by the validator | `invalid_output` | low: the user gets a refusal |
+
+- **Broken down by language and by tag**, the gap between English and French being D2's number.
+- **The held-out set is reported by id and by number only:** no question text and no model output, so a report cannot feed back into tuning.
+
+Rejected: an average of the fields (ten queries each a little wrong can score 85% while no answer is right); comparing results only
+(two different metrics can return the same number on small data, and a clarification does not run).
