@@ -39,3 +39,6 @@ The working set (30 questions) is drafted during development; the held-out set (
 the way a real user would ask (typos, shortcuts, vague wording), in both languages, and kept out of development until it is measured.
 
 - **Why:** questions written by the same hand that tunes the system give a flattering score.
+- **Amended the same day:** the author's first ten were seen during development before being stored. Seen means no longer held out: seven
+  joined the working set (now 37; the other three repeated working questions), and the author writes ten new ones, from a user's point
+  of view before looking at the catalog, checked locally with the spec and kept away from development.

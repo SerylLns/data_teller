@@ -1,4 +1,4 @@
-# Evaluation questions, working set (T09, ADR 0006). The domain is the dummy app's: FAKE data.
+# Evaluation questions, working set (T09, ADR 0006): 30 drafted during development, 7 by the author. The domain is the dummy app's: FAKE data.
 # Each question in English (the main set) and French (a faithful translation), the role it is asked with, and the query expected.
 # also_accepted lists other queries that answer the same question just as well; nothing else scores.
 #
@@ -272,3 +272,73 @@ questions:
     fr: Combien de commandes Globex a-t-il reçues le mois dernier ?
     tags: [cross_tenant, out_of_scope]
     expected: { version: 1, intent: out_of_scope, out_of_scope: { reason: unsupported_query } }
+
+  # ---- written by the author as held-out questions, then seen during development: moved here (ADR 0006 D3)
+
+  # "sales channel": orders.channel, not customers.acquisition_channel.
+  - id: revenue_by_channel
+    en: How much revenue came from each sales channel?
+    fr: Tu peux me donner le chiffre d'affaires par canal de vente ?
+    tags: [group, confusable_dimension]
+    expected:
+      { version: 1, intent: answer, dataset: orders, metric: revenue, group_by: [ { dimension: channel } ] }
+
+  - id: gold_customers_in_paris
+    en: How many gold customers are based in Paris?
+    fr: Combien de clients gold sont sur Paris ?
+    tags: [segment, filter]
+    expected:
+      { version: 1, intent: answer, dataset: customers, metric: count,
+        filters: [ { segment: gold }, { dimension: city, op: eq, value: Paris } ] }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: customers, metric: count,
+          filters: [ { dimension: tier, op: eq, value: gold }, { dimension: city, op: eq, value: Paris } ] }
+
+  - id: new_customers_by_month
+    en: Show me new customers month by month this year
+    fr: Les nouveaux clients mois par mois depuis janvier
+    tags: [group, granularity, period]
+    expected:
+      { version: 1, intent: answer, dataset: customers, metric: count,
+        group_by: [ { dimension: signed_up_on, granularity: month } ],
+        period: { dimension: signed_up_on, range: { relative: this_year } } }
+
+  # "support channel": support_tickets.channel, not orders.channel.
+  - id: average_satisfaction_by_channel
+    role: support
+    en: What's the average customer satisfaction for each support channel?
+    fr: Quelle est la satisfaction moyenne par canal de support ?
+    tags: [group, confusable_dimension, permission]
+    expected:
+      { version: 1, intent: answer, dataset: support_tickets, metric: avg_satisfaction, group_by: [ { dimension: channel } ] }
+
+  - id: active_subscriptions
+    role: support
+    en: How many subscriptions are currently active?
+    fr: Combien d'abonnements sont actifs en ce moment ?
+    tags: [segment, permission]
+    expected:
+      { version: 1, intent: answer, dataset: subscriptions, metric: count, filters: [ { segment: active } ] }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: subscriptions, metric: count, filters: [ { dimension: status, op: eq, value: active } ] }
+
+  # A ranking: the gem already orders a high-cardinality group by the metric, descending. Whether a limit the question does not
+  # ask for still scores is for the scorer to decide (T10).
+  - id: best_selling_products
+    role: member
+    en: Which products sold the most units?
+    fr: Quels produits ont vendu le plus d'unités ?
+    tags: [group, top_n, path, permission]
+    expected:
+      { version: 1, intent: answer, dataset: line_items, metric: units, group_by: [ { dimension: product.name } ] }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: line_items, metric: units, group_by: [ { dimension: product.name } ],
+          order_by: { by: metric, dir: desc } }
+
+  - id: average_rating_by_category
+    role: member
+    en: What's the average rating for each product category?
+    fr: C'est quoi la note moyenne des produits par catégorie ?
+    tags: [group, path, permission]
+    expected:
+      { version: 1, intent: answer, dataset: reviews, metric: avg_rating, group_by: [ { dimension: product.category } ] }
