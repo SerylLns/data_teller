@@ -26,7 +26,7 @@ RSpec.describe "rake data_teller:check" do
 
   it "exits 1 and prints every problem itself when the configuration is invalid" do
     broken_file.write(<<~RUBY)
-      DataTeller.refine "Invoice" do
+      DataTeller.refine "Quote" do
         metric :x, median: :a
       end
     RUBY

@@ -3,4 +3,8 @@ class Account < ApplicationRecord
   has_many :customers, dependent: :destroy
   has_many :products, dependent: :destroy
   has_many :orders, dependent: :destroy
+  has_many :coupons, dependent: :destroy
+  has_many :subscriptions, dependent: :destroy
+  has_many :invoices, dependent: :destroy
+  has_many :support_tickets, dependent: :destroy
 end

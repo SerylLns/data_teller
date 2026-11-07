@@ -44,7 +44,7 @@ RSpec.describe DataTeller::ModelValidator do
 
   describe "models" do
     it "refuses a dataset whose model does not exist" do
-      expect(errors_for("Invoice", %i[account])).to contain_exactly(/dataset invoices: model Invoice is not an ActiveRecord model/)
+      expect(errors_for("Quote", %i[account])).to contain_exactly(/dataset quotes: model Quote is not an ActiveRecord model/)
     end
 
     it "refuses a tenant model that does not exist" do
