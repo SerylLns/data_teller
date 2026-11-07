@@ -6,7 +6,7 @@ DataTeller.refine Product do
   metric :avg_price, avg: :price_cents, format: :money
 
   dimension :name, lookup: :trigram, group: true, max_groups: 20
-  dimension :category
+  dimension :category, group: true                                    # a short list: "sales by category" must work
   dimension :active
   dimension :launched_on, time: true
 
