@@ -49,7 +49,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 ## M3 — Evaluation & LLM baseline
 - **T09 Eval dataset v0** (ADR 0006) — working set done (37 questions in `spec/dummy/eval/dev.yml`, checked by `spec/dummy_app/eval_dataset_spec.rb`); held-out set: the author's, kept out of development. 40 questions -> expected IR, in English and French (traps: synonyms, ambiguity, out-of-scope, relative dates, cross-tenant). 30 dev / 10 held-out, the held-out ones written by the author.
   First, the dummy app grows to an e-commerce domain of eleven or twelve datasets, built for confusable names (ADR 0006 D1).
-- **T10 Scorer** — done (ADR 0006 D4). Right or wrong per question after normalization, fields that differ, error class and severity, same rows flagged for review. **T11 `rake data_teller:eval`.**
+- **T10 Scorer** — done (ADR 0006 D4). Right or wrong per question after normalization, fields that differ, error class and severity, same rows flagged for review.
+- **T11 `rake data_teller:eval`** — done. A model is anything answering a request (id, language, text, role, day) with an output, tokens and latency; `perfect` calibrates the harness at 100%, `replay` scores a saved run again. `SAVE=1` writes `eval/runs/*.json`; a held-out run keeps ids and numbers only.
 - **T12 Provider client.** Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
 - **T13 Naive pipeline** (whole registry in the prompt); baseline recorded in an ADR.
 - **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.
