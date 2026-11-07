@@ -35,8 +35,25 @@ RSpec.describe DataTeller::QueryValidator do
       "the version" => '{"version":1e400}'
     }.each do |label, json|
       it "refuses an infinite number in #{label}, without raising" do
-        expect(validate(answer.merge(JSON.parse(json)))).to be_refused_with(:unsupported_query)
+        result = described_class.new(integer_catalog).call(answer.merge(JSON.parse(json)))
+
+        expect(result).to be_refused_with(:unsupported_query)
+        expect(result.problems).to eq([ { pointer: "", code: :invalid_structure, reason: :unsupported_query } ])
       end
+    end
+
+    # On an integer column, so that the value would reach the check that raised.
+    let(:integer_catalog) do
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin], tenant_path: %i[account],
+                                                metrics: [ DataTeller::Metric.new(name: :count, aggregation: :count) ],
+                                                dimensions: [ DataTeller::Dimension.new(name: :total_cents), DataTeller::Dimension.new(name: :ordered_at, time: true) ]))
+      DataTeller::Catalog.new([ :admin ], registry: registry.freeze!, tenant_model_name: "Account")
+    end
+
+    it "accepts the same filters with finite values, so the refusals above are about the number" do
+      expect(described_class.new(integer_catalog).call(answer(filters: [ filter("total_cents", "in", [ 1, 2 ]) ]))).to be_accepted
+      expect(described_class.new(integer_catalog).call(answer(filters: [ filter("total_cents", "gt", 1) ]))).to be_accepted
     end
   end
 

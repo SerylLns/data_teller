@@ -51,9 +51,12 @@ RSpec.describe DataTeller::ConditionWhitelist do
       expect(refused_part(Order.where(orders[:nope].eq(1)))).to match(/not a column of orders/)
       expect(refused_part(Order.where(customers[:city].eq("x")))).to match(/not on orders/)
       expect(refused_part(Order.where(orders.alias("x")[:status].eq(1)))).to match(/not on orders/)
+      expect(refused_part(Order.where(Arel::Table.new(:orders, as: "o")[:status].eq(1)))).to match(/not on orders/)
     end
 
     it "refuses a value that is not plain" do
+      by_hand = Arel::Nodes::HomogeneousIn.new([ Arel.sql("1) OR (1=1") ], orders[:status], :in)
+      expect(described_class.new(Order).refused_part(by_hand)).to match(/not plain/)
       expect(refused_part(Order.where(orders[:status].eq(Arel.sql("1"))))).to eq("Arel::Nodes::SqlLiteral")
       expect(refused_part(Order.where(Arel::Nodes::Equality.new(orders[:status], Arel::Nodes::Quoted.new(Arel.sql("1")))))).to match(/not plain/)
       expect(refused_part(Order.where(id: Order.select(:id)))).to eq("Arel::Nodes::SelectStatement")
