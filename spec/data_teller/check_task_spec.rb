@@ -82,3 +82,24 @@ RSpec.describe "rake data_teller:grants" do
     expect(stdout).to eq("")
   end
 end
+
+RSpec.describe "rake data_teller:eval" do
+  def run_task(*args, env: {})
+    Open3.capture3({ "RAILS_ENV" => "test" }.merge(env), "bundle", "exec", "rake", *args, chdir: Rails.root.to_s)
+  end
+
+  it "scores the perfect model on the working set" do
+    stdout, stderr, status = run_task("data_teller:eval[dev]", env: { "LANGUAGES" => "en" })
+
+    expect(status.exitstatus).to eq(0), stderr
+    expect(stdout).to include("Score: 100.0% (37/37)")
+  end
+
+  it "says what is wrong instead of a stack trace" do
+    _stdout, stderr, status = run_task("data_teller:eval[nope]")
+
+    expect(status.exitstatus).to eq(1)
+    expect(stderr).to include("DataTeller: no question set at")
+    expect(stderr).not_to include("rake aborted")
+  end
+end
