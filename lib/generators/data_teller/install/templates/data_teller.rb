@@ -18,6 +18,10 @@ DataTeller.configure do |c|
   # cannot read anything else. `rake data_teller:grants` prints the SQL creating it; `rake data_teller:check` verifies it.
   # c.database_role = "data_teller_reader"
 
+  # Recommended with database_role: Postgres row-level security keeps that role to the current tenant's rows, on top of the
+  # filter DataTeller adds itself. `rake data_teller:grants` prints the policies too; tables with policies of their own are refused.
+  # c.row_security = true
+
   # What to do when this configuration is invalid. In both cases the engine stays off.
   #   :raise   (default) the app refuses to boot
   #   :disable the app boots without the engine, with an error in the log
