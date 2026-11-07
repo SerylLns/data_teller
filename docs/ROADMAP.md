@@ -72,6 +72,10 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   (other-tenant data, forbidden column, injection attempt), with a replay mode of recorded LLM responses so it is deterministic.
   Wording: even if the LLM is fooled, the query stays inside tenant and column limits. Product ranking starts from a LineItem dataset (belongs_to path).
 - **T39 Optional Postgres RLS** (`SET LOCAL` tenant id), defense in depth. `[sec]`
+  Unlocks, if real scopes need it at T40: a per-segment escape from the scope whitelist (ADR 0004 D4), like Rust's `unsafe`, so that it is done knowingly.
+  Proposed shape, not decided: `segment :vip, scope: :vip_customers, unsafe: "uses LOWER(city), reviewed in #123"`. A reason, not `true`; never a global setting;
+  listed by `rake data_teller:check` and warned at boot; refused at boot unless RLS is on, since without it the code is the only line and this would reopen the leaks of the third review.
+  First add to the whitelist what is safe by construction (`LOWER`, `LIKE`), and consider sub-queries compiled with their own tenant filter.
 
 ## V1
 Saved/shared questions as RAG examples · 👍/👎 feedback -> eval dataset · audit log + token cost per tenant ·
