@@ -31,8 +31,9 @@ module DataTeller
       limited.select(*aliased_selection).to_sql
     end
 
-    def execute
-      raw = raw_rows
+    # recorder, when given, receives the SQL before it runs (QueryRunner's trace).
+    def execute(recorder: nil)
+      raw = raw_rows(recorder)
       raise Compiler::Refused.new(:too_many_groups) if series_too_long?(raw)
 
       Result.new(columns: @columns, rows: kept(raw).map { |row| decode(row) }, truncated: truncated?(raw), period: @period, compared_period: nil)
@@ -40,7 +41,8 @@ module DataTeller
 
     # As returned by the database, with the extra row that tells a result was cut. ComparedPlan works on these: groups line up
     # on their stored values.
-    def raw_rows
+    def raw_rows(recorder = nil)
+      recorder&.call(to_sql)
       raw = limited.pluck(*aliased_selection)
       @selection.one? ? raw.map { |value| [ value ] } : raw
     end

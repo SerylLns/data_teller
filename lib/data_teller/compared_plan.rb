@@ -9,10 +9,10 @@ module DataTeller
       @metric_name = metric_name
     end
 
-    def execute
-      raw = @current.raw_rows
+    def execute(recorder: nil)
+      raw = @current.raw_rows(recorder)
       kept = @current.kept(raw)
-      earlier = previous_values(kept)
+      earlier = previous_values(kept, recorder)
 
       rows = kept.map do |row|
         previous = earlier[row[0...-1]]
@@ -26,11 +26,11 @@ module DataTeller
     private
 
     # Narrowed to the groups being shown rather than cut by rank: a group's previous value must not depend on how it ranked then.
-    def previous_values(kept)
-      return { [] => @previous.raw_rows.first&.last } if @group_columns.empty?
+    def previous_values(kept, recorder)
+      return { [] => @previous.raw_rows(recorder).first&.last } if @group_columns.empty?
       return {} if kept.empty?
 
-      @previous.narrowed_to(group_conditions(kept)).raw_rows.to_h { |row| [ row[0...-1], row.last ] }
+      @previous.narrowed_to(group_conditions(kept)).raw_rows(recorder).to_h { |row| [ row[0...-1], row.last ] }
     end
 
     def group_conditions(kept)

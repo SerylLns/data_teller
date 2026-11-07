@@ -2,16 +2,27 @@ module DataTeller
   # From a query and a user to an outcome: who is asking, what they can see, then validate, compile, run.
   # Everything is decided per request from the user, nothing is kept between two calls.
   class QueryRunner
-    Outcome = Data.define(:status, :query, :result, :refusal)
+    Outcome = Data.define(:status, :query, :result, :refusal, :trace)
 
-    def self.call(query, user:, now: Time.current)
-      new(query, user, now).call
+    # For the developer only, with `trace: true` (ADR 0005 D5): where the query stopped (nil when it went through), the
+    # validator's codes and pointers, and the SQL that ran, in order. It names tables and columns and holds the SQL with its
+    # values: never show it to an end user.
+    Trace = Data.define(:stage, :problems, :sql)
+
+    STAGES = %i[access validation compilation execution].freeze
+
+    def self.call(query, user:, now: Time.current, trace: false)
+      new(query, user, now, trace).call
     end
 
-    def initialize(query, user, now)
+    def initialize(query, user, now, trace = false)
       @query = query
       @user = user
       @now = now
+      @trace = trace
+      @stage = :access
+      @problems = []
+      @sql = []
     end
 
     def call
@@ -20,8 +31,10 @@ module DataTeller
       tenant = DataTeller.config.tenant_for(@user)
       return refused(:no_tenant) unless tenant
 
+      @stage = :validation
       catalog = Catalog.for_user(@user)
       validation = QueryValidator.new(catalog).call(@query)
+      @problems = validation.problems
       return log_and_refuse(validation) unless validation.ok?
       return passed_through unless @query["intent"] == "answer"
 
@@ -42,15 +55,20 @@ module DataTeller
     private
 
     def answer(catalog, tenant)
+      # The tenant's time zone is an input of the compilation: a broken one stops it there.
+      @stage = :compilation
       time_zone = needs_time_zone? ? DataTeller.config.time_zone_for(tenant) : Time.zone
       return refused(:unsupported_query) unless time_zone
 
       model = catalog.dataset(@query["dataset"]).model_name.constantize
       result = ReadOnlyExecution.run(model, timeout: DataTeller.config.statement_timeout) do
-        Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query).execute
+        plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
+        @stage = :execution
+        plan.execute(recorder: (->(sql) { @sql << sql } if @trace))
       end
 
-      Outcome.new(status: :answered, query: @query, result: result, refusal: nil)
+      @stage = nil
+      outcome(:answered, result: result)
     end
 
     # A count has no "today": a tenant's broken time zone must not refuse it.
@@ -59,7 +77,8 @@ module DataTeller
     end
 
     def passed_through
-      Outcome.new(status: @query["intent"].to_sym, query: @query, result: nil, refusal: nil)
+      @stage = nil
+      outcome(@query["intent"].to_sym)
     end
 
     # Codes and JSON pointers only: the problems hold none of the names the LLM wrote (see QueryValidator).
@@ -69,7 +88,12 @@ module DataTeller
     end
 
     def refused(reason)
-      Outcome.new(status: :refused, query: @query, result: nil, refusal: QueryValidator::Refusal.new(reason: reason))
+      outcome(:refused, refusal: QueryValidator::Refusal.new(reason: reason))
+    end
+
+    def outcome(status, result: nil, refusal: nil)
+      trace = Trace.new(stage: @stage, problems: @problems, sql: @sql.freeze) if @trace
+      Outcome.new(status: status, query: @query, result: result, refusal: refusal, trace: trace)
     end
   end
 end

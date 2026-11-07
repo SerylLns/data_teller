@@ -933,4 +933,67 @@ RSpec.describe DataTeller::QueryRunner do
       expect(run_query(query).status).to eq(:out_of_scope)
     end
   end
+
+  # For the developer, never for an end user (ADR 0005 D5).
+  describe "trace" do
+    def traced(query, user = admin, **options) = run_query(query, user, trace: true, **options).trace
+
+    it "is off unless asked for" do
+      expect(run_query(answer).trace).to be_nil
+    end
+
+    it "stops at access when nobody can be resolved" do
+      expect(traced(answer, user_class.new(nil, [ :admin ]))).to have_attributes(stage: :access, problems: [], sql: [])
+    end
+
+    it "stops at validation, with the validator's codes and no SQL" do
+      trace = traced(answer("orders", "revenue"), support)
+
+      expect(trace.stage).to eq(:validation)
+      expect(trace.problems).to eq([ { pointer: "/metric", code: :unknown_metric, reason: :unknown_metric } ])
+      expect(trace.sql).to eq([])
+    end
+
+    it "stops at compilation when the compiler refuses" do
+      allow(DataTeller::Compiler).to receive(:new).and_wrap_original do |original, **arguments|
+        original.call(**arguments).tap { |compiler| allow(compiler).to receive(:call).and_raise(DataTeller::Compiler::Refused.new(:unsupported_query)) }
+      end
+
+      expect(traced(answer)).to have_attributes(stage: :compilation, sql: [])
+    end
+
+    it "stops at execution when the database cancels the query" do
+      allow_any_instance_of(DataTeller::Plan).to receive(:execute).and_raise(ActiveRecord::QueryCanceled)
+      allow(Rails.logger).to receive(:error)
+
+      expect(traced(answer).stage).to eq(:execution)
+    end
+
+    it "goes through, with the SQL that ran and its tenant filter" do
+      trace = traced(answer("orders", "revenue", group_by: [ by("customer.name") ]))
+
+      expect(trace.stage).to be_nil
+      expect(trace.sql.size).to eq(1)
+      expect(trace.sql.first).to include(%("orders"."account_id" = #{acme.id}), %("customers"."account_id" = #{acme.id}))
+    end
+
+    it "holds both queries of a comparison, the second narrowed to the groups shown" do
+      order(acme, alice, status: :paid, total: 100, ordered_at: Time.utc(2026, 10, 10))
+      order(acme, alice, status: :paid, total: 50, ordered_at: Time.utc(2026, 9, 10))
+      query = answer("orders", "revenue", group_by: [ by("customer.name") ], compare: "previous_period",
+                                          period: { "dimension" => "ordered_at", "range" => { "relative" => "last_month" } })
+
+      sql = traced(query, admin, now: Time.utc(2026, 11, 4)).sql
+
+      expect(sql.size).to eq(2)
+      expect(sql).to all(include(%("orders"."account_id" = #{acme.id})))
+      expect(sql.last).to include(%("customers"."name" IN ('Alice')))
+    end
+
+    it "goes through a clarification without SQL" do
+      query = { "version" => 1, "intent" => "clarify", "clarify" => { "reason" => "ambiguous_metric", "options" => %w[count revenue] } }
+
+      expect(traced(query)).to have_attributes(stage: nil, problems: [], sql: [])
+    end
+  end
 end
