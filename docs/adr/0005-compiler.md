@@ -83,6 +83,22 @@ Limit: this does not stop what a scope does outside SQL, and it only covers the 
 
 Performance: two queries, so up to twice the cost, in one statement timeout each.
 
+## D5 — A trace for the developer, off by default (decided, "A", 2026-11-07)
+
+```ruby
+outcome = DataTeller::QueryRunner.call(query, user: current_user, trace: true)
+outcome.trace.stage    # nil, or where it stopped: :access, :validation, :compilation, :execution
+outcome.trace.problems # the validator's pointers and codes
+outcome.trace.sql      # the SQL that ran, in order: two statements for a comparison
+```
+
+- **The stage is noted as the runner goes**, not inferred afterwards: a refusal after validation comes from the compiler or from the database, and the reason alone does not tell which.
+- **The SQL is what ran:** each plan hands it to a recorder just before running it. A comparison gives its second query as narrowed to the groups shown.
+- Why: the demo app had to re-validate a query to guess where it stopped, and compile it a second time to show its SQL, without any SQL for a comparison. The eval (M3) and an integrator debugging a refusal need the same thing.
+- **Security:** the trace names tables and columns, and holds the SQL with its values inline. It is for the developer and must never reach an end user. Off unless asked for, and nothing else changes when it is off.
+
+Rejected: nothing in the gem (the demo keeps an approximation of what the gem does, and diverges from it as the gem changes).
+
 ## Not implemented yet: refused, never approximated
 
 - `{ "lookup": ... }` values (T27).
