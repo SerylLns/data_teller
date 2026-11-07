@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_01_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_01_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -80,6 +80,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_01_000002) do
     t.index ["order_id"], name: "index_shipments_on_order_id"
   end
 
+  create_table "users", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "email", null: false
+    t.string "role", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_users_on_account_id"
+  end
+
   add_foreign_key "customers", "accounts"
   add_foreign_key "line_items", "orders"
   add_foreign_key "line_items", "products"
@@ -87,4 +96,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_01_000002) do
   add_foreign_key "orders", "customers"
   add_foreign_key "products", "accounts"
   add_foreign_key "shipments", "orders"
+  add_foreign_key "users", "accounts"
 end

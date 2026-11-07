@@ -17,11 +17,15 @@ account_specs = [
 ].freeze
 
 ActiveRecord::Base.transaction do
-  [ LineItem, Shipment, Order, Product, Customer, Account ].each(&:delete_all)
+  [ User, LineItem, Shipment, Order, Product, Customer, Account ].each(&:delete_all)
 
   account_specs.each do |spec|
     account = Account.create!(name: spec[:name], time_zone: spec[:time_zone])
     today = Time.use_zone(account.time_zone) { Time.zone.today }
+
+    %w[admin support member].each do |role|
+      account.users.create!(email: "#{role}@#{spec[:name].downcase}.example.test", role: role)
+    end
 
     customers = Array.new(spec[:customers]) do |i|
       first = first_list.fetch(rng.rand(first_list.size))

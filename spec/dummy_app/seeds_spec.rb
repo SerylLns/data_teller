@@ -20,6 +20,11 @@ RSpec.describe "dummy app seeds" do
     expect(order.total_cents).to eq(order.line_items.sum { |li| li.quantity * li.unit_price_cents })
   end
 
+  it "gives each account one user per role" do
+    expect(User.group(:account_id).count.values).to all(eq(3))
+    expect(User.distinct.pluck(:role)).to contain_exactly("admin", "support", "member")
+  end
+
   it "is deterministic" do
     first = Order.order(:id).pluck(:status, :total_cents)
     load Rails.root.join("db/seeds.rb")
