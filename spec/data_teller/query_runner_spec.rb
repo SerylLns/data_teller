@@ -954,6 +954,38 @@ RSpec.describe DataTeller::QueryRunner do
       expect(trace.sql).to eq([])
     end
 
+    # The refusal says unknown either way (ADR 0001 D5); the developer needs to know which.
+    describe "names hidden from the role" do
+      it "tells which roles see a refused metric" do
+        expect(traced(answer("orders", "revenue"), support).hidden).to eq([ { pointer: "/metric", visible_to: [ :admin ] } ])
+      end
+
+      it "tells it for a dataset and for a dimension through a path" do
+        member = user_class.new(acme, [ :member ])
+
+        expect(traced(answer("customers"), member).hidden).to eq([ { pointer: "/dataset", visible_to: %i[admin support] } ])
+        expect(traced(answer(group_by: [ by("customer.city") ]), member).hidden).to eq([ { pointer: "/group_by/0/dimension", visible_to: %i[admin support] } ])
+      end
+
+      it "says nothing of a name no role has" do
+        expect(traced(answer("orders", "margin"), support).hidden).to eq([])
+        expect(traced(answer(group_by: [ by("customer.email") ])).hidden).to eq([])
+      end
+
+      it "says nothing of a name the user sees but used wrongly" do
+        trace = traced(answer(group_by: [ by("customer.city") ]))
+
+        expect(trace.problems.map { |problem| problem[:code] }).to eq([ :not_groupable ])
+        expect(trace.hidden).to eq([])
+      end
+
+      it "is not computed without the trace" do
+        expect(DataTeller::HiddenNames).not_to receive(:new)
+
+        run_query(answer("orders", "revenue"), support)
+      end
+    end
+
     it "stops at compilation when the compiler refuses" do
       allow(DataTeller::Compiler).to receive(:new).and_wrap_original do |original, **arguments|
         original.call(**arguments).tap { |compiler| allow(compiler).to receive(:call).and_raise(DataTeller::Compiler::Refused.new(:unsupported_query)) }

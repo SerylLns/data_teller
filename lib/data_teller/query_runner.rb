@@ -5,9 +5,9 @@ module DataTeller
     Outcome = Data.define(:status, :query, :result, :refusal, :trace)
 
     # For the developer only, with `trace: true` (ADR 0005 D5): where the query stopped (nil when it went through), the
-    # validator's codes and pointers, and the SQL that ran, in order. It names tables and columns and holds the SQL with its
-    # values: never show it to an end user.
-    Trace = Data.define(:stage, :problems, :sql)
+    # validator's codes and pointers, the names refused as unknown that other roles see, and the SQL that ran, in order.
+    # It names tables, columns and names the user may not see, and holds the SQL with its values: never show it to an end user.
+    Trace = Data.define(:stage, :problems, :hidden, :sql)
 
     STAGES = %i[access validation compilation execution].freeze
 
@@ -35,6 +35,7 @@ module DataTeller
       catalog = Catalog.for_user(@user)
       validation = QueryValidator.new(catalog).call(@query)
       @problems = validation.problems
+      @hidden = HiddenNames.new(@query, catalog).call(@problems) if @trace && !validation.ok?
       return log_and_refuse(validation) unless validation.ok?
       return passed_through unless @query["intent"] == "answer"
 
@@ -92,7 +93,7 @@ module DataTeller
     end
 
     def outcome(status, result: nil, refusal: nil)
-      trace = Trace.new(stage: @stage, problems: @problems, sql: @sql.freeze) if @trace
+      trace = Trace.new(stage: @stage, problems: @problems, hidden: @hidden || [], sql: @sql.freeze) if @trace
       Outcome.new(status: status, query: @query, result: result, refusal: refusal, trace: trace)
     end
   end
