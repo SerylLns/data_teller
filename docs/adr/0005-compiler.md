@@ -89,13 +89,16 @@ Performance: two queries, so up to twice the cost, in one statement timeout each
 outcome = DataTeller::QueryRunner.call(query, user: current_user, trace: true)
 outcome.trace.stage    # nil, or where it stopped: :access, :validation, :compilation, :execution
 outcome.trace.problems # the validator's pointers and codes
+outcome.trace.hidden   # of the names refused as unknown, those other roles see: [{ pointer: "/metric", visible_to: [:admin] }]
 outcome.trace.sql      # the SQL that ran, in order: two statements for a comparison
 ```
 
 - **The stage is noted as the runner goes**, not inferred afterwards: a refusal after validation comes from the compiler or from the database, and the reason alone does not tell which.
 - **The SQL is what ran:** each plan hands it to a recorder just before running it. A comparison gives its second query as narrowed to the groups shown.
 - Why: the demo app had to re-validate a query to guess where it stopped, and compile it a second time to show its SQL, without any SQL for a comparison. The eval (M3) and an integrator debugging a refusal need the same thing.
-- **Security:** the trace names tables and columns, and holds the SQL with its values inline. It is for the developer and must never reach an end user. Off unless asked for, and nothing else changes when it is off.
+- **`hidden` tells a forbidden name from an unknown one**, which the refusal never does (ADR 0001 D5). Without it, a developer asking "why does a member get no revenue" saw `unknown_metric`, as for a typo.
+  It is judged per name against each role's catalog, not from the validator's code: a hidden dimension in a `group_by` gives `not_groupable`.
+- **Security:** the trace names tables and columns, and holds the SQL with its values inline. With `hidden`, it also names what the user may not see. It is for the developer and must never reach an end user. Off unless asked for, and nothing else changes when it is off.
 
 Rejected: nothing in the gem (the demo keeps an approximation of what the gem does, and diverges from it as the gem changes).
 
