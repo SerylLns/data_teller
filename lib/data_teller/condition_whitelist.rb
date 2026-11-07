@@ -4,6 +4,9 @@ module DataTeller
   # What a condition from the host's code may be made of (ADR 0004 D4): comparisons of a column of the model to plain values,
   # joined by AND, OR and NOT. Each node must be in this list. Looking for what is dangerous missed a raw attribute name, a
   # sub-query and a bare OR, three times the same mistake: whatever was not thought of went through.
+  #
+  # Raw SQL is refused everywhere, default_scope included. Judging it from its text needs a SQL parser: counting parentheses
+  # missed those inside a string literal, `'(' <> 'x') OR (1=1 OR ')' = 'y'`, which put an OR outside the tenant filter's AND.
   class ConditionWhitelist
     # Methods, not constants: naming these at load time would load Active Record before the host's initializers.
     def self.comparisons
@@ -19,12 +22,8 @@ module DataTeller
       @plain_values ||= [ NilClass, TrueClass, FalseClass, Numeric, Symbol, Date, Time, ActiveSupport::TimeWithZone ].freeze
     end
 
-    # Raw SQL can end its own parentheses or the statement. Comments and `;` have no use inside a condition.
-    UNSAFE_RAW_SQL = /--|\/\*|\*\/|;/
-
-    def initialize(klass, raw_sql_allowed: false)
+    def initialize(klass)
       @klass = klass
-      @raw_sql_allowed = raw_sql_allowed
     end
 
     # What is not accepted in this condition, to name in a message, or nil if all of it is. to_s and not name: an anonymous class
@@ -39,51 +38,18 @@ module DataTeller
       elsif kind == Arel::Nodes::In || kind == Arel::Nodes::NotIn then list_part(node)
       elsif kind == Arel::Nodes::Between then between_part(node)
       elsif kind == Arel::Nodes::HomogeneousIn then homogeneous_in_part(node)
-      elsif kind == Arel::Nodes::BoundSqlLiteral then bound_raw_part(node)
+      elsif kind == Arel::Nodes::SqlLiteral || kind == Arel::Nodes::BoundSqlLiteral then "raw SQL"
       elsif kind == Arel::Nodes::Or then "an OR without parentheses"
-      elsif kind == Arel::Nodes::SqlLiteral then "raw SQL without parentheses"
       else kind.to_s
       end
     end
 
     private
 
-    # Only inside parentheses can an OR or raw SQL not take the conditions next to it along: `a OR b AND tenant` ignores the tenant
-    # on one side. Rails always adds them, a node built by hand may not.
+    # Only inside parentheses can an OR not take the conditions next to it along: `a OR b AND tenant` ignores the tenant on one
+    # side. Rails always adds them, a node built by hand may not.
     def grouped_part(expr)
-      if expr.instance_of?(Arel::Nodes::Or) then first_refused(operands_of(expr))
-      elsif expr.instance_of?(Arel::Nodes::SqlLiteral) then raw_part(expr)
-      else refused_part(expr)
-      end
-    end
-
-    # Rails wraps this one itself, so the fragment is judged without that pair: `1=1) OR (1=?` comes as a balanced `(1=1) OR (1=?)`.
-    def bound_raw_part(node)
-      sql = node.sql_with_placeholders
-      return "raw SQL" unless sql.start_with?("(") && sql.end_with?(")")
-
-      binds = [ *node.positional_binds, *node.named_binds&.values ].flatten
-      return "raw SQL with a sub-query" unless binds.all? { |value| plain?(value) }
-
-      raw_part(sql[1...-1])
-    end
-
-    def raw_part(sql)
-      return "raw SQL" unless @raw_sql_allowed
-
-      "raw SQL that could escape the tenant filter" unless safe_raw_sql?(sql)
-    end
-
-    def safe_raw_sql?(sql)
-      return false if UNSAFE_RAW_SQL.match?(sql)
-
-      depth = 0
-      sql.each_char do |char|
-        depth += 1 if char == "("
-        depth -= 1 if char == ")"
-        return false if depth.negative?
-      end
-      depth.zero?
+      expr.instance_of?(Arel::Nodes::Or) ? first_refused(operands_of(expr)) : refused_part(expr)
     end
 
     def list_part(node)

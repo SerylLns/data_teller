@@ -34,15 +34,17 @@ module DataTeller
       Arel::Nodes::Grouping.new(added.ast)
     end
 
-    # Raw SQL is accepted here and not in a segment: `where("deleted_at IS NULL")` is common, and the host cannot write its
-    # default_scope differently for this gem.
+    # Same whitelist as a segment, raw SQL refused too: `where("deleted_at IS NULL")` is written `where(deleted_at: nil)`.
     def check_default_scope(klass)
       relation = klass.all
       extra = present_values(relation).keys - ALLOWED_IN_DEFAULT_SCOPE
       raise Rejected, "#{klass.name}: default_scope uses #{extra.first}, which could change the rows the tenant filter sees" if extra.any?
 
-      part = ConditionWhitelist.new(klass, raw_sql_allowed: true).refused_part(relation.where_clause.ast)
-      raise Rejected, "#{klass.name}: default_scope holds #{part}, which could change the rows the tenant filter sees" if part
+      part = ConditionWhitelist.new(klass).refused_part(relation.where_clause.ast)
+      return unless part
+
+      raise Rejected, "#{klass.name}: default_scope holds #{part}, which could change the rows the tenant filter sees; " \
+                      "write it with a hash or Arel, `where(deleted_at: nil)` rather than `where(\"deleted_at IS NULL\")`"
     end
 
     def call_scope(klass, name)

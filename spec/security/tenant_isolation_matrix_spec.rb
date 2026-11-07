@@ -200,10 +200,14 @@ RSpec.describe "Tenant isolation matrix" do
       exists_reading_another_tenant: [ :refuse, -> { where(Order.unscoped.where(total_cents: SENTINEL).arel.exists) } ],
       bound_sub_query: [ :refuse, -> { where("id IN (?)", Order.unscoped.select(:id)) } ],
       a_list: [ :narrow, -> { where(status: [ 1, 2 ]) } ],
-      bound_raw_sql: [ :narrow, -> { where("orders.total_cents >= ?", 0) } ],
-      named_bound_raw_sql: [ :narrow, -> { where("orders.total_cents >= :min", min: 0) } ],
+      bound_raw_sql: [ :refuse, -> { where("orders.total_cents >= ?", 0) } ],
+      named_bound_raw_sql: [ :refuse, -> { where("orders.total_cents >= :min", min: 0) } ],
       order: [ :narrow, -> { order(:ordered_at) } ],
-      soft_delete_shaped_raw_sql: [ :narrow, -> { where("orders.total_cents >= 0") } ],
+      # Raw SQL is refused whatever it looks like: counting parentheses missed those inside a string (ADR 0004 D4).
+      soft_delete_shaped_raw_sql: [ :refuse, -> { where("orders.total_cents >= 0") } ],
+      parentheses_inside_quotes: [ :refuse, -> { where("'(' <> 'x') OR (1=1 OR ')' = 'y'") } ],
+      parentheses_inside_dollar_quotes: [ :refuse, -> { where("$a$($a$ <> 'x') OR (1=1 OR $a$)$a$ = 'y'") } ],
+      soft_delete_with_a_hash: [ :narrow, -> { where(ship_on: nil).or(where.not(ship_on: nil)) } ],
       plain_condition: [ :narrow, -> { where(status: 1) } ]
     }.freeze
 

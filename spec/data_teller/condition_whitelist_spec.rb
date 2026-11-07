@@ -77,17 +77,17 @@ RSpec.describe DataTeller::ConditionWhitelist do
       expect(refused_part(Order.where("total_cents > ?", 0))).to eq("raw SQL")
     end
 
-    it "is accepted in a default_scope when it cannot end its own parentheses" do
-      expect(refused_part(Order.where("ship_on IS NULL"), raw_sql_allowed: true)).to be_nil
-      expect(refused_part(Order.where("total_cents > ?", 0), raw_sql_allowed: true)).to be_nil
-      expect(refused_part(Order.where("1=1) OR (1=1"), raw_sql_allowed: true)).to match(/escape/)
-      expect(refused_part(Order.where("1=1) OR (1=?", 1), raw_sql_allowed: true)).to match(/escape/)
+    it "is refused in a default_scope too, whatever it looks like" do
+      [ Order.where("ship_on IS NULL"), Order.where("total_cents > ?", 0), Order.where("total_cents > :min", min: 0),
+        Order.where("'(' <> 'x') OR (1=1 OR ')' = 'y'"), Order.where("$a$($a$ <> 'x') OR (1=1 OR $a$)$a$ = 'y'") ].each do |relation|
+        expect(refused_part(relation)).to eq("raw SQL")
+      end
     end
 
-    it "is refused in a default_scope outside of parentheses" do
+    it "is refused next to an AND, without parentheses" do
       node = orders[:status].eq(1).and(Arel.sql("1=1 OR 1=1"))
 
-      expect(described_class.new(Order, raw_sql_allowed: true).refused_part(node)).to match(/without parentheses/)
+      expect(described_class.new(Order).refused_part(node)).to eq("raw SQL")
     end
   end
 
