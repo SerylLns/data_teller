@@ -73,7 +73,7 @@ module DataTeller
         raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
       end
 
-      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, refuse_when_cut: time_series?, period: period)
+      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, series: series, period: period)
     end
 
     # ---- what the query touches
@@ -324,10 +324,16 @@ module DataTeller
     # Grouping by a high-cardinality dimension is capped, the query's own limit can only lower that (ADR 0004 D3).
     def row_limit
       return nil if group_nodes.empty?
-      return limits.max_time_points if time_series?
+      return limits.max_rows if time_series?
 
       cap = high_cardinality_field ? (high_cardinality_field.dimension.max_groups || limits.default_max_groups) : limits.max_rows
       [ @query["limit"], cap ].compact.min
+    end
+
+    def series
+      return nil unless time_series?
+
+      Plan::Series.new(columns: group_fields.each_index.select { |index| group_fields[index].date? }, max_points: limits.max_time_points)
     end
 
     # A series the user did not cap themselves. Cutting it would hide its end: "by day over 5 years" needs a wider granularity.

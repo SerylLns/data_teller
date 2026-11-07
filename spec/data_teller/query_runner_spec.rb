@@ -619,6 +619,27 @@ RSpec.describe DataTeller::QueryRunner do
         expect(result.truncated).to be(true)
       end
 
+      # Two months, four rows: what is limited is the number of dates, not of rows.
+      it "count the dates, not the rows" do
+        order(acme, alice, status: :pending, ordered_at: Time.utc(2026, 1, 16))
+        order(acme, alice, status: :pending, ordered_at: Time.utc(2026, 2, 16))
+        period = { "dimension" => "ordered_at", "range" => { "between" => { "from" => "2026-01-01", "to" => "2026-02-28" } } }
+
+        rows = run_query(answer(group_by: [ by("status"), by("ordered_at", "month") ], period: period)).result.rows
+        expect(rows.size).to eq(4)
+        expect(rows.map(&:last).sum).to eq(4)
+      end
+
+      it "are refused beyond the cap on dates whatever the other groups" do
+        expect(run_query(answer(group_by: [ by("status"), by("ordered_at", "month") ])).refusal.reason).to eq(:too_many_groups)
+      end
+
+      it "stay under max_rows, refused and not cut" do
+        with_settings(max_time_points: 100, max_rows: 2)
+
+        expect(run_query(by_month).refusal.reason).to eq(:too_many_groups)
+      end
+
       it "do not apply when a high-cardinality dimension already caps the query" do
         expect(run_query(answer(group_by: [ by("customer.name"), by("ordered_at", "month") ])).status).to eq(:answered)
       end

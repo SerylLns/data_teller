@@ -8,8 +8,11 @@ module DataTeller
       def previous_value = compared_period ? rows.first&.last : nil
     end
 
-    def initialize(relation:, columns:, selection:, decoders:, limit:, refuse_when_cut: false, period: nil)
-      @refuse_when_cut = refuse_when_cut
+    # series: the indexes of the date columns and the maximum number of time points, for a series the user did not cap.
+    Series = Data.define(:columns, :max_points)
+
+    def initialize(relation:, columns:, selection:, decoders:, limit:, series: nil, period: nil)
+      @series = series
       @period = period
       @relation = relation
       @columns = columns
@@ -30,7 +33,7 @@ module DataTeller
 
     def execute
       raw = raw_rows
-      raise Compiler::Refused.new(:too_many_groups) if @refuse_when_cut && truncated?(raw)
+      raise Compiler::Refused.new(:too_many_groups) if series_too_long?(raw)
 
       Result.new(columns: @columns, rows: kept(raw).map { |row| decode(row) }, truncated: truncated?(raw), period: @period, compared_period: nil)
     end
@@ -49,6 +52,13 @@ module DataTeller
     attr_reader :columns, :period
 
     private
+
+    # Counted on the dates, not the rows: by status and by day, 90 days is 90 points on 450 rows. Cutting would hide the end.
+    def series_too_long?(raw)
+      return false unless @series
+
+      truncated?(raw) || raw.map { |row| row.values_at(*@series.columns) }.uniq.size > @series.max_points
+    end
 
     # Aliased so that pluck reads what the database returned. Otherwise it casts a column through the root model's attribute
     # of the same name, which is wrong as soon as a joined table has a column named like one of the root's.
