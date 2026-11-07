@@ -14,6 +14,10 @@ DataTeller.configure do |c|
   # A model that is not listed here cannot be queried.
   # c.expose Order
 
+  # Recommended: run each query as a Postgres role that can read the declared columns only, so that a bug in DataTeller
+  # cannot read anything else. `rake data_teller:grants` prints the SQL creating it; `rake data_teller:check` verifies it.
+  # c.database_role = "data_teller_reader"
+
   # What to do when this configuration is invalid. In both cases the engine stays off.
   #   :raise   (default) the app refuses to boot
   #   :disable the app boots without the engine, with an error in the log

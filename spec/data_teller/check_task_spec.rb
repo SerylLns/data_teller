@@ -72,3 +72,13 @@ RSpec.describe "rake data_teller:check" do
     expect(stderr).not_to include("nobody")
   end
 end
+
+RSpec.describe "rake data_teller:grants" do
+  it "says what to set when no database_role is configured, and prints no SQL" do
+    stdout, stderr, status = Open3.capture3({ "RAILS_ENV" => "test" }, "bundle", "exec", "rake", "data_teller:grants", chdir: Rails.root.to_s)
+
+    expect(status.exitstatus).to eq(1)
+    expect(stderr).to include("set c.database_role")
+    expect(stdout).to eq("")
+  end
+end

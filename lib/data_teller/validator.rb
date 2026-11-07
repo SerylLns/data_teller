@@ -45,6 +45,8 @@ module DataTeller
         ModelValidator.new(config: @config, registry: @registry, check_exposure: !@skipped_checks.include?(:exposure)).call
       )
       @errors.concat(SchemaValidator.new(registry: @registry).call) if @schema
+      # Only on valid declarations: the grants are computed from them, and a missing column would be reported twice.
+      @errors.concat(RoleValidator.new(config: @config, registry: @registry).call) if @schema && @errors.empty?
 
       Report.new(errors: @errors.freeze, warnings: @warnings.freeze, config: @config, registry: @registry)
     end
