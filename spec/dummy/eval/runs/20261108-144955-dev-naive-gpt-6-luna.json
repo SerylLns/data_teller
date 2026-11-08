@@ -1,0 +1,2225 @@
+{
+  "split": "dev",
+  "model": "naive gpt-6-luna",
+  "fingerprint": "prompt dfaad1b02cf2",
+  "ran_at": "2026-11-08T14:49:55Z",
+  "held_out": false,
+  "summary": {
+    "score": {
+      "right": 64,
+      "total": 74,
+      "percent": 86.5
+    },
+    "by_language": {
+      "en": {
+        "right": 32,
+        "total": 37,
+        "percent": 86.5
+      },
+      "fr": {
+        "right": 32,
+        "total": 37,
+        "percent": 86.5
+      }
+    },
+    "by_tag": {
+      "absolute_period": {
+        "right": 2,
+        "total": 2,
+        "percent": 100.0
+      },
+      "clarify": {
+        "right": 2,
+        "total": 4,
+        "percent": 50.0
+      },
+      "compare": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "confusable_dataset": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "confusable_dimension": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "confusable_metric": {
+        "right": 8,
+        "total": 10,
+        "percent": 80.0
+      },
+      "cross_tenant": {
+        "right": 0,
+        "total": 2,
+        "percent": 0.0
+      },
+      "enum_value": {
+        "right": 2,
+        "total": 2,
+        "percent": 100.0
+      },
+      "filter": {
+        "right": 4,
+        "total": 6,
+        "percent": 66.7
+      },
+      "granularity": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "group": {
+        "right": 14,
+        "total": 14,
+        "percent": 100.0
+      },
+      "out_of_scope": {
+        "right": 8,
+        "total": 12,
+        "percent": 66.7
+      },
+      "path": {
+        "right": 8,
+        "total": 8,
+        "percent": 100.0
+      },
+      "period": {
+        "right": 22,
+        "total": 24,
+        "percent": 91.7
+      },
+      "permission": {
+        "right": 12,
+        "total": 12,
+        "percent": 100.0
+      },
+      "plain": {
+        "right": 10,
+        "total": 10,
+        "percent": 100.0
+      },
+      "segment": {
+        "right": 12,
+        "total": 12,
+        "percent": 100.0
+      },
+      "synonym": {
+        "right": 6,
+        "total": 6,
+        "percent": 100.0
+      },
+      "top_n": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "value_translation": {
+        "right": 0,
+        "total": 2,
+        "percent": 0.0
+      },
+      "which_date": {
+        "right": 6,
+        "total": 8,
+        "percent": 75.0
+      }
+    },
+    "errors": {
+      "answered_out_of_scope": 2,
+      "missed_clarification": 2,
+      "wrong_answer": 2,
+      "wrong_reason": 2,
+      "wrongful_refusal": 2
+    },
+    "by_severity": {
+      "low": 4,
+      "high": 4,
+      "medium": 2
+    },
+    "to_review": [],
+    "usage": {
+      "input_tokens": 624666,
+      "cached_input_tokens": 624444,
+      "output_tokens": 8959,
+      "latency_ms_median": 2969,
+      "answered_by": [
+        "gpt-6-luna"
+      ],
+      "failures": {}
+    }
+  },
+  "answers": [
+    {
+      "id": "orders_this_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 102,
+      "latency_ms": 2775,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "orders_this_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9161,
+      "output_tokens": 106,
+      "latency_ms": 3158,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "revenue_last_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 104,
+      "latency_ms": 2561,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "revenue_last_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9163,
+      "cached_input_tokens": 9160,
+      "output_tokens": 119,
+      "latency_ms": 3426,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "customer_count",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 83,
+      "latency_ms": 3094,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count"
+      }
+    },
+    {
+      "id": "customer_count",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 79,
+      "latency_ms": 2082,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count"
+      }
+    },
+    {
+      "id": "units_last_week",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 106,
+      "latency_ms": 2646,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "line_items",
+        "metric": "units",
+        "period": {
+          "dimension": "order.ordered_at",
+          "range": {
+            "relative": "last_week"
+          }
+        }
+      }
+    },
+    {
+      "id": "units_last_week",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9166,
+      "cached_input_tokens": 9163,
+      "output_tokens": 109,
+      "latency_ms": 2609,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "line_items",
+        "metric": "units",
+        "period": {
+          "dimension": "order.ordered_at",
+          "range": {
+            "relative": "last_week"
+          }
+        }
+      }
+    },
+    {
+      "id": "current_mrr",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 134,
+      "latency_ms": 3738,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "subscriptions",
+        "metric": "mrr",
+        "filters": [
+          {
+            "segment": "active"
+          }
+        ]
+      }
+    },
+    {
+      "id": "current_mrr",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 147,
+      "latency_ms": 3321,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "subscriptions",
+        "metric": "mrr",
+        "filters": [
+          {
+            "segment": "active"
+          }
+        ]
+      }
+    },
+    {
+      "id": "net_revenue_last_month",
+      "language": "en",
+      "correct": false,
+      "error": "wrongful_refusal",
+      "severity": "low",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 201,
+      "latency_ms": 4528,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unsupported_query"
+        }
+      }
+    },
+    {
+      "id": "net_revenue_last_month",
+      "language": "fr",
+      "correct": false,
+      "error": "wrongful_refusal",
+      "severity": "low",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9167,
+      "cached_input_tokens": 9164,
+      "output_tokens": 147,
+      "latency_ms": 2932,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unsupported_query"
+        }
+      }
+    },
+    {
+      "id": "refunded_this_quarter",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 138,
+      "latency_ms": 2938,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "refunds",
+        "metric": "refunded_amount",
+        "period": {
+          "dimension": "refunded_at",
+          "range": {
+            "relative": "this_quarter"
+          }
+        }
+      }
+    },
+    {
+      "id": "refunded_this_quarter",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 113,
+      "latency_ms": 4263,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "refunds",
+        "metric": "refunded_amount",
+        "period": {
+          "dimension": "refunded_at",
+          "range": {
+            "relative": "this_quarter"
+          }
+        }
+      }
+    },
+    {
+      "id": "promo_cost_this_year",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 153,
+      "latency_ms": 3195,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "discounts",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "filters": [
+          {
+            "segment": "with_coupon"
+          }
+        ]
+      }
+    },
+    {
+      "id": "promo_cost_this_year",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9162,
+      "output_tokens": 158,
+      "latency_ms": 3166,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "discounts",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "filters": [
+          {
+            "segment": "with_coupon"
+          }
+        ]
+      }
+    },
+    {
+      "id": "invoiced_last_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 101,
+      "latency_ms": 2927,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "invoiced",
+        "period": {
+          "dimension": "issued_on",
+          "range": {
+            "relative": "last_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "invoiced_last_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 126,
+      "latency_ms": 3293,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "invoiced",
+        "period": {
+          "dimension": "issued_on",
+          "range": {
+            "relative": "last_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "orders_shipping_tomorrow",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9158,
+      "cached_input_tokens": 9155,
+      "output_tokens": 116,
+      "latency_ms": 3183,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ship_on",
+          "range": {
+            "relative": "tomorrow"
+          }
+        }
+      }
+    },
+    {
+      "id": "orders_shipping_tomorrow",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 100,
+      "latency_ms": 3302,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ship_on",
+          "range": {
+            "relative": "tomorrow"
+          }
+        }
+      }
+    },
+    {
+      "id": "invoices_paid_last_week",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 149,
+      "latency_ms": 4272,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "count",
+        "period": {
+          "dimension": "paid_at",
+          "range": {
+            "relative": "last_week"
+          }
+        },
+        "filters": [
+          {
+            "segment": "paid"
+          }
+        ]
+      }
+    },
+    {
+      "id": "invoices_paid_last_week",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9162,
+      "output_tokens": 124,
+      "latency_ms": 3918,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "count",
+        "period": {
+          "dimension": "paid_at",
+          "range": {
+            "relative": "last_week"
+          }
+        },
+        "filters": [
+          {
+            "segment": "paid"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tickets_resolved_yesterday",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 97,
+      "latency_ms": 3316,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "count",
+        "period": {
+          "dimension": "resolved_at",
+          "range": {
+            "relative": "yesterday"
+          }
+        }
+      }
+    },
+    {
+      "id": "tickets_resolved_yesterday",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9161,
+      "output_tokens": 105,
+      "latency_ms": 2682,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "count",
+        "period": {
+          "dimension": "resolved_at",
+          "range": {
+            "relative": "yesterday"
+          }
+        }
+      }
+    },
+    {
+      "id": "revenue_in_october",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 197,
+      "latency_ms": 3824,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "between": {
+              "from": "2026-10-01",
+              "to": "2026-10-31"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "revenue_in_october",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 141,
+      "latency_ms": 2836,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        }
+      }
+    },
+    {
+      "id": "unpaid_amount",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 97,
+      "latency_ms": 2304,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "invoiced",
+        "filters": [
+          {
+            "segment": "unpaid"
+          }
+        ]
+      }
+    },
+    {
+      "id": "unpaid_amount",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9163,
+      "cached_input_tokens": 9160,
+      "output_tokens": 100,
+      "latency_ms": 2451,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "invoices",
+        "metric": "invoiced",
+        "filters": [
+          {
+            "segment": "unpaid"
+          }
+        ]
+      }
+    },
+    {
+      "id": "urgent_open_tickets",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 136,
+      "latency_ms": 4016,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "urgent"
+          },
+          {
+            "segment": "unresolved"
+          }
+        ]
+      }
+    },
+    {
+      "id": "urgent_open_tickets",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 149,
+      "latency_ms": 3682,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "urgent"
+          },
+          {
+            "segment": "unresolved"
+          }
+        ]
+      }
+    },
+    {
+      "id": "orders_with_coupon_this_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 116,
+      "latency_ms": 3240,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        },
+        "filters": [
+          {
+            "segment": "with_coupon"
+          }
+        ]
+      }
+    },
+    {
+      "id": "orders_with_coupon_this_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9162,
+      "output_tokens": 97,
+      "latency_ms": 3735,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        },
+        "filters": [
+          {
+            "segment": "with_coupon"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mobile_revenue_last_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9163,
+      "cached_input_tokens": 9160,
+      "output_tokens": 128,
+      "latency_ms": 3049,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "filters": [
+          {
+            "dimension": "channel",
+            "op": "eq",
+            "value": "mobile"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mobile_revenue_last_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9168,
+      "cached_input_tokens": 9165,
+      "output_tokens": 111,
+      "latency_ms": 4047,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "filters": [
+          {
+            "dimension": "channel",
+            "op": "eq",
+            "value": "mobile"
+          }
+        ]
+      }
+    },
+    {
+      "id": "average_bag_price",
+      "language": "en",
+      "correct": false,
+      "error": "wrong_answer",
+      "severity": "high",
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": false,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 172,
+      "latency_ms": 4408,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "products",
+        "metric": "avg_price",
+        "filters": [
+          {
+            "dimension": "category",
+            "op": "eq",
+            "value": "bags"
+          }
+        ]
+      }
+    },
+    {
+      "id": "average_bag_price",
+      "language": "fr",
+      "correct": false,
+      "error": "wrong_answer",
+      "severity": "high",
+      "differs_on": [
+        "filters"
+      ],
+      "same_result": false,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 164,
+      "latency_ms": 4245,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "products",
+        "metric": "avg_price",
+        "filters": [
+          {
+            "dimension": "category",
+            "op": "eq",
+            "value": "sacs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "top_customers_this_year",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9161,
+      "output_tokens": 133,
+      "latency_ms": 3316,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "customer.name"
+          }
+        ],
+        "order_by": {
+          "by": "metric",
+          "dir": "desc"
+        },
+        "limit": 5
+      }
+    },
+    {
+      "id": "top_customers_this_year",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9166,
+      "cached_input_tokens": 9163,
+      "output_tokens": 139,
+      "latency_ms": 2747,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "customer.name"
+          }
+        ],
+        "order_by": {
+          "by": "metric",
+          "dir": "desc"
+        },
+        "limit": 5
+      }
+    },
+    {
+      "id": "revenue_by_month_this_year",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9157,
+      "cached_input_tokens": 9154,
+      "output_tokens": 137,
+      "latency_ms": 2490,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "ordered_at",
+            "granularity": "month"
+          }
+        ]
+      }
+    },
+    {
+      "id": "revenue_by_month_this_year",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 123,
+      "latency_ms": 2565,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "ordered_at",
+            "granularity": "month"
+          }
+        ]
+      }
+    },
+    {
+      "id": "revenue_vs_last_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 125,
+      "latency_ms": 2972,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        },
+        "compare": "previous_period"
+      }
+    },
+    {
+      "id": "revenue_vs_last_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9168,
+      "cached_input_tokens": 9165,
+      "output_tokens": 137,
+      "latency_ms": 2757,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "this_month"
+          }
+        },
+        "compare": "previous_period"
+      }
+    },
+    {
+      "id": "orders_vs_last_year",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 169,
+      "latency_ms": 3445,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "compare": "previous_year"
+      }
+    },
+    {
+      "id": "orders_vs_last_year",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9162,
+      "output_tokens": 128,
+      "latency_ms": 2787,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "compare": "previous_year"
+      }
+    },
+    {
+      "id": "revenue_by_date",
+      "language": "en",
+      "correct": false,
+      "error": "missed_clarification",
+      "severity": "medium",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9155,
+      "cached_input_tokens": 9152,
+      "output_tokens": 126,
+      "latency_ms": 3921,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "group_by": [
+          {
+            "dimension": "ordered_at",
+            "granularity": "day"
+          }
+        ]
+      }
+    },
+    {
+      "id": "revenue_by_date",
+      "language": "fr",
+      "correct": false,
+      "error": "missed_clarification",
+      "severity": "medium",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9158,
+      "cached_input_tokens": 9155,
+      "output_tokens": 136,
+      "latency_ms": 2823,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "group_by": [
+          {
+            "dimension": "ordered_at",
+            "granularity": "day"
+          }
+        ]
+      }
+    },
+    {
+      "id": "how_many_active",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 100,
+      "latency_ms": 2794,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "clarify",
+        "clarify": {
+          "reason": "ambiguous_dataset",
+          "options": [
+            "products",
+            "subscriptions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "how_many_active",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9161,
+      "output_tokens": 180,
+      "latency_ms": 3809,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "clarify",
+        "clarify": {
+          "reason": "ambiguous_dataset",
+          "options": [
+            "products",
+            "subscriptions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gross_margin",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 78,
+      "latency_ms": 2815,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_metric"
+        }
+      }
+    },
+    {
+      "id": "gross_margin",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 74,
+      "latency_ms": 2498,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_metric"
+        }
+      }
+    },
+    {
+      "id": "employees",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9159,
+      "cached_input_tokens": 9156,
+      "output_tokens": 54,
+      "latency_ms": 2397,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "employees",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 64,
+      "latency_ms": 2172,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "weather",
+      "language": "en",
+      "correct": false,
+      "error": "wrong_reason",
+      "severity": "low",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 78,
+      "latency_ms": 2458,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "weather",
+      "language": "fr",
+      "correct": false,
+      "error": "wrong_reason",
+      "severity": "low",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 106,
+      "latency_ms": 2801,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "revenue_as_support",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 6320,
+      "cached_input_tokens": 6317,
+      "output_tokens": 73,
+      "latency_ms": 2325,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_metric"
+        }
+      }
+    },
+    {
+      "id": "revenue_as_support",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 6324,
+      "cached_input_tokens": 6321,
+      "output_tokens": 82,
+      "latency_ms": 2034,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_metric"
+        }
+      }
+    },
+    {
+      "id": "customers_as_member",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 3116,
+      "cached_input_tokens": 3113,
+      "output_tokens": 62,
+      "latency_ms": 2123,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "customers_as_member",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 3116,
+      "cached_input_tokens": 3113,
+      "output_tokens": 69,
+      "latency_ms": 2206,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "out_of_scope",
+        "out_of_scope": {
+          "reason": "unknown_dataset"
+        }
+      }
+    },
+    {
+      "id": "other_merchant",
+      "language": "en",
+      "correct": false,
+      "error": "answered_out_of_scope",
+      "severity": "high",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9159,
+      "output_tokens": 148,
+      "latency_ms": 3564,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "filters": [
+          {
+            "dimension": "customer.name",
+            "op": "eq",
+            "value": {
+              "lookup": "Globex"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "other_merchant",
+      "language": "fr",
+      "correct": false,
+      "error": "answered_out_of_scope",
+      "severity": "high",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9167,
+      "cached_input_tokens": 9164,
+      "output_tokens": 161,
+      "latency_ms": 2840,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "count",
+        "period": {
+          "dimension": "ordered_at",
+          "range": {
+            "relative": "last_month"
+          }
+        },
+        "filters": [
+          {
+            "dimension": "customer.name",
+            "op": "eq",
+            "value": {
+              "lookup": "Globex"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "revenue_by_channel",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 108,
+      "latency_ms": 2920,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "group_by": [
+          {
+            "dimension": "channel"
+          }
+        ]
+      }
+    },
+    {
+      "id": "revenue_by_channel",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9162,
+      "output_tokens": 104,
+      "latency_ms": 3532,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "orders",
+        "metric": "revenue",
+        "group_by": [
+          {
+            "dimension": "channel"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gold_customers_in_paris",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 107,
+      "latency_ms": 2975,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "gold"
+          },
+          {
+            "dimension": "city",
+            "op": "eq",
+            "value": "Paris"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gold_customers_in_paris",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 106,
+      "latency_ms": 3274,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "gold"
+          },
+          {
+            "dimension": "city",
+            "op": "eq",
+            "value": "Paris"
+          }
+        ]
+      }
+    },
+    {
+      "id": "new_customers_by_month",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9158,
+      "output_tokens": 175,
+      "latency_ms": 4169,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count",
+        "period": {
+          "dimension": "signed_up_on",
+          "range": {
+            "relative": "this_year"
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "signed_up_on",
+            "granularity": "month"
+          }
+        ],
+        "order_by": {
+          "by": "dimension",
+          "dimension": "signed_up_on",
+          "dir": "asc"
+        }
+      }
+    },
+    {
+      "id": "new_customers_by_month",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [
+        "period"
+      ],
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9157,
+      "output_tokens": 193,
+      "latency_ms": 4156,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "customers",
+        "metric": "count",
+        "period": {
+          "dimension": "signed_up_on",
+          "range": {
+            "between": {
+              "from": "2026-01-01",
+              "to": "2026-11-04"
+            }
+          }
+        },
+        "group_by": [
+          {
+            "dimension": "signed_up_on",
+            "granularity": "month"
+          }
+        ]
+      }
+    },
+    {
+      "id": "average_satisfaction_by_channel",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6323,
+      "cached_input_tokens": 6320,
+      "output_tokens": 126,
+      "latency_ms": 2935,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "avg_satisfaction",
+        "group_by": [
+          {
+            "dimension": "channel"
+          }
+        ]
+      }
+    },
+    {
+      "id": "average_satisfaction_by_channel",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6323,
+      "cached_input_tokens": 6320,
+      "output_tokens": 110,
+      "latency_ms": 2701,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "support_tickets",
+        "metric": "avg_satisfaction",
+        "group_by": [
+          {
+            "dimension": "channel"
+          }
+        ]
+      }
+    },
+    {
+      "id": "active_subscriptions",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6320,
+      "cached_input_tokens": 6317,
+      "output_tokens": 97,
+      "latency_ms": 2272,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "subscriptions",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "active"
+          }
+        ]
+      }
+    },
+    {
+      "id": "active_subscriptions",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6325,
+      "cached_input_tokens": 6322,
+      "output_tokens": 98,
+      "latency_ms": 2312,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "subscriptions",
+        "metric": "count",
+        "filters": [
+          {
+            "segment": "active"
+          }
+        ]
+      }
+    },
+    {
+      "id": "best_selling_products",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 3116,
+      "cached_input_tokens": 3113,
+      "output_tokens": 150,
+      "latency_ms": 2759,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "line_items",
+        "metric": "units",
+        "group_by": [
+          {
+            "dimension": "product.name"
+          }
+        ],
+        "order_by": {
+          "by": "metric",
+          "dir": "desc"
+        }
+      }
+    },
+    {
+      "id": "best_selling_products",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 3120,
+      "cached_input_tokens": 3117,
+      "output_tokens": 157,
+      "latency_ms": 2969,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "line_items",
+        "metric": "units",
+        "group_by": [
+          {
+            "dimension": "product.name"
+          }
+        ],
+        "order_by": {
+          "by": "metric",
+          "dir": "desc"
+        }
+      }
+    },
+    {
+      "id": "average_rating_by_category",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 3118,
+      "cached_input_tokens": 3115,
+      "output_tokens": 97,
+      "latency_ms": 2153,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "reviews",
+        "metric": "avg_rating",
+        "group_by": [
+          {
+            "dimension": "product.category"
+          }
+        ]
+      }
+    },
+    {
+      "id": "average_rating_by_category",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 3120,
+      "cached_input_tokens": 3117,
+      "output_tokens": 124,
+      "latency_ms": 3198,
+      "answered_by": "gpt-6-luna",
+      "failure": null,
+      "output": {
+        "version": 1,
+        "intent": "answer",
+        "dataset": "reviews",
+        "metric": "avg_rating",
+        "group_by": [
+          {
+            "dimension": "product.category"
+          }
+        ]
+      }
+    }
+  ]
+}

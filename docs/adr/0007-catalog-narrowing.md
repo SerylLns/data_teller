@@ -92,3 +92,16 @@ Rejected: exactly one (a wrong route is always paid, and no clarification betwee
 - **It loses a clarification:** `how_many_active` (`products` or `subscriptions`), right in both naive runs, fails in both routed runs: the router returns one dataset, or not the second one, so the query call cannot ask. Being allowed three datasets (D5) was not enough.
 - **Not shown:** that the router helps at all on this catalog. What justifies it is untested so far: provider limits and larger catalogs. Two runs each, with noise of at least 3 answers: the score gap is not settled.
 
+### Five runs each (same day)
+
+Three more runs of each path, alternating, all ten scored with the same accepted answers (out of 74):
+
+| | Right answers, by run | Mean | Standard deviation | Median latency | Cost per run, from list prices |
+|---|---|---|---|---|---|
+| Naive | 63, 66, 66, 65, 64 | 64.8 (87.6%) | 1.3 | 2.4-3.1 s | $0.011-0.013 |
+| Routed | 62, 61, 63, 63, 63 | 62.4 (84.3%) | 0.9 | 4.0-4.2 s | $0.011-0.014 |
+
+- **The gap holds, and it is one question:** 2.4 answers per run, of which 2.0 are `how_many_active` (naive 10/10, routed 0/10). Without it the two paths score alike. `customers_as_member` adds 0.6, a `wrong_reason` of low severity (naive 10/10, routed 7/10).
+- **One question is all the working set has on this:** it is the only one expecting a clarification between two datasets, so this says "the router lost that case", not how often such questions occur.
+- **Router:** right dataset within 1 choice 94.8-96.6%, within 2 choices 100% in all five runs.
+
