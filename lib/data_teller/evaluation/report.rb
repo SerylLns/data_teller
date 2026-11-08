@@ -20,8 +20,9 @@ module DataTeller
           "errors" => wrong.group_by { |result| result.score.error.to_s }.transform_values(&:size).sort.to_h,
           "by_severity" => wrong.group_by { |result| result.score.severity.to_s }.transform_values(&:size),
           "to_review" => wrong.select { |result| result.score.same_result }.map { |result| key(result) },
-          "usage" => usage
-        }
+          "usage" => usage,
+          "routing" => routing
+        }.compact
       end
 
       # What is saved and committed, one file per run.
@@ -40,6 +41,10 @@ module DataTeller
         lines << "By tag: " + data["by_tag"].map { |tag, rate| "#{tag} #{label(rate)}" }.join(", ")
         lines << "Errors: " + (data["errors"].empty? ? "none" : data["errors"].map { |error, count| "#{error} #{count} (#{Scorer::SEVERITY.fetch(error.to_sym)})" }.join(", "))
         wrong.each { |result| lines << "  #{key(result)}: #{result.score.error}#{fields_note(result)}#{' — same rows as an accepted query, to review' if result.score.same_result}" }
+        if (routing = data["routing"])
+          lines << "Routing: " + routing["within"].map { |datasets, rate| "within #{datasets} #{label(rate)}" }.join(", ")
+          lines << "  route missed: #{routing['missed'].join(', ')}" if routing["missed"].any?
+        end
         usage = data["usage"]
         lines << "Tokens: #{usage['input_tokens']} in (#{usage['cached_input_tokens']} cached), #{usage['output_tokens']} out; " \
                  "latency median #{usage['latency_ms_median']} ms"
@@ -66,6 +71,21 @@ module DataTeller
         differing.blank? ? "" : ", differs on #{differing.join(', ')}"
       end
 
+      # Retrieval is scored apart from generation (project rule): was the right dataset among the first 1, 2, 3 chosen? Numbers and ids
+      # only, so that it can stand in a held-out report.
+      def routing
+        routed = @results.select(&:route_rank)
+        return nil if routed.empty?
+
+        {
+          "within" => (1..Router::MAX_DATASETS).to_h do |datasets|
+            right = routed.count { |result| result.route_rank.between?(1, datasets) }
+            [ datasets.to_s, { "right" => right, "total" => routed.size, "percent" => (100.0 * right / routed.size).round(1) } ]
+          end,
+          "missed" => routed.select { |result| result.route_rank.zero? }.map { |result| key(result) }
+        }
+      end
+
       def usage
         latencies = @results.map { |result| result.response.latency_ms }.sort
         {
@@ -88,7 +108,11 @@ module DataTeller
           "cached_input_tokens" => result.response.cached_input_tokens, "output_tokens" => result.response.output_tokens,
           "latency_ms" => result.response.latency_ms, "answered_by" => result.response.model, "failure" => result.response.failure
         }
-        @held_out ? entry : entry.merge("output" => result.response.output)
+        entry["route_rank"] = result.route_rank if result.response.route
+        return entry if @held_out
+
+        entry["route"] = result.response.route if result.response.route
+        entry.merge("output" => result.response.output)
       end
     end
   end

@@ -5,7 +5,7 @@ module DataTeller
     # `rake data_teller:eval`: loads a question set from the app's eval/ directory, asks a model, prints the report, and saves the
     # run when asked. One prompt change, one run, one commit (T14).
     class Command
-      MODELS = %w[perfect replay naive].freeze
+      MODELS = %w[perfect replay naive routed].freeze
 
       def initialize(root:, split:, model: "perfect", replay: nil, languages: QuestionSet::LANGUAGES, save: false, out: $stdout)
         @root = Pathname(root)
@@ -44,12 +44,13 @@ module DataTeller
           when "perfect" then Models::Perfect.new(set)
           when "replay" then Models::Replay.new(@replay || raise(ArgumentError, "MODEL=replay needs REPLAY=<path to a saved run>"))
           when "naive" then Models::Naive.new(llm: llm, time_zone: time_zone)
+          when "routed" then Models::Routed.new(llm: llm, router_llm: DataTeller.config.router_llm, time_zone: time_zone)
           else raise ArgumentError, "MODEL must be one of #{MODELS.join(', ')}"
           end
       end
 
       def llm
-        DataTeller.config.llm || raise(ArgumentError, "MODEL=naive needs c.llm in config/data_teller.rb (ADR 0008)")
+        DataTeller.config.llm || raise(ArgumentError, "MODEL=#{@model_name} needs c.llm in config/data_teller.rb (ADR 0008)")
       end
 
       # The tenant's own time zone, as the compiler uses it. Without the tenant in the database, the rows of a wrong answer cannot
