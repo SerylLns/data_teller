@@ -52,16 +52,19 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T10 Scorer** — done (ADR 0006 D4). Right or wrong per question after normalization, fields that differ, error class and severity, same rows flagged for review.
 - **T11 `rake data_teller:eval`** — done. A model is anything answering a request (id, language, text, role, day) with an output, tokens and latency; `perfect` calibrates the harness at 100%, `replay` scores a saved run again. `SAVE=1` writes `eval/runs/*.json`; a held-out run keeps ids and numbers only.
 - **T12 Provider client.** Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
-- **T13 Naive pipeline** (whole registry in the prompt); baseline recorded in an ADR.
+- **T13 Naive baseline** (ADR 0007 D1): the role's whole catalog in the prompt, run once for the reference number; no iteration on it, never shipped.
+- **T13c Router** (ADR 0007 D1): a first call picks the datasets from the role's dataset index, the second gets the schema narrowed to them.
+  Scored separately (expected dataset in the choice). To decide there: how many datasets, `out_of_scope` from the router, one model or two. `[sec]` `[perf]`
 - **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.
   First endpoint, so it also wires `DataTeller.enabled?`: routes answer 503 and the palette is not rendered when the engine is off (ADR 0004 D6).
   Herb only as an optional dev tool, flagged when added.
-- **T14 Prompt iteration log.** One change = one eval run = one commit.
+- **T14 Prompt iteration log**, on the routed path (ADR 0007 D1). One change = one eval run = one commit.
 
 ## M4 — Retrieval (RAG)
 - **T15 Indexable documents.** **T16 Embeddings pipeline** `[dep]` `[perf]` `[sec]` (only declared labels leave the app).
-- **T17 Retrieval A (vectors).** **T18 Retrieval B (hybrid, tsvector + vectors, RRF).** Recall@k scored separately.
-- **T19 Retrieval-scoped prompt** vs the T13 baseline. **T20 Dynamic few-shot** (filtered by tenant and by the role's visible catalog). **T21 (optional) reranking.**
+- **T17 Retrieval A (vectors).** **T18 Retrieval B (hybrid, trigram + vectors, RRF)** (ADR 0007 D2). Recall@k over datasets, scored separately,
+  against the T13c router: retrieval has to beat one cheap LLM call, not "send everything". `tsvector` as an extra variant, to decide at T18.
+- **T19 Retrieval-scoped prompt** vs the T13 baseline and the T13c router. **T20 Dynamic few-shot** (filtered by tenant and by the role's visible catalog). **T21 (optional) reranking.**
 - **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). `[sec]`
 
 ## M5 — Trust UX
