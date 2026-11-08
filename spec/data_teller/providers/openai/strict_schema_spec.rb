@@ -52,7 +52,24 @@ RSpec.describe DataTeller::Providers::OpenAI::StrictSchema do
       it "keeps only what strict mode takes, with an object at the root" do
         expect(translated).to include("type" => "object", "required" => [ "query" ], "additionalProperties" => false)
         expect(translated.keys).not_to include("anyOf", "oneOf")
-        expect(keywords(translated) & %w[oneOf allOf not if then else dependentRequired dependentSchemas $schema]).to be_empty
+        expect(keywords(translated) & %w[oneOf allOf not if then else dependentRequired dependentSchemas uniqueItems $schema]).to be_empty
+      end
+
+      it "gives every schema a type, a reference or a union" do
+        untyped = []
+        find = lambda do |node, named|
+          case node
+          when Hash
+            next node.each_value { |item| find.(item, false) } if named
+
+            untyped << node unless node.key?("type") || node.key?("$ref") || node.key?("anyOf")
+            node.except("enum", "const", "required").each { |key, value| find.(value, %w[properties $defs].include?(key)) }
+          when Array then node.each { |item| find.(item, false) }
+          end
+        end
+        find.(translated, false)
+
+        expect(untyped).to eq([])
       end
 
       it "closes every object and requires every property" do
@@ -90,6 +107,22 @@ RSpec.describe DataTeller::Providers::OpenAI::StrictSchema do
     end
   end
 
+  # The translation's safety rests on this: what strict mode cannot say, the validator still refuses.
+  it "drops only rules the validator still applies" do
+    validator = DataTeller::QueryValidator.new(DataTeller::Catalog.for(:admin))
+    base = { "version" => 1, "intent" => "answer", "dataset" => "orders", "metric" => "revenue" }
+    broken = {
+      "uniqueItems" => { "version" => 1, "intent" => "clarify", "clarify" => { "options" => %w[revenue revenue] } },
+      "dependentRequired" => base.merge("compare" => "previous_period"),
+      "if/then" => base.merge("filters" => [ { "dimension" => "status", "op" => "is_null", "value" => "paid" } ]),
+      "allOf + not" => base.merge("order_by" => { "by" => "metric", "dir" => "desc", "dimension" => "status" })
+    }
+
+    broken.each do |rule, query|
+      expect(validator.call(query).problems).to include(a_hash_including(code: :invalid_structure)), rule
+    end
+  end
+
   it "keeps a property whose name is a dropped keyword" do
     schema = { "type" => "object", "properties" => { "if" => { "type" => "string" }, "not" => { "type" => "number" } }, "required" => [ "if" ] }
 
@@ -98,6 +131,20 @@ RSpec.describe DataTeller::Providers::OpenAI::StrictSchema do
       "properties" => { "if" => { "type" => "string" }, "not" => { "anyOf" => [ { "type" => "number" }, { "type" => "null" } ] } },
       "required" => %w[if not],
       "additionalProperties" => false
+    )
+  end
+
+  it "types a const or an enum by its values" do
+    schema = {
+      "type" => "object",
+      "properties" => { "version" => { "const" => 1 }, "unit" => { "enum" => %w[day week] }, "mixed" => { "enum" => [ "a", 1.5, true ] } },
+      "required" => %w[version unit mixed]
+    }
+
+    expect(described_class.call(schema)["properties"]).to eq(
+      "version" => { "const" => 1, "type" => "integer" },
+      "unit" => { "enum" => %w[day week], "type" => "string" },
+      "mixed" => { "enum" => [ "a", 1.5, true ], "type" => %w[string number boolean] }
     )
   end
 

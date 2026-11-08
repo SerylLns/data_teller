@@ -2,13 +2,16 @@ module DataTeller
   module Providers
     class OpenAI
       # DataTeller's schema in the subset OpenAI's strict mode takes, as documented on 2026-11-08 (ADR 0007, context):
-      # - no allOf, not, if/then/else or dependentRequired: dropped, the validator applies those rules to every output anyway;
+      # - no allOf, not, if/then/else, dependentRequired or uniqueItems: dropped, the validator checks every output against the
+      #   whole schema anyway (QuerySchema.valid?). uniqueItems was found by the first real call, not in the documentation;
       # - oneOf becomes anyOf: our unions are disjoint, so nothing more is accepted;
       # - the root must be an object, not a union: a union root is wrapped in {"query": ...}, and unwrapped from the answer;
-      # - every property is required: an optional one becomes "this or null", and the nulls are removed from the answer.
+      # - every property is required: an optional one becomes "this or null", and the nulls are removed from the answer;
+      # - every schema has a type, found by the first real call and not in the documentation: a const or an enum gets the type
+      #   of its values.
       # A lost rule makes an output that the validator refuses, never a wider query: the schema is not a security boundary.
       module StrictSchema
-        DROPPED = %w[$schema allOf not if then else dependentRequired dependentSchemas].freeze
+        DROPPED = %w[$schema allOf not if then else dependentRequired dependentSchemas uniqueItems].freeze
         # Maps whose keys are names, not keywords: a property may well be called "if".
         NAMED_SCHEMAS = %w[properties $defs].freeze
         WRAPPER = "query".freeze
@@ -78,7 +81,7 @@ module DataTeller
         def translate(node)
           case node
           when Array then node.map { |item| translate(item) }
-          when Hash then close_object(translate_keywords(node))
+          when Hash then close_object(typed(translate_keywords(node)))
           else node
           end
         end
@@ -91,6 +94,24 @@ module DataTeller
 
         def translate_named(map)
           map.transform_values { |schema| translate(schema) }
+        end
+
+        def typed(node)
+          return node if node.key?("type") || !(node.key?("const") || node.key?("enum"))
+
+          types = (node.key?("const") ? [ node["const"] ] : node["enum"]).map { |value| json_type(value) }.uniq
+          node.merge("type" => types.one? ? types.first : types)
+        end
+
+        def json_type(value)
+          case value
+          when String then "string"
+          when Integer then "integer"
+          when Float then "number"
+          when true, false then "boolean"
+          when nil then "null"
+          else raise ArgumentError, "a const or enum value must be a scalar, got #{value.class}"
+          end
         end
 
         def close_object(node)
