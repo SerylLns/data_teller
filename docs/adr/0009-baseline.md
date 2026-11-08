@@ -1,6 +1,6 @@
 # ADR 0009 — The naive baseline: model and prompt
 
-Status: D1 accepted (2026-11-08); D2 open
+Status: accepted (2026-11-08)
 
 Context: T13 runs the whole catalog once for the reference number (ADR 0007 D1), on OpenAI (ADR 0008 D2). The model is an integrator's
 setting (`c.llm`); what is decided here is the model of the eval and of the series.
@@ -28,6 +28,16 @@ Estimates: 74 calls of about 6,600 input tokens (the one real call of T12) and 1
 Rejected: `gpt-5.4-mini` (pinned and already tried, but 7.5 times the price); a larger model for the baseline (not what integrators would
 ship); two models at once (C: the author's call, a small model is enough to start).
 
-## D2 — The first prompt
+## D2 — The rules and the catalog as compact text, next to the schema (decided, "B")
 
-Open.
+- **The system message:** the task's rules (answer, ask to clarify, or say out of scope), today's date in the tenant's time zone, and the
+  role's catalog as `CatalogSummary` writes it: datasets with their synonyms, metrics with their aggregation, dates with the default one,
+  fields with their values and uses. About 8.4 KB more for admin. The schema still constrains the output.
+- **Why:** the schema holds names only. Without the synonyms a French question starts with a handicap of our own making, and the baseline
+  would measure a strawman. "Naive" means everything the gem knows about the catalog, in the prompt, with no selection.
+- **The question goes in the user message**, apart from the instructions. An injection can only produce a query the user could have asked:
+  bounded by the role's catalog, filtered by tenant by the compiler.
+- **No tenant data:** enum values come from the declarations, not the database; lookup values are not listed.
+
+Rejected: the schema alone (A: no synonyms, a strawman baseline); hand-written examples now (C: they would compete with dynamic few-shot,
+T20, and blur what the catalog brings; a measured iteration for T14 instead).
