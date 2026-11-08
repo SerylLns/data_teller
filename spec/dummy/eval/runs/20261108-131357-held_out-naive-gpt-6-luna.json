@@ -1,0 +1,413 @@
+{
+  "split": "held_out",
+  "model": "naive gpt-6-luna",
+  "fingerprint": "prompt dfaad1b02cf2",
+  "ran_at": "2026-11-08T13:13:57Z",
+  "held_out": true,
+  "summary": {
+    "score": {
+      "right": 14,
+      "total": 20,
+      "percent": 70.0
+    },
+    "by_language": {
+      "en": {
+        "right": 6,
+        "total": 10,
+        "percent": 60.0
+      },
+      "fr": {
+        "right": 8,
+        "total": 10,
+        "percent": 80.0
+      }
+    },
+    "by_tag": {
+      "ambiguity": {
+        "right": 0,
+        "total": 2,
+        "percent": 0.0
+      },
+      "clarification": {
+        "right": 0,
+        "total": 2,
+        "percent": 0.0
+      },
+      "comparison": {
+        "right": 2,
+        "total": 2,
+        "percent": 100.0
+      },
+      "date": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "group": {
+        "right": 5,
+        "total": 8,
+        "percent": 62.5
+      },
+      "intent": {
+        "right": 1,
+        "total": 2,
+        "percent": 50.0
+      },
+      "out_of_scope": {
+        "right": 3,
+        "total": 4,
+        "percent": 75.0
+      },
+      "paraphrase": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "segment": {
+        "right": 4,
+        "total": 4,
+        "percent": 100.0
+      },
+      "synonym": {
+        "right": 2,
+        "total": 4,
+        "percent": 50.0
+      },
+      "unsupported": {
+        "right": 2,
+        "total": 2,
+        "percent": 100.0
+      }
+    },
+    "errors": {
+      "missed_clarification": 2,
+      "unnecessary_clarification": 1,
+      "wrong_answer": 2,
+      "wrong_reason": 1
+    },
+    "by_severity": {
+      "medium": 3,
+      "high": 2,
+      "low": 1
+    },
+    "to_review": [],
+    "usage": {
+      "input_tokens": 148467,
+      "cached_input_tokens": 148102,
+      "output_tokens": 3359,
+      "latency_ms_median": 3669,
+      "answered_by": [
+        "gpt-6-luna"
+      ],
+      "failures": {}
+    }
+  },
+  "answers": [
+    {
+      "id": "orders_by_sales_channel",
+      "language": "en",
+      "correct": false,
+      "error": "unnecessary_clarification",
+      "severity": "medium",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9145,
+      "output_tokens": 227,
+      "latency_ms": 5154,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "orders_by_sales_channel",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9145,
+      "output_tokens": 140,
+      "latency_ms": 3575,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "customer_acquisition",
+      "language": "en",
+      "correct": false,
+      "error": "wrong_answer",
+      "severity": "high",
+      "differs_on": [
+        "order_by",
+        "limit"
+      ],
+      "same_result": false,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9145,
+      "output_tokens": 157,
+      "latency_ms": 3856,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "customer_acquisition",
+      "language": "fr",
+      "correct": false,
+      "error": "wrong_answer",
+      "severity": "high",
+      "differs_on": [
+        "order_by",
+        "limit"
+      ],
+      "same_result": false,
+      "input_tokens": 9164,
+      "cached_input_tokens": 9145,
+      "output_tokens": 227,
+      "latency_ms": 3771,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "late_invoices",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9166,
+      "cached_input_tokens": 9145,
+      "output_tokens": 96,
+      "latency_ms": 2502,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "late_invoices",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9168,
+      "cached_input_tokens": 9145,
+      "output_tokens": 110,
+      "latency_ms": 2336,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "product_launches",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9161,
+      "cached_input_tokens": 9145,
+      "output_tokens": 161,
+      "latency_ms": 3435,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "product_launches",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 9165,
+      "cached_input_tokens": 9145,
+      "output_tokens": 190,
+      "latency_ms": 3506,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "refund_reasons",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6321,
+      "cached_input_tokens": 6306,
+      "output_tokens": 134,
+      "latency_ms": 3669,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "refund_reasons",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6325,
+      "cached_input_tokens": 6306,
+      "output_tokens": 167,
+      "latency_ms": 3682,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "unresolved_support",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6327,
+      "cached_input_tokens": 6306,
+      "output_tokens": 136,
+      "latency_ms": 3540,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "unresolved_support",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6325,
+      "cached_input_tokens": 6306,
+      "output_tokens": 273,
+      "latency_ms": 6376,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "subscription_growth",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6324,
+      "cached_input_tokens": 6306,
+      "output_tokens": 115,
+      "latency_ms": 4435,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "subscription_growth",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": [],
+      "same_result": null,
+      "input_tokens": 6329,
+      "cached_input_tokens": 6306,
+      "output_tokens": 151,
+      "latency_ms": 2647,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "best_customers",
+      "language": "en",
+      "correct": false,
+      "error": "missed_clarification",
+      "severity": "medium",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9162,
+      "cached_input_tokens": 9145,
+      "output_tokens": 271,
+      "latency_ms": 4205,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "best_customers",
+      "language": "fr",
+      "correct": false,
+      "error": "missed_clarification",
+      "severity": "medium",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 9160,
+      "cached_input_tokens": 9145,
+      "output_tokens": 349,
+      "latency_ms": 4969,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "customer_activity",
+      "language": "en",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 6321,
+      "cached_input_tokens": 6306,
+      "output_tokens": 155,
+      "latency_ms": 3728,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "customer_activity",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 6329,
+      "cached_input_tokens": 6306,
+      "output_tokens": 145,
+      "latency_ms": 3238,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "unrelated_weather",
+      "language": "en",
+      "correct": false,
+      "error": "wrong_reason",
+      "severity": "low",
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 3116,
+      "cached_input_tokens": 3102,
+      "output_tokens": 97,
+      "latency_ms": 2679,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    },
+    {
+      "id": "unrelated_weather",
+      "language": "fr",
+      "correct": true,
+      "error": null,
+      "severity": null,
+      "differs_on": null,
+      "same_result": null,
+      "input_tokens": 3118,
+      "cached_input_tokens": 3102,
+      "output_tokens": 58,
+      "latency_ms": 1670,
+      "answered_by": "gpt-6-luna",
+      "failure": null
+    }
+  ]
+}

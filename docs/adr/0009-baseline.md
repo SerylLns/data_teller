@@ -65,3 +65,9 @@ T20, and blur what the catalog brings; a measured iteration for T14 instead).
 - **Same answer, different class:** `other_merchant/fr` was an `answered_out_of_scope`, now an `invalid_output` (`contains` on a lookup, refused by the validator).
 - Cost of the second run from the list prices: about $0.011, with 99.96% of the input tokens from the cache.
 
+### The author's ten questions (same day)
+
+Reference run on `held_out.yml`, before any prompt change, same prompt and model: **70.0% (14/20)**, en 60.0% (6/10), fr 80.0% (8/10), `20261108-131357-held_out-naive-gpt-6-luna.json`.
+One run, and one answer is 5 points here: the gap with the working set (85.1% and 89.2%) is a hint, not a measure. These questions were seen during development (ADR 0006 D3).
+About $0.003 from the list prices; median latency 3,669 ms.
+
