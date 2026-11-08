@@ -69,10 +69,12 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Read-only database role, limited to the declared columns | Done |
 | Postgres row-level security on the tenant, on top of the compiler's filter | Done |
 | Minimum group size, complexity budget, security test kit | Next |
-| Evaluation suite, LLM client | Not started |
-| Retrieval (RAG), UI, explanations, security test kit | Not started |
+| Evaluation suite, `rake data_teller:eval` | Done |
+| LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | Done |
+| Minimal palette and endpoint, **not for production yet: no per-user limit** | Done |
+| Retrieval (RAG), explanations, production UI | Not started |
 
-No accuracy or retrieval number exists yet, because nothing has been measured. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+First measure, on fake data, the working set of 37 questions in two languages, `gpt-6-luna`, five runs: 87.6% of answers right on average, with a first prompt nobody has tuned yet ([ADR 0007](docs/adr/0007-catalog-narrowing.md), [ADR 0009](docs/adr/0009-baseline.md)). It says little until retrieval and tuning have something to compare to. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What you can try today
 
@@ -179,6 +181,13 @@ To run a JSON query on them and see the SQL:
 cd spec/dummy
 bundle exec rails db:create db:migrate db:seed
 bundle exec rake "try[Acme,admin]" QUERY='{"version":1,"intent":"answer","dataset":"orders","metric":"revenue"}'   # admin, support or member
+```
+
+To try the palette, with a fake sign-in that picks a seeded user. Each question is a paid call to OpenAI:
+
+```bash
+cd spec/dummy
+OPENAI_API_KEY=... bin/rails server   # then open http://localhost:3000, sign in, and press Ctrl/Cmd+K
 ```
 
 The design decisions, with the options that were rejected, are in [docs/adr](docs/adr).

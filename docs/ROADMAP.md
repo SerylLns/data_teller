@@ -55,9 +55,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
 - **T13 Naive baseline** — done (ADR 0007 D1, ADR 0009): the role's whole catalog in the prompt, `MODEL=naive`, run once for the reference number: 79.7% on the working set with `gpt-6-luna`; no iteration on it, never shipped.
 - **T13c Router** — done (ADR 0007 D1, D3-D5): a first call picks one to three datasets from the role's index, the second gets the schema narrowed to them. `MODEL=routed`, scored separately. Measured on 11 datasets: the whole catalog does a little better, so the router only runs above `c.route_above_datasets` (D6, an estimate: no large catalog run yet). `[sec]` `[perf]`
-- **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.
-  First endpoint, so it also wires `DataTeller.enabled?`: routes answer 503 and the palette is not rendered when the engine is off (ADR 0004 D6).
-  Herb only as an optional dev tool, flagged when added.
+- **T13b Minimal command palette** — done (ADR 0002, ADR 0010). `DataTeller.ask`, `POST /ask` answering HTML fragments, the `data_teller_palette` helper, a web component on `<dialog>` with no dependency; 503 and no palette when the engine is off (ADR 0004 D6). The question is filtered out of Rails' logs. In the dummy, a fake sign-in in development and test only.
+  Left for T28 and T30: money shown in raw cents, column labels, clickable clarification options, the JS loaded on first open (ADR 0002), a browser test. No per-user limit until T32: not for production before that. Herb not added.
 - **T14 Prompt iteration log**, on the whole-catalog path (ADR 0007 D6). One change = several eval runs = one commit: one run moves by 1 to 3 answers on its own (ADR 0007).
 
 ## M4 — Retrieval (RAG)
