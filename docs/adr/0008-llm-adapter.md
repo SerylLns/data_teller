@@ -42,5 +42,9 @@ a bare callable with no shipped adapter (C: nothing works without code, and ever
 - **Keys:** read from `ENV` by the host app's configuration; the dummy app reads `OPENAI_API_KEY`. No `dotenv`: a `.env` (git-ignored)
   is loaded by the shell. The CI never calls a provider: specs use a fake transport, real eval runs are started by hand.
 
+- **First real call** (2026-11-08, `gpt-5.4-mini-2026-03-17`, the admin schema, one question): refused twice for rules the documentation
+  does not list, every schema needing a `type` (our `const` and `enum` had none) and `uniqueItems` not permitted; accepted once both
+  were translated. 6,583 input tokens, 65 output tokens, 2.2 s; the validator accepted the query. One call, not a measurement.
+
 Rejected: OpenAI and DeepSeek at once (B: two transports before the first one is tried); one "OpenAI-compatible" adapter switched by URL
 (C: a compatibility not verified, and the providers differ precisely on structured outputs).
