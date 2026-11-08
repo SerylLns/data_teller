@@ -5,7 +5,7 @@ module DataTeller
     # `rake data_teller:eval`: loads a question set from the app's eval/ directory, asks a model, prints the report, and saves the
     # run when asked. One prompt change, one run, one commit (T14).
     class Command
-      MODELS = %w[perfect replay].freeze
+      MODELS = %w[perfect replay naive].freeze
 
       def initialize(root:, split:, model: "perfect", replay: nil, languages: QuestionSet::LANGUAGES, save: false, out: $stdout)
         @root = Pathname(root)
@@ -19,7 +19,9 @@ module DataTeller
 
       def call
         set = QuestionSet.load(path)
-        report = Report.new(Runner.new(set: set, model: model(set), scorer: scorer(set), languages: @languages).call,
+        tenant = find_tenant(set.tenant)
+        time_zone = (tenant && DataTeller.config.time_zone_for(tenant)) || Time.zone
+        report = Report.new(Runner.new(set: set, model: model(set, time_zone), scorer: scorer(set, tenant, time_zone), languages: @languages).call,
                             split: @split, model: @model, held_out: held_out?)
         @out.print(report.to_text)
         @out.puts("Saved: #{save(report)}") if @save
@@ -36,20 +38,23 @@ module DataTeller
 
       def held_out? = @split == "held_out"
 
-      def model(set)
+      def model(set, time_zone)
         @model =
           case @model_name
           when "perfect" then Models::Perfect.new(set)
           when "replay" then Models::Replay.new(@replay || raise(ArgumentError, "MODEL=replay needs REPLAY=<path to a saved run>"))
-          else raise ArgumentError, "MODEL must be one of #{MODELS.join(', ')}; a provider comes with the LLM client"
+          when "naive" then Models::Naive.new(llm: llm, time_zone: time_zone)
+          else raise ArgumentError, "MODEL must be one of #{MODELS.join(', ')}"
           end
+      end
+
+      def llm
+        DataTeller.config.llm || raise(ArgumentError, "MODEL=naive needs c.llm in config/data_teller.rb (ADR 0008)")
       end
 
       # The tenant's own time zone, as the compiler uses it. Without the tenant in the database, the rows of a wrong answer cannot
       # be compared: same_result is left out, the score is not.
-      def scorer(set)
-        tenant = find_tenant(set.tenant)
-        time_zone = (tenant && DataTeller.config.time_zone_for(tenant)) || Time.zone
+      def scorer(set, tenant, time_zone)
         executor = tenant && Executor.new(tenant: tenant, today: set.today, time_zone: time_zone)
         @out.puts("Tenant #{set.tenant} not found: rows of wrong answers are not compared (seed the database to get them).") unless tenant
 

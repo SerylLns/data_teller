@@ -28,13 +28,13 @@ namespace :data_teller do
     print policies.sql if DataTeller.config.row_security
   end
 
-  desc "Score a model on eval/<split>.yml, e.g. rake \"data_teller:eval[dev]\" MODEL=perfect|replay REPLAY=eval/runs/x.json LANGUAGES=en,fr SAVE=1"
+  desc "Score a model on eval/<split>.yml, e.g. rake \"data_teller:eval[dev]\" MODEL=perfect|replay|naive REPLAY=eval/runs/x.json LANGUAGES=en,fr SAVE=1"
   task :eval, [ :split ] => :environment do |_task, args|
     DataTeller::Evaluation::Command.new(
       root: Rails.root, split: args[:split] || "dev", model: ENV.fetch("MODEL", "perfect"), replay: ENV["REPLAY"],
       languages: ENV.fetch("LANGUAGES", "en,fr").split(","), save: ENV["SAVE"] == "1"
     ).call
-  rescue ArgumentError => e
+  rescue ArgumentError, DataTeller::LLM::Error => e
     abort "DataTeller: #{e.message}"
   end
 

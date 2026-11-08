@@ -40,7 +40,11 @@ module DataTeller
         lines << "By tag: " + data["by_tag"].map { |tag, rate| "#{tag} #{label(rate)}" }.join(", ")
         lines << "Errors: " + (data["errors"].empty? ? "none" : data["errors"].map { |error, count| "#{error} #{count} (#{Scorer::SEVERITY.fetch(error.to_sym)})" }.join(", "))
         wrong.each { |result| lines << "  #{key(result)}: #{result.score.error}#{fields_note(result)}#{' — same rows as an accepted query, to review' if result.score.same_result}" }
-        lines << "Tokens: #{data['usage']['input_tokens']} in, #{data['usage']['output_tokens']} out; latency median #{data['usage']['latency_ms_median']} ms"
+        usage = data["usage"]
+        lines << "Tokens: #{usage['input_tokens']} in (#{usage['cached_input_tokens']} cached), #{usage['output_tokens']} out; " \
+                 "latency median #{usage['latency_ms_median']} ms"
+        lines << "Answered by: #{usage['answered_by'].join(', ')}" if usage["answered_by"].any?
+        lines << "Failures: #{usage['failures'].map { |failure, count| "#{failure} #{count}" }.join(', ')}" if usage["failures"].any?
         lines.join("\n") + "\n"
       end
 
@@ -66,8 +70,12 @@ module DataTeller
         latencies = @results.map { |result| result.response.latency_ms }.sort
         {
           "input_tokens" => @results.sum { |result| result.response.input_tokens },
+          "cached_input_tokens" => @results.sum { |result| result.response.cached_input_tokens },
           "output_tokens" => @results.sum { |result| result.response.output_tokens },
-          "latency_ms_median" => latencies.empty? ? 0 : latencies[latencies.size / 2]
+          "latency_ms_median" => latencies.empty? ? 0 : latencies[latencies.size / 2],
+          # An alias can move to another model during a run: every name answered with is listed.
+          "answered_by" => @results.filter_map { |result| result.response.model }.uniq.sort,
+          "failures" => @results.filter_map { |result| result.response.failure }.tally.sort.to_h
         }
       end
 
@@ -77,7 +85,8 @@ module DataTeller
           "id" => result.id, "language" => result.language, "correct" => score.correct, "error" => score.error&.to_s,
           "severity" => score.severity&.to_s, "differs_on" => score.fields&.reject { |_field, same| same }&.keys&.map(&:to_s),
           "same_result" => score.same_result, "input_tokens" => result.response.input_tokens,
-          "output_tokens" => result.response.output_tokens, "latency_ms" => result.response.latency_ms
+          "cached_input_tokens" => result.response.cached_input_tokens, "output_tokens" => result.response.output_tokens,
+          "latency_ms" => result.response.latency_ms, "answered_by" => result.response.model, "failure" => result.response.failure
         }
         @held_out ? entry : entry.merge("output" => result.response.output)
       end
