@@ -53,7 +53,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T11 `rake data_teller:eval`** — done. A model is anything answering a request (id, language, text, role, day) with an output, tokens and latency; `perfect` calibrates the harness at 100%, `replay` scores a saved run again. `SAVE=1` writes `eval/runs/*.json`; a held-out run keeps ids and numbers only.
 - **T12 Provider client** — done (ADR 0008). An adapter is `complete(system:, user:, schema:)` plus `provider_schema(schema)`; the gem keeps the prompts and the chain.
   Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
-- **T13 Naive baseline** (ADR 0007 D1): the role's whole catalog in the prompt, run once for the reference number; no iteration on it, never shipped.
+- **T13 Naive baseline** — done (ADR 0007 D1, ADR 0009): the role's whole catalog in the prompt, `MODEL=naive`, run once for the reference number: 79.7% on the working set with `gpt-6-luna`; no iteration on it, never shipped.
 - **T13c Router** (ADR 0007 D1): a first call picks the datasets from the role's dataset index, the second gets the schema narrowed to them.
   Scored separately (expected dataset in the choice). To decide there: how many datasets, `out_of_scope` from the router, one model or two. `[sec]` `[perf]`
 - **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.

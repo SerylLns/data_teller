@@ -41,3 +41,17 @@ ship); two models at once (C: the author's call, a small model is enough to star
 
 Rejected: the schema alone (A: no synonyms, a strawman baseline); hand-written examples now (C: they would compete with dynamic few-shot,
 T20, and blur what the catalog brings; a measured iteration for T14 instead).
+
+## The baseline (measured, 2026-11-08)
+
+`rake "data_teller:eval[dev]" MODEL=naive`, prompt `dfaad1b02cf2`, `gpt-6-luna`, the 37 working questions in both languages, one run:
+`spec/dummy/eval/runs/20261108-125141-dev-naive-gpt-6-luna.json`. The held-out set does not exist yet, so this is not a held-out number.
+
+- **Score: 79.7% (59/74);** English 78.4% (29/37), French 81.1% (30/37). One question is 2.7 points of a language's score and run-to-run
+  variation is not measured: the gap between the languages means nothing yet.
+- **Errors:** 7 `wrong_answer` and 2 `answered_out_of_scope` (high), 2 `missed_clarification` (medium), 2 `wrong_reason` and 2 `wrongful_refusal` (low).
+  4 of the `wrong_answer` carry the "same rows" flag. No expected query was changed after the run: 79.7% stands as the number of this file.
+- **Tokens:** 624,666 in, of which 604,885 from OpenAI's cache (96.8%), 9,219 out; 8,441 input tokens per call on average; median latency 2,554 ms.
+- **Cost, computed from the list prices, not read from an invoice:** about $0.013 for the run, against the $0.05-0.07 estimated in D1, which ignored the cache.
+- **What it changes:** ADR 0007 D1 counted on cheaper eval runs to justify iterating on the routed path. On this catalog, at this price, cost is not
+  the argument. Routing rests on the provider limits and on larger catalogs.
