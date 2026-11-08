@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>DataTeller dummy</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+  </head>
+  <body>
+    <h1>DataTeller dummy</h1>
+    <p>Fake sign-in and fake seeded data, to try the palette under each role.</p>
+
+    <%= form_with url: dummy_sign_in_path do |form| %>
+      <%= form.label :user_id, "Signed in as" %>
+      <%= form.select :user_id, @users.map { |user| [ "#{user.account.name}: #{user.role}", user.id ] }, selected: @current&.id, include_blank: "nobody" %>
+      <%= form.submit "Switch" %>
+    <% end %>
+
+    <p><%= data_teller_palette %></p>
+    <% unless @current %><p>No palette while signed in as nobody.</p><% end %>
+  </body>
+</html>

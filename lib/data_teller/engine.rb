@@ -7,6 +7,17 @@ module DataTeller
       DataTeller.boot!(Rails.root)
     end
 
+    # The question is the end user's and may hold personal data, and Rails logs every parameter by default. A name of our own, so
+    # that the host's parameters called "question" stay as they are.
+    initializer "data_teller.filter_question" do |app|
+      app.config.filter_parameters << :data_teller_question
+    end
+
+    # Available in the host's views, whatever its controllers (ADR 0010 D1).
+    initializer "data_teller.palette_helper" do
+      ActiveSupport.on_load(:action_view) { include DataTeller::PaletteHelper }
+    end
+
     # Declaration files are not autoloaded, so without a watcher editing one would not trigger a reload, and the app
     # would keep serving the old declarations with no error until an unrelated file changed.
     initializer "data_teller.watch_declarations" do |app|

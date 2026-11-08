@@ -5,6 +5,8 @@ DataTeller.configure do |c|
     time_zone { |account| account.time_zone }
   end
   c.roles { |user| user.roles }
+  # FAKE authentication, for this dummy app only: see DummySessionsController. A real app reads its own session here.
+  c.current_user { |request| User.find_by(id: request.session[:dummy_user_id]) }
   c.expose Order, Customer, Product, LineItem, Shipment, Refund, Coupon, Subscription, Invoice, SupportTicket, Review
 
   # Real eval runs only (ADR 0008 D2): the key comes from the shell, never from a file in the repo, and the CI has none.

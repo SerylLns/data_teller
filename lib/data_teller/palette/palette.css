@@ -1,0 +1,110 @@
+/* A small stylesheet with custom properties, no framework (ADR 0002). Everything is under the element, so nothing leaks into the host. */
+data-teller-palette {
+  --dt-background: #ffffff;
+  --dt-text: #1c1e21;
+  --dt-muted: #5f6670;
+  --dt-border: #d5d9de;
+  --dt-accent: #2f5fd0;
+  --dt-accent-text: #ffffff;
+  color: var(--dt-text);
+  font: inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+  data-teller-palette[data-theme="system"] {
+    --dt-background: #1e2024;
+    --dt-text: #eceef1;
+    --dt-muted: #a2a8b1;
+    --dt-border: #3a3e45;
+    --dt-accent: #7ea2f2;
+    --dt-accent-text: #10131a;
+  }
+}
+
+data-teller-palette[data-theme="dark"] {
+  --dt-background: #1e2024;
+  --dt-text: #eceef1;
+  --dt-muted: #a2a8b1;
+  --dt-border: #3a3e45;
+  --dt-accent: #7ea2f2;
+  --dt-accent-text: #10131a;
+}
+
+data-teller-palette .dt-trigger,
+data-teller-palette .dt-submit {
+  background: var(--dt-accent);
+  border: 0;
+  border-radius: 6px;
+  color: var(--dt-accent-text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+}
+
+data-teller-palette .dt-dialog {
+  background: var(--dt-background);
+  border: 1px solid var(--dt-border);
+  border-radius: 10px;
+  color: var(--dt-text);
+  margin: 12vh auto auto;
+  max-height: 70vh;
+  max-width: 40rem;
+  padding: 1rem;
+  width: calc(100% - 2rem);
+}
+
+data-teller-palette .dt-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+data-teller-palette .dt-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+data-teller-palette .dt-input {
+  background: var(--dt-background);
+  border: 1px solid var(--dt-border);
+  border-radius: 6px;
+  color: var(--dt-text);
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+}
+
+data-teller-palette .dt-output {
+  margin-top: 0.75rem;
+  overflow-x: auto;
+}
+
+data-teller-palette .dt-output:empty {
+  margin-top: 0;
+}
+
+data-teller-palette[aria-busy="true"] .dt-output {
+  opacity: 0.5;
+}
+
+data-teller-palette .dt-understood,
+data-teller-palette .dt-note {
+  color: var(--dt-muted);
+  font-size: 0.875em;
+  margin: 0.25rem 0;
+}
+
+data-teller-palette .dt-message {
+  margin: 0.25rem 0;
+}
+
+data-teller-palette .dt-result {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+data-teller-palette .dt-result th,
+data-teller-palette .dt-result td {
+  border-bottom: 1px solid var(--dt-border);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
