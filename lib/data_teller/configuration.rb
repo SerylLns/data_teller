@@ -34,6 +34,7 @@ module DataTeller
       @exposed_models = []
       @tenant = nil
       @roles_resolver = nil
+      @current_user_resolver = nil
       @llm = nil
       @router_llm = nil
       @authorization = nil
@@ -142,6 +143,13 @@ module DataTeller
       @roles_resolver = block
     end
 
+    # c.current_user { |request| request.env["warden"]&.user } — who is asking, for the endpoint and the helper (ADR 0010 D2).
+    def current_user(&block)
+      raise ConfigurationError, "current_user needs a block: c.current_user { |request| ... }" unless block
+
+      @current_user_resolver = block
+    end
+
     # c.authorization :pundit — the adapter itself is validated by the authorization ticket (T33).
     def authorization(adapter = nil)
       @authorization = adapter unless adapter.nil?
@@ -169,6 +177,14 @@ module DataTeller
       nil
     rescue StandardError => e
       Rails.logger&.error("[DataTeller] tenant resolver failed, treating as no tenant: #{e.class}")
+      nil
+    end
+
+    # Fails closed: no resolver, nil or an error all mean nobody, which the endpoint answers with a 401.
+    def current_user_for(request)
+      @current_user_resolver&.call(request)
+    rescue StandardError => e
+      Rails.logger&.error("[DataTeller] current_user failed, treating as nobody: #{e.class}")
       nil
     end
 

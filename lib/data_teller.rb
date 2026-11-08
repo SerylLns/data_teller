@@ -36,6 +36,7 @@ require "data_teller/llm"
 require "data_teller/providers/openai"
 require "data_teller/router"
 require "data_teller/pipeline"
+require "data_teller/ask"
 require "data_teller/evaluation/question_set"
 require "data_teller/evaluation/normalizer"
 require "data_teller/evaluation/scorer"
@@ -125,6 +126,11 @@ module DataTeller
 
     def enabled?
       @enabled == true
+    end
+
+    # A question and a user in, an outcome out (ADR 0010 D1): rows, a clarification or a refusal, for any visual.
+    def ask(question, user:, now: Time.current)
+      Ask.call(question, user: user, now: now)
     end
 
     # For tests only.

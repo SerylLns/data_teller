@@ -60,6 +60,30 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "#current_user_for" do
+    let(:request) { Struct.new(:session).new({ user_id: 7 }) }
+
+    it "resolves through the block" do
+      config.current_user { |req| req.session[:user_id] }
+
+      expect(config.current_user_for(request)).to eq(7)
+    end
+
+    it "means nobody with no block, nil, or an error" do
+      expect(config.current_user_for(request)).to be_nil
+
+      config.current_user { |_req| nil }
+      expect(config.current_user_for(request)).to be_nil
+
+      config.current_user { |_req| raise "session store down" }
+      expect(config.current_user_for(request)).to be_nil
+    end
+
+    it "requires a block" do
+      expect { config.current_user }.to raise_error(DataTeller::ConfigurationError, /current_user needs a block/)
+    end
+  end
+
   describe "llm and router_llm" do
     let(:adapter_class) do
       Struct.new(:name) do
