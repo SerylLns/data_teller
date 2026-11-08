@@ -23,8 +23,7 @@ module DataTeller
     # A plain Postgres name: it is quoted in the SQL anyway, and this keeps a typo from becoming a role nobody created.
     DATABASE_ROLE = /\A[a-z_][a-z0-9_]{0,62}\z/
 
-    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, :row_security, *LIMITS.keys
-    attr_accessor :llm
+    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, :row_security, :llm, *LIMITS.keys
 
     def initialize
       @on_invalid_config = :raise
@@ -33,6 +32,7 @@ module DataTeller
       @tenant = nil
       @roles_resolver = nil
       @llm = nil
+      @router_llm = nil
       @authorization = nil
       @database_role = nil
       @row_security = false
@@ -46,6 +46,20 @@ module DataTeller
       end
 
       @database_role = value&.dup&.freeze
+    end
+
+    # The provider adapter (ADR 0008 D1): anything answering complete and provider_schema, so an integrator can write their own.
+    def llm=(adapter)
+      @llm = checked_adapter(:llm, adapter)
+    end
+
+    # The router's call (ADR 0007 D1) may use a smaller, cheaper model; the same adapter as llm unless set.
+    def router_llm=(adapter)
+      @router_llm = checked_adapter(:router_llm, adapter)
+    end
+
+    def router_llm
+      @router_llm || @llm
     end
 
     # Postgres row-level security on top of the compiler's tenant filter (T39, ADR 0005 D7). Needs database_role, which the
@@ -176,6 +190,14 @@ module DataTeller
     rescue StandardError => e
       Rails.logger&.error("[DataTeller] roles resolver failed, treating as no role: #{e.class}")
       []
+    end
+
+    private
+
+    def checked_adapter(name, adapter)
+      return adapter if adapter.nil? || LLM.adapter?(adapter)
+
+      raise ConfigurationError, "#{name} must answer complete(system:, user:, schema:) and provider_schema(schema), got #{adapter.class}"
     end
   end
 end

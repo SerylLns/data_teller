@@ -60,6 +60,37 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "llm and router_llm" do
+    let(:adapter_class) do
+      Struct.new(:name) do
+        def complete(system:, user:, schema:) = nil
+        def provider_schema(schema) = schema
+      end
+    end
+
+    it "has no adapter by default" do
+      expect(config.llm).to be_nil
+      expect(config.router_llm).to be_nil
+    end
+
+    it "routes with the same adapter unless told otherwise" do
+      main = adapter_class.new("main")
+      config.llm = main
+      expect(config.router_llm).to equal(main)
+
+      small = adapter_class.new("small")
+      config.router_llm = small
+      expect(config.router_llm).to equal(small)
+      expect(config.llm).to equal(main)
+    end
+
+    it "takes any object with the two methods, and refuses the rest" do
+      expect { config.llm = Object.new }.to raise_error(DataTeller::ConfigurationError, /complete\(system:, user:, schema:\) and provider_schema\(schema\), got Object/)
+      expect { config.router_llm = ->(request) { request } }.to raise_error(DataTeller::ConfigurationError, /router_llm/)
+      expect { config.llm = nil }.not_to raise_error
+    end
+  end
+
   describe "limits" do
     it "has defaults" do
       expect(config).to have_attributes(statement_timeout: 5, default_max_groups: 50, max_rows: 1_000, max_time_points: 366, max_joins: 5)
