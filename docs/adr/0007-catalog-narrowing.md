@@ -61,3 +61,11 @@ Sizes for admin: datasets and synonyms 636 bytes; with metric names 1,003 bytes;
 
 Rejected: datasets and synonyms only (A: the trap above); field names too (C: three times the size, for a gain nothing shows yet).
 
+## D4 — The router never refuses (decided, "A", 2026-11-08, for now)
+
+- It always returns at least one dataset, its best guess; only the query call can answer `out_of_scope`.
+- **Why:** one step decides a refusal, with the detailed catalog in front of it, and a router's mistake does not become a refusal with no second chance.
+- **Cost:** an off-topic question makes two calls, a few more seconds before a refusal. A wrong route can still end in a wrongful refusal at the query call; the router's own score shows it.
+
+Rejected for now: an empty list answered directly as `out_of_scope` (B: faster on off-topic questions, but a decision taken from the short index, and two steps deciding the same thing). To revisit if the latency of refusals matters.
+
