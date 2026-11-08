@@ -71,6 +71,19 @@ module DataTeller
       @registry.datasets.find { |dataset| dataset.model_name == model_name }
     end
 
+    # This catalog limited to some of its datasets (ADR 0007): it only keeps what the roles already see, so narrowing can never
+    # widen what a user may ask, whatever names it is given.
+    def only(names)
+      wanted = names.map(&:to_s)
+      dup.tap { |copy| copy.keep_datasets(datasets.select { |entry| wanted.include?(entry.name.to_s) }.freeze) }
+    end
+
+    protected
+
+    def keep_datasets(entries)
+      @datasets = entries
+    end
+
     private
 
     def visible?(dataset)

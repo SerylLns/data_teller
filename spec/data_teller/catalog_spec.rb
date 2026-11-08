@@ -19,6 +19,22 @@ RSpec.describe DataTeller::Catalog do
     let(:admin) { described_class.for(:admin) }
     let(:support) { described_class.for(:support) }
 
+    describe "#only" do
+      it "keeps the datasets named, for the same roles" do
+        narrowed = admin.only(%w[orders refunds])
+
+        expect(narrowed.datasets.map(&:name)).to contain_exactly(:orders, :refunds)
+        expect(narrowed.roles).to eq(admin.roles)
+        expect(admin.datasets.size).to eq(11)
+      end
+
+      it "can never add what the roles do not see" do
+        expect(admin.only(%w[invoices]).datasets.map(&:name)).to eq([ :invoices ])
+        expect(support.dataset(:invoices)).to be_nil
+        expect(support.only(%w[invoices orders nothing]).datasets.map(&:name)).to eq([ :orders ])
+      end
+    end
+
     it "shows admin everything" do
       expect(admin.dataset(:orders).metrics.map(&:name)).to contain_exactly(:count, :revenue, :net_revenue, :discounts, :avg_basket, :customers)
     end
