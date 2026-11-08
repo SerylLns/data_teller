@@ -69,3 +69,12 @@ Rejected: datasets and synonyms only (A: the trap above); field names too (C: th
 
 Rejected for now: an empty list answered directly as `out_of_scope` (B: faster on off-topic questions, but a decision taken from the short index, and two steps deciding the same thing). To revisit if the latency of refusals matters.
 
+## D5 — At most three datasets, ranked (decided, "B", 2026-11-08)
+
+- The router returns one to three datasets, most likely first. The query call gets the schema of those, about 6 KB for one and 11 KB for three (admin).
+- **Why more than one:** a question ambiguous between two datasets can still become a clarification, and a first choice that is wrong is not final.
+- **Why ranked:** one run gives the router's score at 1, 2 and 3 datasets, so the maximum can be lowered on numbers.
+- **One model for both calls** to start with, `c.router_llm` defaulting to `c.llm`: nothing yet says the router needs another.
+
+Rejected: exactly one (a wrong route is always paid, and no clarification between two datasets); at most five (out of eleven datasets, it hardly narrows anything).
+
