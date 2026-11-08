@@ -15,6 +15,7 @@ RSpec.describe DataTeller::Providers::OpenAI do
         { "type" => "reasoning", "summary" => [] },
         { "type" => "message", "role" => "assistant", "content" => content || [ { "type" => "output_text", "text" => text } ] }
       ],
+      "model" => "some-model-2026-09-23",
       "usage" => usage
     }
   end
@@ -47,8 +48,14 @@ RSpec.describe DataTeller::Providers::OpenAI do
     response = complete(adapter(answer(padded(query))))
 
     expect(response.output).to eq(query)
-    expect(response).to have_attributes(input_tokens: 1200, output_tokens: 40)
+    expect(response).to have_attributes(input_tokens: 1200, output_tokens: 40, cached_input_tokens: 0, model: "some-model-2026-09-23")
     expect(response.latency_ms).to be_a(Integer)
+  end
+
+  it "says how much of the input came from OpenAI's prompt cache" do
+    usage = { "input_tokens" => 6600, "input_tokens_details" => { "cached_tokens" => 6400 }, "output_tokens" => 50 }
+
+    expect(complete(adapter(answer(padded(query), usage: usage)))).to have_attributes(input_tokens: 6600, cached_input_tokens: 6400)
   end
 
   it "adds a model's options without letting them replace what the adapter sets" do

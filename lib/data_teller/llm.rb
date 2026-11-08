@@ -7,7 +7,13 @@ module DataTeller
   # The gem owns the prompts and the chain of calls; the adapter owns HTTP, authentication, the schema translation and reading the answer.
   module LLM
     # output: the query as a Hash, in DataTeller's own shape (whatever the adapter had to wrap or pad is undone).
-    Response = Data.define(:output, :input_tokens, :output_tokens, :latency_ms)
+    # cached_input_tokens: the part of input_tokens read from the provider's prompt cache, billed lower; 0 when it does not say.
+    # model: the model name the provider answered with, which may differ from the one asked for (an alias moved to a newer model).
+    Response = Data.define(:output, :input_tokens, :output_tokens, :latency_ms, :cached_input_tokens, :model) do
+      def initialize(output:, input_tokens:, output_tokens:, latency_ms:, cached_input_tokens: 0, model: nil)
+        super
+      end
+    end
 
     def self.adapter?(object)
       object.respond_to?(:complete) && object.respond_to?(:provider_schema)

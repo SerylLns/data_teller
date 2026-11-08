@@ -36,7 +36,9 @@ module DataTeller
           output: StrictSchema.unwrap(output_of(data), schema),
           input_tokens: data.dig("usage", "input_tokens"),
           output_tokens: data.dig("usage", "output_tokens"),
-          latency_ms: latency
+          latency_ms: latency,
+          cached_input_tokens: data.dig("usage", "input_tokens_details", "cached_tokens").to_i,
+          model: data["model"]
         )
       end
 
