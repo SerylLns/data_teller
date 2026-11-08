@@ -78,3 +78,17 @@ Rejected for now: an empty list answered directly as `out_of_scope` (B: faster o
 
 Rejected: exactly one (a wrong route is always paid, and no clarification between two datasets); at most five (out of eleven datasets, it hardly narrows anything).
 
+## Measured (2026-11-08): the router on the working set
+
+`MODEL=routed`, `gpt-6-luna`, two runs (`spec/dummy/eval/runs/*-dev-routed-*`), against the two naive runs of ADR 0009, all scored with the same accepted answers:
+
+| | Score | Input tokens | From the cache | Output tokens | Median latency | Cost, from list prices |
+|---|---|---|---|---|---|---|
+| Naive, runs 1 and 2 | 85.1%, 89.2% | 624,666 | 96.8%, 100% | 9,219, 9,102 | 2.6 s, 2.4 s | $0.013, $0.011 |
+| Routed, runs 1 and 2 | 83.8%, 82.4% | 159,567, 159,838 | 59.0%, 78.4% | 13,170, 13,012 | 4.0 s, 4.1 s | $0.014, $0.011 |
+
+- **The router's own score:** the right dataset within 1 choice 96.6% and 94.8%, within 2 choices 100% in both runs (58 answers). It returned 1.27 datasets on average.
+- **Input is four times smaller, the cost is the same:** the narrowed schemas vary, so less of them comes from the cache, and two calls write more output. On this catalog the router saves no money and adds about 1.5 s.
+- **It loses a clarification:** `how_many_active` (`products` or `subscriptions`), right in both naive runs, fails in both routed runs: the router returns one dataset, or not the second one, so the query call cannot ask. Being allowed three datasets (D5) was not enough.
+- **Not shown:** that the router helps at all on this catalog. What justifies it is untested so far: provider limits and larger catalogs. Two runs each, with noise of at least 3 answers: the score gap is not settled.
+
