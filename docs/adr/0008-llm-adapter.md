@@ -1,6 +1,6 @@
 # ADR 0008 — The LLM adapter
 
-Status: D1 accepted (2026-11-08); D2 open
+Status: accepted (2026-11-08)
 
 Context: T12 plugs a provider in. The pipeline makes two calls per question (ADR 0007 D1, router then query), providers accept different
 subsets of JSON Schema (ADR 0007, context), and integrators will want providers the gem does not ship (Bedrock, a local model). The
@@ -33,7 +33,14 @@ provider_schema(schema)            # a pure function: DataTeller's schema -> the
 Rejected: a high-level adapter with `route` and `query` (B: one prompt per provider, outside the eval, rewritten by every integrator);
 a bare callable with no shipped adapter (C: nothing works without code, and every integrator writes the schema translation).
 
-## D2 — The first provider shipped
+## D2 — OpenAI first, the others when a measurement needs them (decided, "A")
 
-Open. Depends on which provider the author has a key and a budget for. ADR 0007's reading of the documentation favours OpenAI for strict
-mode on a whole catalog (T13); after routing (T13c), the narrowed schema may also fit Anthropic's limits.
+- **Why OpenAI:** by its documentation, the only one whose strict mode takes a whole catalog once translated, which the naive baseline
+  (T13) needs. The author holds keys for OpenAI, Gemini, Mistral and DeepSeek.
+- **The others, each with its own ticket and eval run:** DeepSeek has a JSON mode only (valid JSON, no schema enforced), so it measures
+  what strict mode is worth; Gemini or Mistral for a comparison between providers, once their limits are tried.
+- **Keys:** read from `ENV` by the host app's configuration; the dummy app reads `OPENAI_API_KEY`. No `dotenv`: a `.env` (git-ignored)
+  is loaded by the shell. The CI never calls a provider: specs use a fake transport, real eval runs are started by hand.
+
+Rejected: OpenAI and DeepSeek at once (B: two transports before the first one is tried); one "OpenAI-compatible" adapter switched by URL
+(C: a compatibility not verified, and the providers differ precisely on structured outputs).
