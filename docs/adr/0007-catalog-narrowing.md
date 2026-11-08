@@ -50,3 +50,14 @@ strict mode cannot take it); routing from the start without a naive run (B: no n
 - **Open:** measuring `tsvector` as an extra variant at T18 costs no LLM call; to decide there, if trigram disappoints.
 
 Rejected: `tsvector` as the lexical half (above).
+
+## D3 — What the router sees: datasets, synonyms and metric names (decided, "B", 2026-11-08)
+
+Sizes for admin: datasets and synonyms 636 bytes; with metric names 1,003 bytes; with field names too 3,203 bytes.
+
+- **Why metric names:** a dataset's synonyms alone mislead on purpose-built traps: "what did promo codes cost us" matches the synonym of `coupons`, while the answer is
+  `orders.discounts`. Only the metric's name tells them apart.
+- **Measured, not assumed:** the router has its own score (ADR 0007 D1), so trying another index costs a run.
+
+Rejected: datasets and synonyms only (A: the trap above); field names too (C: three times the size, for a gain nothing shows yet).
+
