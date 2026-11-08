@@ -117,6 +117,15 @@ RSpec.describe DataTeller::Configuration do
       expect { config.default_max_groups = nil }.to raise_error(DataTeller::ConfigurationError, /default_max_groups/)
       expect { config.max_time_points = "many" }.to raise_error(DataTeller::ConfigurationError, /max_time_points/)
     end
+
+    it "takes 0 for route_above_datasets, the router on every question, and refuses the rest" do
+      expect(config.route_above_datasets).to eq(12)
+
+      config.route_above_datasets = 0
+      expect(config.route_above_datasets).to eq(0)
+      expect { config.route_above_datasets = -1 }.to raise_error(DataTeller::ConfigurationError, /route_above_datasets/)
+      expect { config.route_above_datasets = "many" }.to raise_error(DataTeller::ConfigurationError, /route_above_datasets/)
+    end
   end
 
   describe "ui" do

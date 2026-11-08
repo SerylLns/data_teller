@@ -82,11 +82,12 @@ module DataTeller
         def monotonic_ms = (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000).round
       end
 
-      # The path that ships (ADR 0007 D1): the router, then the query against the datasets it chose.
+      # The router on every question, whatever the catalog's size (ADR 0007 D6): what the router brings is measured on a small catalog
+      # too, and M4's retrieval has it to beat.
       class Routed
         def initialize(llm:, router_llm:, time_zone:)
           @llm = llm
-          @pipeline = Pipeline.new(llm: llm, router_llm: router_llm)
+          @pipeline = Pipeline.new(llm: llm, router_llm: router_llm, route_above: 0)
           @time_zone = time_zone
         end
 

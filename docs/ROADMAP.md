@@ -54,11 +54,11 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T12 Provider client** — done (ADR 0008). An adapter is `complete(system:, user:, schema:)` plus `provider_schema(schema)`; the gem keeps the prompts and the chain.
   Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
 - **T13 Naive baseline** — done (ADR 0007 D1, ADR 0009): the role's whole catalog in the prompt, `MODEL=naive`, run once for the reference number: 79.7% on the working set with `gpt-6-luna`; no iteration on it, never shipped.
-- **T13c Router** — done (ADR 0007 D1, D3-D5): a first call picks one to three datasets from the role's index, the second gets the schema narrowed to them. `MODEL=routed`, scored separately. Measured: no gain on this catalog yet. `[sec]` `[perf]`
+- **T13c Router** — done (ADR 0007 D1, D3-D5): a first call picks one to three datasets from the role's index, the second gets the schema narrowed to them. `MODEL=routed`, scored separately. Measured on 11 datasets: the whole catalog does a little better, so the router only runs above `c.route_above_datasets` (D6, an estimate: no large catalog run yet). `[sec]` `[perf]`
 - **T13b Minimal command palette** (ADR 0002): web component + `<dialog>`, dev-only mount in the dummy app, for series visuals.
   First endpoint, so it also wires `DataTeller.enabled?`: routes answer 503 and the palette is not rendered when the engine is off (ADR 0004 D6).
   Herb only as an optional dev tool, flagged when added.
-- **T14 Prompt iteration log**, on the routed path (ADR 0007 D1). One change = one eval run = one commit.
+- **T14 Prompt iteration log**, on the whole-catalog path (ADR 0007 D6). One change = several eval runs = one commit: one run moves by 1 to 3 answers on its own (ADR 0007).
 
 ## M4 — Retrieval (RAG)
 - **T15 Indexable documents.** **T16 Embeddings pipeline** `[dep]` `[perf]` `[sec]` (only declared labels leave the app).

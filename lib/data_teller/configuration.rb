@@ -17,7 +17,10 @@ module DataTeller
       # Beyond this a date series is refused, not cut: a top N of days means nothing.
       max_time_points: 366,
       # Tables joined for one query (ADR 0001 D4).
-      max_joins: 5
+      max_joins: 5,
+      # Up to this many datasets a role's whole catalog goes in the prompt; beyond it a router narrows it first (ADR 0007 D6).
+      # An estimate from OpenAI's documented limits, not measured on a large catalog: lower it if a role gets LLM::SchemaTooLarge.
+      route_above_datasets: 12
     }.freeze
 
     # A plain Postgres name: it is quoted in the SQL anyway, and this keeps a typo from becoming a role nobody created.
@@ -82,7 +85,8 @@ module DataTeller
 
     LIMITS.keys.without(:statement_timeout).each do |name|
       define_method(:"#{name}=") do |value|
-        minimum = name == :max_joins ? 0 : 1
+        # 0 is a real setting for these two: no join allowed, the router on every question.
+        minimum = %i[max_joins route_above_datasets].include?(name) ? 0 : 1
         unless value.is_a?(Integer) && value >= minimum
           raise ConfigurationError, "#{name} must be an Integer of at least #{minimum}, got #{value.inspect}"
         end

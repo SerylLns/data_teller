@@ -105,3 +105,14 @@ Three more runs of each path, alternating, all ten scored with the same accepted
 - **One question is all the working set has on this:** it is the only one expecting a clarification between two datasets, so this says "the router lost that case", not how often such questions occur.
 - **Router:** right dataset within 1 choice 94.8-96.6%, within 2 choices 100% in all five runs.
 
+## D6 — The router runs only above a size of catalog (decided, "B", 2026-11-08)
+
+Amends D1, which made the routed path the one that ships and the one T14 iterates on.
+
+- **Up to `c.route_above_datasets` datasets (default 12), counted for the user's role:** one call with the whole catalog. **Beyond:** the router, then the query against what it chose.
+- **Why:** on eleven datasets the whole catalog scores a little better, answers about 1.2 s faster and costs the same. The router is there for what a provider cannot take whole.
+- **The threshold is an estimate, not a measurement:** OpenAI's limit of 1,000 enum values comes at about 14 of our datasets (763 values for 11). No large catalog has been run. A role over a provider's limits gets `LLM::SchemaTooLarge` before any call, and the setting can be lowered.
+- **Consequences:** T14 iterates on the whole-catalog path, the one the dummy's catalog takes. `MODEL=naive` measures that path, `MODEL=routed` forces the router so that M4's retrieval still has it to beat. Two paths to keep tested.
+
+Rejected: the router always (A: a clarification lost and 1.2 s more on small catalogs, for nothing measured in return); always, with its prompt fixed for ambiguity (C: a prompt tuned on one question, and the latency stays).
+
