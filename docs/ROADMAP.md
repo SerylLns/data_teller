@@ -51,7 +51,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   First, the dummy app grows to an e-commerce domain of eleven or twelve datasets, built for confusable names (ADR 0006 D1).
 - **T10 Scorer** — done (ADR 0006 D4). Right or wrong per question after normalization, fields that differ, error class and severity, same rows flagged for review.
 - **T11 `rake data_teller:eval`** — done. A model is anything answering a request (id, language, text, role, day) with an output, tokens and latency; `perfect` calibrates the harness at 100%, `replay` scores a saved run again. `SAVE=1` writes `eval/runs/*.json`; a held-out run keeps ids and numbers only.
-- **T12 Provider client.** Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
+- **T12 Provider client** (ADR 0008). An adapter is `complete(system:, user:, schema:)` plus `provider_schema(schema)`; the gem keeps the prompts and the chain.
+  Raw HTTP, structured outputs, timeouts, retries, token + latency logging. `[dep]` HTTP client only if needed. `[sec]`
 - **T13 Naive baseline** (ADR 0007 D1): the role's whole catalog in the prompt, run once for the reference number; no iteration on it, never shipped.
 - **T13c Router** (ADR 0007 D1): a first call picks the datasets from the role's dataset index, the second gets the schema narrowed to them.
   Scored separately (expected dataset in the choice). To decide there: how many datasets, `out_of_scope` from the router, one model or two. `[sec]` `[perf]`
