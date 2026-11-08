@@ -42,6 +42,11 @@ the way a real user would ask (typos, shortcuts, vague wording), in both languag
 - **Amended the same day:** the author's first ten were seen during development before being stored. Seen means no longer held out: seven
   joined the working set (now 37; the other three repeated working questions), and the author writes ten new ones, from a user's point
   of view before looking at the catalog, checked locally with the spec and kept away from development.
+- **Amended again (2026-11-08):** the author's ten new ones had three invalid expected queries, and fixing them meant reading the file during development.
+  That review found two more mistakes the spec could not see (a comparison with no `compare`, a French question asking something else than the English one). So the
+  set has been seen too. It stays separate, in `held_out.yml`, written by the author, never used for tuning, run only at milestones and still reported by id and
+  number, so that a run does not show where to tune. It can reveal overfitting to the working set; it is **not presented as an independent measure**. That role
+  goes to a trial integration in a real app, by the author, with nothing prepared for it during development.
 
 ## D4 — The score: right or wrong per question, after normalization (decided "A", 2026-11-07)
 

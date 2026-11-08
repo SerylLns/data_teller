@@ -1,0 +1,138 @@
+
+
+today: "2026-11-04"
+tenant: Acme
+
+questions:
+  - id: orders_by_sales_channel
+    role: admin
+    en: where are most of our sales coming from?
+    fr: les clients commandent surtout depuis le site ou en magasin ?
+    tags: [intent, group]
+    expected:
+      version: 1
+      intent: answer
+      dataset: orders
+      metric: count
+      group_by:
+        - dimension: channel
+
+  - id: customer_acquisition
+    role: admin
+    en: which acquisition source brings us the most customers?
+    fr: c'est quoi notre meilleure source pour attirer de nouveaux clients ?
+    tags: [synonym, group]
+    expected:
+      version: 1
+      intent: answer
+      dataset: customers
+      metric: count
+      group_by:
+        - dimension: acquisition_channel
+
+  - id: late_invoices
+    role: admin
+    en: how much money is tied up in invoices that haven't been paid yet?
+    fr: on a combien d'argent bloqué dans des factures pas encore payées ?
+    tags: [paraphrase, segment]
+    expected:
+      version: 1
+      intent: answer
+      dataset: invoices
+      metric: invoiced
+      filters:
+        - segment: unpaid
+
+  - id: product_launches
+    role: admin
+    en: break down our product launches by month this year
+    fr: combien de produits on a sortis chaque mois cette année ?
+    tags: [date, group]
+    expected:
+      version: 1
+      intent: answer
+      dataset: products
+      metric: count
+      group_by:
+        - dimension: launched_on
+          granularity: month
+      period:
+        dimension: launched_on
+        range:
+          relative: this_year
+
+  - id: refund_reasons
+    role: support
+    en: what are people sending products back for?
+    fr: les clients demandent des remboursements pour quelles raisons principalement ?
+    tags: [synonym, group]
+    expected:
+      version: 1
+      intent: answer
+      dataset: refunds
+      metric: count
+      group_by:
+        - dimension: reason
+
+  - id: unresolved_support
+    role: support
+    en: how many customer requests are still waiting for someone to deal with them?
+    fr: il reste combien de demandes clients sans réponse ou sans résolution ?
+    tags: [paraphrase, segment]
+    expected:
+      version: 1
+      intent: answer
+      dataset: support_tickets
+      metric: count
+      filters:
+        - segment: unresolved
+
+  - id: subscription_growth
+    role: support
+    en: did we get more subscriptions this month than last month?
+    fr: on a eu plus de nouveaux abonnements ce mois-ci que le mois dernier ?
+    tags: [comparison, date]
+    expected:
+      version: 1
+      intent: answer
+      dataset: subscriptions
+      metric: count
+      period:
+        dimension: started_on
+        range:
+          relative: this_month
+      compare: previous_period
+
+  - id: best_customers
+    role: admin
+    en: how many of our best customers do we have?
+    fr: combien on a de meilleurs clients ?
+    tags: [ambiguity, clarification]
+    expected:
+      version: 1
+      intent: clarify
+      clarify:
+        reason: ambiguous_segment
+        options: [gold, revenue]
+
+  - id: customer_activity
+    role: support
+    en: show me the customers who haven't ordered recently
+    fr: tu peux me sortir les clients qui n'ont rien commandé depuis un moment ?
+    tags: [unsupported, out_of_scope]
+    expected:
+      version: 1
+      intent: out_of_scope
+      out_of_scope:
+        reason: unsupported_query
+
+  - id: unrelated_weather
+    role: member
+    en: will it rain in Paris tomorrow?
+    fr: il va pleuvoir demain à Paris ?
+    tags: [out_of_scope]
+    expected:
+      version: 1
+      intent: out_of_scope
+      out_of_scope:
+        reason: not_a_data_question
