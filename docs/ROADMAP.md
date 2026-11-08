@@ -97,5 +97,9 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 Saved/shared questions as RAG examples · 👍/👎 feedback -> eval dataset · audit log + token cost per tenant ·
 answer cache · unanswered-question log with declaration suggestions · PII masking.
 
+Follow-up questions: each question is alone today, so "and in June?" after "revenue last month" comes back as a clarification (seen by the author in the palette, 2026-11-08). To think through, nothing decided: what context to carry, and how (the previous validated query rather than the chat text would keep rows and model text out of the prompt), and how the eval scores a conversation.
+
+Locale of the endpoint: it runs none of the host's filters (ADR 0010), so a locale set in a `before_action` does not reach it, and answers can come in another language than the palette's labels. A `c.locale { |user| ... }` is the idea, for T28 or T30. The spec "translates into the app's locale" sets the locale around the request, so it does not cover this.
+
 ## V2
 Scheduled reports · threshold alerts · whitelisted actions with human confirmation · embeddable component.
