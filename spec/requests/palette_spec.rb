@@ -161,13 +161,60 @@ RSpec.describe "the palette", type: :request do
       ActiveSupport::Notifications.unsubscribe(subscriber)
     end
 
-    it "translates into the app's locale" do
-      with_llm({ "version" => 1, "intent" => "out_of_scope", "out_of_scope" => { "reason" => "not_a_data_question" } })
-      sign_in(acme, "admin")
+    context "with c.locale" do
+      let(:outside) { { "version" => 1, "intent" => "out_of_scope", "out_of_scope" => { "reason" => "not_a_data_question" } } }
 
-      I18n.with_locale(:fr) { ask }
+      # I18n.locale is left alone around the request, as on a real server: a locale set by the host's filters never reaches the endpoint.
+      def with_locale_block(*outputs, &block)
+        with_llm(*outputs)
+        DataTeller.config.locale(&block)
+      end
 
-      expect(response.body).to include("Je ne réponds qu&#39;aux questions sur vos données.")
+      it "answers in the user's language" do
+        with_locale_block(outside) { |user| user.role == "admin" ? "fr" : "en" }
+        sign_in(acme, "admin")
+
+        ask
+
+        expect(response.body).to include("Je ne réponds qu&#39;aux questions sur vos données.")
+        expect(I18n.locale).to eq(:en)
+      end
+
+      it "gives each user their own, with nothing left over from the one before" do
+        with_locale_block(outside, outside) { |user| user.role == "admin" ? "fr" : "en" }
+        sign_in(acme, "admin")
+        ask
+        sign_in(acme, "member")
+        ask
+
+        expect(response.body).to include("I can only answer questions about your data.")
+      end
+
+      it "puts the palette's labels in the same language" do
+        with_locale_block { |_user| "fr" }
+        sign_in(acme, "admin")
+        get "/"
+
+        expect(Nokogiri::HTML(response.body).at("data-teller-palette")["data-placeholder"]).to eq("Posez une question sur vos données…")
+      end
+
+      it "falls back on the default for a language it does not know" do
+        with_locale_block(outside) { |_user| "klingon" }
+        sign_in(acme, "admin")
+
+        ask
+
+        expect(response.body).to include("I can only answer questions about your data.")
+      end
+
+      it "answers in the default when no language is given" do
+        with_llm(outside)
+        sign_in(acme, "admin")
+
+        ask
+
+        expect(response.body).to include("I can only answer questions about your data.")
+      end
     end
   end
 

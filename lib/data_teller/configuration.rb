@@ -35,6 +35,7 @@ module DataTeller
       @tenant = nil
       @roles_resolver = nil
       @current_user_resolver = nil
+      @locale_resolver = nil
       @llm = nil
       @router_llm = nil
       @authorization = nil
@@ -150,6 +151,14 @@ module DataTeller
       @current_user_resolver = block
     end
 
+    # c.locale { |user| user.locale } — the language of the palette and its answers. The endpoint runs none of the host's filters
+    # (ADR 0010 D2), so a locale set in a before_action does not reach it. Without this, the app's default locale.
+    def locale(&block)
+      raise ConfigurationError, "locale needs a block: c.locale { |user| user.locale }" unless block
+
+      @locale_resolver = block
+    end
+
     # c.authorization :pundit — the adapter itself is validated by the authorization ticket (T33).
     def authorization(adapter = nil)
       @authorization = adapter unless adapter.nil?
@@ -185,6 +194,17 @@ module DataTeller
       @current_user_resolver&.call(request)
     rescue StandardError => e
       Rails.logger&.error("[DataTeller] current_user failed, treating as nobody: #{e.class}")
+      nil
+    end
+
+    # nil means the app's default. So does a locale the gem has no sentences for: the user would read raw translation errors.
+    def locale_for(user)
+      locale = @locale_resolver&.call(user).presence
+      return nil unless locale && I18n.available_locales.map(&:to_s).include?(locale.to_s)
+
+      locale.to_sym if I18n.exists?("data_teller.palette.trigger", locale.to_sym)
+    rescue StandardError => e
+      Rails.logger&.error("[DataTeller] locale failed, using the default: #{e.class}")
       nil
     end
 

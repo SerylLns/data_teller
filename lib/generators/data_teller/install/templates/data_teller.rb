@@ -13,6 +13,9 @@ DataTeller.configure do |c|
   # Who is asking, for the palette and its endpoint. No block, nil or an error all mean no access.
   # c.current_user { |request| request.env["warden"]&.user }
 
+  # The language of the palette and its answers, if it depends on the user. Without it, the app's default locale.
+  # c.locale { |user| user.locale }
+
   # The provider. The key comes from the environment. The question and the role's catalog are sent to it, never rows.
   # c.llm = DataTeller::Providers::OpenAI.new(api_key: ENV.fetch("OPENAI_API_KEY"), model: "gpt-6-luna")
 

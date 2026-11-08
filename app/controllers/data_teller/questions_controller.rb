@@ -6,7 +6,10 @@ module DataTeller
       user = DataTeller.config.current_user_for(request)
       return head(:unauthorized) unless user
 
-      render partial: "data_teller/questions/outcome", locals: { outcome: DataTeller.ask(params[:data_teller_question], user: user) }
+      outcome = DataTeller.ask(params[:data_teller_question], user: user)
+      I18n.with_locale(DataTeller.config.locale_for(user)) do
+        render partial: "data_teller/questions/outcome", locals: { outcome: outcome }
+      end
     end
   end
 end

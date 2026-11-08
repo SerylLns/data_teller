@@ -84,6 +84,36 @@ RSpec.describe DataTeller::Configuration do
     end
   end
 
+  describe "#locale_for" do
+    it "gives a locale the gem has sentences for" do
+      config.locale { |user| user }
+
+      expect(config.locale_for("fr")).to eq(:fr)
+      expect(config.locale_for(:en)).to eq(:en)
+    end
+
+    it "means the app's default with no block, nil, a blank, an unknown locale, or an error" do
+      expect(config.locale_for("fr")).to be_nil
+
+      config.locale { |user| user }
+      [ nil, "", "klingon" ].each { |value| expect(config.locale_for(value)).to be_nil }
+
+      config.locale { |_user| raise "no such column" }
+      expect(config.locale_for("fr")).to be_nil
+    end
+
+    it "means the app's default for a locale the app knows but the gem has no sentences for" do
+      config.locale { |user| user }
+      allow(I18n).to receive(:available_locales).and_return(%i[en fr de])
+
+      expect(config.locale_for("de")).to be_nil
+    end
+
+    it "requires a block" do
+      expect { config.locale }.to raise_error(DataTeller::ConfigurationError, /locale needs a block/)
+    end
+  end
+
   describe "llm and router_llm" do
     let(:adapter_class) do
       Struct.new(:name) do

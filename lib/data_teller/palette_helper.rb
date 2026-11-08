@@ -8,7 +8,10 @@ module DataTeller
       user = DataTeller.config.current_user_for(request)
       return unless user && Catalog.for_user(user).datasets.any?
 
-      safe_join([ data_teller_assets, data_teller_element(mode || DataTeller.config.ui.mode) ])
+      # The labels in the language of the answers. Without a c.locale, the page's own.
+      I18n.with_locale(DataTeller.config.locale_for(user)) do
+        safe_join([ data_teller_assets, data_teller_element(mode || DataTeller.config.ui.mode) ])
+      end
     end
 
     private
