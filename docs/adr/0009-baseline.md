@@ -55,3 +55,13 @@ T20, and blur what the catalog brings; a measured iteration for T14 instead).
 - **Cost, computed from the list prices, not read from an invoice:** about $0.013 for the run, against the $0.05-0.07 estimated in D1, which ignored the cache.
 - **What it changes:** ADR 0007 D1 counted on cheaper eval runs to justify iterating on the routed path. On this catalog, at this price, cost is not
   the argument. Routing rests on the provider limits and on larger catalogs.
+
+### Reviewed, then run again (same day)
+
+- **Three `also_accepted` added**, the "same rows" answers right by their meaning (`promo_cost_this_year`, `urgent_open_tickets`, `new_customers_by_month`). The first
+  run scored again without a call: **85.1% (63/74)**, en 83.8%, fr 86.5%. Both numbers are kept: 79.7% before the review, 85.1% after it.
+- **Second run, nothing changed:** **89.2% (66/74)**, en 89.2%, fr 89.2%, `20261108-125910-dev-naive-gpt-6-luna.json`. 10 of the 74 outputs differ from the first run, and
+  the score moves by 3 answers, or 4 points. Two runs show that the noise exists, not how large it is: T14 cannot read a gain of a few answers from one run per change.
+- **Same answer, different class:** `other_merchant/fr` was an `answered_out_of_scope`, now an `invalid_output` (`contains` on a lookup, refused by the validator).
+- Cost of the second run from the list prices: about $0.011, with 99.96% of the input tokens from the cache.
+
