@@ -4,7 +4,7 @@
 #
 # `bundle exec rspec spec/dummy_app/eval_dataset_spec.rb` checks the file: both languages, a known role, and expected queries the
 # role's schema, the validator and the compiler all accept (failures name the question by its id only).
-# Names to use: `bin/rails "data_teller:schema[admin]"` from spec/dummy, or the declarations in spec/dummy/config/data_teller/.
+# Names to use: `bin/rails "data_teller:catalog[admin]"` from spec/dummy, or the declarations in spec/dummy/config/data_teller/.
 today: "2026-11-04"
 tenant: Acme
 

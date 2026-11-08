@@ -77,6 +77,9 @@ questions:
     expected:
       { version: 1, intent: answer, dataset: orders, metric: discounts,
         period: { dimension: ordered_at, range: { relative: this_year } } }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: orders, metric: discounts, filters: [ { segment: with_coupon } ],
+          period: { dimension: ordered_at, range: { relative: this_year } } }
 
   - id: invoiced_last_month
     en: How much did we invoice last month?
@@ -146,6 +149,8 @@ questions:
     also_accepted:
       - { version: 1, intent: answer, dataset: support_tickets, metric: count,
           filters: [ { segment: urgent }, { dimension: status, op: eq, value: open } ] }
+      - { version: 1, intent: answer, dataset: support_tickets, metric: count,
+          filters: [ { dimension: priority, op: eq, value: urgent }, { dimension: status, op: eq, value: open } ] }
 
   - id: orders_with_coupon_this_month
     en: How many orders used a promo code this month?
@@ -302,6 +307,10 @@ questions:
       { version: 1, intent: answer, dataset: customers, metric: count,
         group_by: [ { dimension: signed_up_on, granularity: month } ],
         period: { dimension: signed_up_on, range: { relative: this_year } } }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: customers, metric: count,
+          group_by: [ { dimension: signed_up_on, granularity: month } ],
+          period: { dimension: signed_up_on, range: { between: { from: "2026-01-01", to: "2026-11-04" } } } }
 
   # "support channel": support_tickets.channel, not orders.channel.
   - id: average_satisfaction_by_channel
