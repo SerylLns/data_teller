@@ -5,8 +5,8 @@ A mountable Rails engine for multi-tenant apps: your users ask questions about t
 **The LLM never writes SQL.** It fills in a structured query, which is validated against what you declared, then compiled
 to ActiveRecord with the tenant filter added by the compiler.
 
-> **Status: early work in progress. It does not answer questions yet.**
-> A hand-written JSON query runs, but there is no LLM integration and no UI so far. It is not on RubyGems, and it must not be used in production.
+> **Status: early work in progress, not for production.**
+> It answers questions through a minimal palette, with OpenAI only. There is no per-user limit yet, so anyone with access can spend your provider budget. It is not on RubyGems.
 
 ## Why not text-to-SQL
 
@@ -35,6 +35,8 @@ Run read-only, with limits
    v
 Result, plus an explanation written without the LLM
 ```
+
+That is the design. Retrieval and the explanation are not built yet: today the role's whole catalog goes in the prompt (above 12 datasets, a router narrows it first), and the answer is a table with the dataset, metric and period it was read from.
 
 This is what the LLM produces for "how many paid orders ship tomorrow?":
 
@@ -72,13 +74,28 @@ The question itself is sent to the provider as typed: if a user writes a custome
 | Evaluation suite, `rake data_teller:eval` | Done |
 | LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | Done |
 | Minimal palette and endpoint, **not for production yet: no per-user limit** | Done |
-| Retrieval (RAG), explanations, production UI | Not started |
+| Prompt tuning, retrieval (RAG), explanations, production UI | Not started |
 
-First measure, on fake data, the working set of 37 questions in two languages, `gpt-6-luna`, five runs: 87.6% of answers right on average, with a first prompt nobody has tuned yet ([ADR 0007](docs/adr/0007-catalog-narrowing.md), [ADR 0009](docs/adr/0009-baseline.md)). It says little until retrieval and tuning have something to compare to. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+First measures, on fake data, with `gpt-6-luna` and a first prompt nobody has tuned yet:
 
-## What you can try today
+| Questions, each asked in two languages | Answers right | Runs |
+|---|---|---|
+| Working set, 37 questions | 87.6% on average | 5 |
+| Separate set, the author's 10 questions | 70.0% (14/20) | 1 |
 
-You can declare what is exposed, have it validated, and see the schema a role would get.
+- **The 87.6%** counts answers accepted after a review of the first run, which took that run from 79.7% to 85.1% ([ADR 0007](docs/adr/0007-catalog-narrowing.md), [ADR 0009](docs/adr/0009-baseline.md)).
+- **The 70.0%** comes from one run, where one answer is worth 5 points, so the gap between the two numbers is a hint. These questions are never used for tuning, but they were seen during development, so this is not presented as an independent measure ([ADR 0006](docs/adr/0006-evaluation-dataset.md)).
+
+Both say little until retrieval and tuning have something to compare to. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+Known gaps today:
+
+- A filter on a name the user wrote ("orders from Alice") is refused: lookups are not implemented yet.
+- Each question stands alone: "and in June?" after a first question does not work.
+
+## Try it in your app
+
+You need Ruby 3.2 or later, Rails 7.2.2.2 or later, and PostgreSQL. **PostgreSQL only:** the compiler uses `date_trunc` and `AT TIME ZONE`.
 
 **1. Install it from the repository**
 
@@ -100,9 +117,16 @@ DataTeller.configure do |c|
     resolve { |user| user.account }
   end
   c.roles { |user| user.roles }
+  # Who is asking. The endpoint runs none of your filters, so it reads your authentication here. This line is for Devise.
+  c.current_user { |request| request.env["warden"]&.user }
+  c.llm = DataTeller::Providers::OpenAI.new(api_key: ENV.fetch("OPENAI_API_KEY"), model: "gpt-6-luna")
   c.expose Order, Customer
 end
 ```
+
+Without `c.current_user`, nobody has access. Without `c.llm`, questions are refused, and declarations and checks still work.
+
+Optional: `time_zone { |account| account.time_zone }` in `c.tenant` sets what "today" means for a tenant, and `c.locale { |user| user.locale }` sets the language of the palette (English and French are included).
 
 **2. Declare each exposed model, in one file per model**
 
@@ -131,11 +155,37 @@ A column that isn't declared can't be queried. A `count` metric exists on every 
 bin/rails data_teller:check                # in CI and after migrations: reads the tables and columns too
 bin/rails "data_teller:schema[support]"    # the JSON schema this role would get
 bin/rails "data_teller:catalog[support]"   # the same names, a few lines per dataset, for a person
-bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODEL=perfect|replay, SAVE=1 to keep the run)
+bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODEL=perfect|replay|naive|routed, SAVE=1 to keep the run; naive and routed are paid calls)
 ```
 
 An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app
 boots without the engine and logs the error. The boot itself never reads the database, so it can't block a migration.
+
+**4. Mount the engine and add the palette**
+
+```ruby
+# config/routes.rb
+mount DataTeller::Engine => "/data_teller"
+```
+
+```erb
+<%# in your layout %>
+<%= data_teller_palette %>
+```
+
+Ctrl/Cmd+K opens it. It renders nothing for someone the endpoint would refuse. **Each question is a paid call to OpenAI.**
+
+For another interface, call the same path directly:
+
+```ruby
+outcome = DataTeller.ask("how many paid orders ship tomorrow?", user: current_user)
+outcome.status          # :answered, :clarify, :out_of_scope or :refused
+outcome.result&.columns # with outcome.result.rows, when answered
+```
+
+**5. Recommended: limit the database role**
+
+`c.database_role` runs each query as a Postgres role that reads the declared columns only, and `c.row_security` keeps that role to the current tenant's rows. `rake data_teller:grants` prints the SQL, and `rake data_teller:check` verifies it.
 
 ## Security model
 
@@ -156,7 +206,8 @@ These are the rules the project is built around. **Only what is marked as enforc
 | With `c.database_role`, queries run as a Postgres role that reads the declared columns only | Enforced by the database, opt-in; checked by `rake data_teller:check` |
 | With `c.row_security`, that role sees its tenant's rows only, even if the compiler's filter were gone | Enforced by the database, opt-in; checked by `rake data_teller:check` |
 | Minimum group size | Planned |
-| No row is sent to the LLM provider | Planned, by construction |
+| No row is sent to the LLM provider | Enforced by construction: what is sent is the question, the date and the role's declarations |
+| No sentence shown to an end user comes from the LLM | Enforced: messages come from translations, and clarification options are names the validator checked |
 
 Isolation is tested in `spec/security/` against hostile scopes and values, on real rows across two tenants. That shows the cases tried, not all possible ones.
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right
