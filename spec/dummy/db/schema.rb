@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_10_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -131,6 +131,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_000001) do
     t.index ["product_id"], name: "index_reviews_on_product_id"
   end
 
+  create_table "security_disputes", force: :cascade do |t|
+    t.bigint "security_payment_id"
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["security_payment_id"], name: "index_security_disputes_on_security_payment_id"
+  end
+
+  create_table "security_notes", force: :cascade do |t|
+    t.bigint "account_id"
+    t.integer "value", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_security_notes_on_account_id"
+  end
+
+  create_table "security_payments", force: :cascade do |t|
+    t.string "type", null: false
+    t.bigint "order_id", null: false
+    t.integer "amount_cents", null: false
+    t.datetime "deleted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_security_payments_on_order_id"
+  end
+
   create_table "shipments", force: :cascade do |t|
     t.bigint "order_id", null: false
     t.string "carrier", null: false
@@ -197,6 +223,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_000001) do
   add_foreign_key "refunds", "orders"
   add_foreign_key "reviews", "customers"
   add_foreign_key "reviews", "products"
+  add_foreign_key "security_disputes", "security_payments"
+  add_foreign_key "security_notes", "accounts"
+  add_foreign_key "security_payments", "orders"
   add_foreign_key "shipments", "orders"
   add_foreign_key "subscriptions", "accounts"
   add_foreign_key "subscriptions", "customers"
