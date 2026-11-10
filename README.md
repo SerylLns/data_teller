@@ -282,6 +282,7 @@ Each decision is written down with the options that were rejected:
 | [0008](docs/adr/0008-llm-adapter.md) | The LLM adapter |
 | [0009](docs/adr/0009-baseline.md) | The naive baseline: model and prompt |
 | [0010](docs/adr/0010-ways-in.md) | The ways in: `DataTeller.ask`, the endpoint, the helper, and who is asking |
+| [0011](docs/adr/0011-isolation-kit.md) | The isolation kit: proving tenant isolation on the integrator's own tables |
 
 ## License
 

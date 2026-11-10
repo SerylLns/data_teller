@@ -43,8 +43,12 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   listed by `rake data_teller:check` and warned at boot; refused at boot unless RLS is on, since without it the code is the only line and this would reopen the leaks of the third review.
   First add to the whitelist what is safe by construction (`LOWER`, `LIKE`), and consider sub-queries compiled with their own tenant filter.
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
-- **T31a Security Test Kit v0.** Cross-tenant ids, forbidden columns and associations, sensitive aggregates, hostile scopes, inference via
-  filters/order/derived metrics, catalog consistency across the chain; run on JSON fixtures; shared examples. `[sec]`
+- **T31a Security Test Kit v0** (ADR 0011). `[sec]`
+  - Done: specs for single table inheritance, soft-delete and nullable keys (`spec/security/table_shapes_spec.rb`), on three tables of the dummy that the catalog does not expose.
+  - `DataTeller::IsolationCheck` and `rake data_teller:isolation`: on the integrator's own tables, every row read by one query per declaration is checked against
+    its owner, found through the Ruby associations. Every declared role at once; three tenants by default, `TENANTS=` to choose. Ids only in the report.
+  - Later: RSpec shared examples and a Minitest assertion over the same core; fuzzing (`FUZZ=`); sensitive aggregates and inference via filters/order/derived
+    metrics, which are T36's subject.
 
 ## M3 — Evaluation & LLM baseline
 - **T09 Eval dataset v0** (ADR 0006) — working set done (37 questions in `spec/dummy/eval/dev.yml`, checked by `spec/dummy_app/eval_dataset_spec.rb`); held-out set: 10 questions by the author, seen during development, kept out of tuning (ADR 0006 D3). 40 questions -> expected IR, in English and French (traps: synonyms, ambiguity, out-of-scope, relative dates, cross-tenant). 30 dev / 10 held-out, the held-out ones written by the author.
