@@ -13,23 +13,18 @@ module DataTeller
     # owner: the key of the tenant the row belongs to, nil for a row that belongs to no tenant.
     Leak = Data.define(:dataset, :key, :owner)
 
-    # rows_read: dataset name => number of distinct rows read. unlisted: tables the SQL reads that the compiler built no tenant
-    # filter for. partial: the cap was hit, so only part of the rows were checked. unkeyed: datasets with no single primary key.
+    # unlisted: tables the SQL reads that the compiler built no tenant filter for. partial: the cap was hit, so only part of the rows were checked. unkeyed: datasets with no single primary key.
     # refusal: why the query did not run (the validator's codes, a refusal reason or an error class), nil when it ran.
-    Run = Data.define(:dataset, :shape, :tenant, :rows_read, :leaks, :unlisted, :partial, :unkeyed, :refusal) do
+    Run = Data.define(:dataset, :shape, :tenant, :leaks, :unlisted, :partial, :unkeyed, :refusal) do
       def failed? = leaks.any? || unlisted.any?
     end
 
-    Report = Data.define(:tenants, :runs) do
+    # rows_read: dataset name => { tenant key => distinct rows read }, over every query: a row read by fifty queries counts once,
+    # so the number is how much of the tenant's table the check covered.
+    Report = Data.define(:tenants, :runs, :rows_read) do
       def failed? = runs.any?(&:failed?)
-      def leaks = runs.flat_map(&:leaks)
-
-      # dataset name => { tenant key => rows read }, over every query.
-      def rows_read
-        runs.each_with_object(Hash.new { |hash, key| hash[key] = Hash.new(0) }) do |run, totals|
-          run.rows_read.each { |name, count| totals[name][run.tenant] += count }
-        end
-      end
+      # Each row of another tenant once, whatever the number of queries that read it.
+      def leaks = runs.flat_map(&:leaks).uniq { |leak| [ leak.dataset, leak.key ] }
 
       # A dataset no chosen tenant read a row of proves nothing: a warning, never a pass (ADR 0011 D3).
       def not_proved(dataset_names) = dataset_names.reject { |name| rows_read[name].values.sum.positive? }
@@ -65,12 +60,17 @@ module DataTeller
     end
 
     def call
+      # One set of keys per dataset and tenant, filled as queries run: memory grows with the distinct rows checked, not with the
+      # number of queries times the cap.
+      @seen = Hash.new { |hash, name| hash[name] = Hash.new { |by_tenant, tenant| by_tenant[tenant] = Set.new } }
       runs = @tenants.each_with_index.flat_map do |tenant, index|
         other = @tenants[(index + 1) % @tenants.size] unless @tenants.one?
         probes.map { |probe| run(probe, tenant, other) }
       end
 
-      Report.new(tenants: @tenants.map { |tenant| key_of(tenant) }, runs: runs)
+      rows_read = Hash.new { |hash, name| hash[name] = Hash.new(0) }
+      @seen.each { |name, by_tenant| by_tenant.each { |tenant, keys| rows_read[name][tenant] = keys.size } }
+      Report.new(tenants: @tenants.map { |tenant| key_of(tenant) }, runs: runs, rows_read: rows_read)
     end
 
     def dataset_names = @catalog.datasets.map { |entry| entry.name.to_s }
@@ -152,7 +152,6 @@ module DataTeller
     def check(probe, tenant, read)
       leaks = []
       unlisted = []
-      rows_read = Hash.new(0)
       partial = false
       unkeyed = []
 
@@ -163,14 +162,14 @@ module DataTeller
 
         keys.datasets.each_with_index do |dataset, column|
           ids = keys.rows.map { |row| row[column] }.uniq
-          rows_read[dataset.name.to_s] += ids.size
+          @seen[dataset.name.to_s][key_of(tenant)].merge(ids)
           owners(dataset, ids).each do |id, owner|
             leaks << Leak.new(dataset: dataset.name.to_s, key: id, owner: owner) unless owner == key_of(tenant)
           end
         end
       end
 
-      Run.new(dataset: probe.dataset, shape: probe.shape, tenant: key_of(tenant), rows_read: rows_read, leaks: leaks.uniq,
+      Run.new(dataset: probe.dataset, shape: probe.shape, tenant: key_of(tenant), leaks: leaks.uniq,
               unlisted: unlisted, partial: partial, unkeyed: unkeyed, refusal: nil)
     end
 
@@ -208,7 +207,7 @@ module DataTeller
     end
 
     def outcome(probe, tenant, refusal:)
-      Run.new(dataset: probe.dataset, shape: probe.shape, tenant: key_of(tenant), rows_read: {}, leaks: [], unlisted: [], partial: false,
+      Run.new(dataset: probe.dataset, shape: probe.shape, tenant: key_of(tenant), leaks: [], unlisted: [], partial: false,
               unkeyed: [], refusal: refusal)
     end
   end

@@ -39,7 +39,8 @@ RSpec.describe DataTeller::IsolationCheck::Command do
 
     expect(status).to eq(1)
     expect(output).to include("LEAK      customers · plain · as Account #{acme.id}: customers #{globex.customers.first.id} belongs to Account #{globex.id}")
-    expect(output).to match(/^FAILED: \d+ rows of another tenant read, 0 tables read with no tenant filter$/)
+    # Both customers leak, each to the other tenant: two rows, however many queries read them.
+    expect(output).to match(/^FAILED: \d+ of \d+ queries, 2 rows of another tenant read, 0 tables read with no tenant filter$/)
     expect(output).not_to include(sentinel)
   end
 

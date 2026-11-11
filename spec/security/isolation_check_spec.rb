@@ -29,12 +29,12 @@ RSpec.describe DataTeller::IsolationCheck do
     expect(check.tenants).to eq([ acme.id, globex.id, initech.id ])
   end
 
-  it "passes on a correct app, and counts the rows each tenant read" do
+  # Dozens of queries read Acme's two orders: the count is the rows covered, each once, not the reads.
+  it "passes on a correct app, and counts the distinct rows each tenant read" do
     report = check
 
     expect(report).not_to be_failed
-    expect(report.rows_read["orders"]).to include(acme.id => be_positive, globex.id => be_positive)
-    expect(report.rows_read["orders"][initech.id]).to eq(0)
+    expect(report.rows_read["orders"].values_at(acme.id, globex.id, initech.id)).to eq([ 2, 1, 0 ])
   end
 
   it "runs one query per declaration: plain, each groupable dimension, segment, metric path and filter by another tenant's value" do
@@ -63,7 +63,9 @@ RSpec.describe DataTeller::IsolationCheck do
     report = check
 
     expect(report).to be_failed
-    expect(report.leaks).to include(have_attributes(dataset: "customers", owner: globex.id))
+    # Every customer leaks to some other tenant, and each is reported once however many queries read it.
+    expect(report.leaks.map { |leak| [ leak.dataset, leak.key ] }).to match_array(Customer.pluck(:id).map { |id| [ "customers", id ] })
+    expect(report.leaks).to include(have_attributes(key: globex.customers.first.id, owner: globex.id))
     expect(report.runs.select(&:failed?).map(&:tenant)).to include(initech.id)
   end
 

@@ -81,7 +81,7 @@ module DataTeller
         width = dataset_names.map(&:length).max.to_i
 
         say ""
-        say "Rows checked per dataset, all queries together (#{@config.tenant_model_name} #{report.tenants.join(' / ')}):"
+        say "Distinct rows checked per dataset, all queries together (#{@config.tenant_model_name} #{report.tenants.join(' / ')}):"
         dataset_names.each do |name|
           say "  #{name.ljust(width)}  #{report.tenants.map { |tenant| totals[name][tenant] }.join(' / ')}"
         end
@@ -109,8 +109,11 @@ module DataTeller
       def verdict(report)
         say ""
         if report.failed?
-          unfiltered = report.runs.sum { |run| run.unlisted.size }
-          say "FAILED: #{report.leaks.size} rows of another tenant read, #{unfiltered} tables read with no tenant filter"
+          # Distinct rows and tables, like the counts above; how widespread it is shows in the number of queries.
+          leaks = report.leaks.size
+          unfiltered = report.runs.flat_map(&:unlisted).uniq.size
+          say "FAILED: #{report.runs.count(&:failed?)} of #{report.runs.size} queries, #{leaks} #{'row'.pluralize(leaks)} of another " \
+              "tenant read, #{unfiltered} #{'table'.pluralize(unfiltered)} read with no tenant filter"
         else
           say "OK: no row of another tenant in #{report.runs.size - report.runs.count(&:refusal)} queries"
         end
