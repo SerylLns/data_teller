@@ -46,7 +46,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T31a Security Test Kit v0** (ADR 0011). `[sec]`
   - Done: specs for single table inheritance, soft-delete and nullable keys (`spec/security/table_shapes_spec.rb`), on three tables of the dummy that the catalog does not expose.
   - Done: a compiled plan gives the kit the datasets it filtered, the primary keys of every row it reads and the tables its SQL reads (ADR 0011 D5).
-  - `DataTeller::IsolationCheck` and `rake data_teller:isolation`: on the integrator's own tables, every row read by one query per declaration is checked against
+  - Done: `DataTeller::IsolationCheck` and `rake data_teller:isolation`: on the integrator's own tables, every row read by one query per declaration is checked against
     its owner, found through the Ruby associations. Every declared role at once; three tenants by default, `TENANTS=` to choose. Ids only in the report.
   - Later: RSpec shared examples and a Minitest assertion over the same core; fuzzing (`FUZZ=`); sensitive aggregates and inference via filters/order/derived
     metrics, which are T36's subject.

@@ -91,7 +91,7 @@ Every value is a bound parameter, and every column name comes from your declarat
 | Evaluation suite, `rake data_teller:eval` | ✅ Done |
 | LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | ✅ Done |
 | Minimal palette and endpoint, **not for production yet: no per-user limit** | ✅ Done |
-| Security test kit: tenant isolation checked on your own tables (`rake data_teller:isolation`) | 🚧 In progress |
+| Security test kit: tenant isolation checked on your own tables, `rake data_teller:isolation` | ✅ Done (v0) |
 | Minimum group size, complexity budget | ⏳ Next |
 | Prompt tuning, retrieval (RAG), explanations, production UI | ⬜ Not started |
 
@@ -182,10 +182,13 @@ A column that isn't declared can't be queried. A `count` metric exists on every 
 bin/rails data_teller:check                # in CI and after migrations: reads the tables and columns too
 bin/rails "data_teller:schema[support]"    # the JSON schema this role would get
 bin/rails "data_teller:catalog[support]"   # the same names, a few lines per dataset, for a person
+bin/rails data_teller:isolation            # every row read traced back to its tenant, on this database's rows (TENANTS=12,57,301 CAP=5000)
 bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODEL=perfect|replay|naive|routed, SAVE=1 to keep the run; naive and routed are paid calls)
 ```
 
 An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app boots without the engine and logs the error. The boot itself never reads the database, so it can't block a migration.
+
+`data_teller:isolation` runs one query per declaration (each dimension, segment, metric path, and each filter compared to another tenant's value) as three tenants: by default the first two and the last one. It traces every row each query reads back to its owner through the `tenant_path` foreign keys, apart from the compiler, and exits 1 if a row belongs to another tenant or a table was read without a tenant filter. It only reads, in a transaction that is always rolled back, so you can point it at an anonymised copy of production; it prints dataset names and ids, never a value. A dataset no tenant read a row of is reported as not proved, not as passed ([ADR 0011](docs/adr/0011-isolation-kit.md)).
 
 ### 4. Mount the engine and add the palette
 
