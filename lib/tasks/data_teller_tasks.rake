@@ -38,6 +38,12 @@ namespace :data_teller do
     abort "DataTeller: #{e.message}"
   end
 
+  desc "Check tenant isolation on this database's own rows: every row read traced back to its owner. TENANTS=12,57,301 CAP=5000"
+  task isolation: :environment do
+    # Read-only and always rolled back, so it can run on a copy of production. Prints ids, never a value.
+    exit DataTeller::IsolationCheck::Command.new.call
+  end
+
   desc "Validate the DataTeller declarations, columns included (run it in CI and after migrations)"
   task check: %i[defer_boot environment] do
     report = DataTeller.check(Rails.root, schema: true)

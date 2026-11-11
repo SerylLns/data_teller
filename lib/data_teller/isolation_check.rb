@@ -46,14 +46,20 @@ module DataTeller
       end.uniq
     end
 
-    # tenants: records of the tenant model. Defaults to the first two by primary key, often the oldest and fullest, and the last
-    # one, often new and nearly empty: anything an empty tenant reads is a leak.
+    # The first two by primary key, often the oldest and fullest, and the last one, often new and nearly empty: anything an empty
+    # tenant reads is a leak.
+    def self.default_tenants(tenant_model)
+      ordered = tenant_model.unscoped.order(tenant_model.primary_key)
+      (ordered.limit(2).to_a + [ ordered.last ]).compact.uniq
+    end
+
+    # tenants: records of the tenant model, default_tenants when nil.
     def initialize(registry: DataTeller.registry, config: DataTeller.config, tenants: nil, cap: DEFAULT_CAP, now: Time.current)
       @registry = registry
       @config = config
       @tenant_model = config.tenant_model_name.constantize
       @catalog = Catalog.new(self.class.declared_roles(registry), registry: registry, tenant_model_name: config.tenant_model_name)
-      @tenants = tenants || default_tenants
+      @tenants = tenants || self.class.default_tenants(@tenant_model)
       @cap = cap
       @now = now
     end
@@ -86,11 +92,6 @@ module DataTeller
     end
 
     private
-
-    def default_tenants
-      ordered = @tenant_model.unscoped.order(@tenant_model.primary_key)
-      (ordered.limit(2).to_a + [ ordered.last ]).compact.uniq
-    end
 
     def default_metric(entry) = entry.metrics.find { |metric| metric.name == :count } || entry.metrics.first
 
