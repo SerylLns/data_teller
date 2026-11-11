@@ -69,7 +69,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T17 Retrieval A (vectors).** **T18 Retrieval B (hybrid, trigram + vectors, RRF)** (ADR 0007 D2). Recall@k over datasets, scored separately,
   against the T13c router: retrieval has to beat one cheap LLM call, not "send everything". `tsvector` as an extra variant, to decide at T18.
 - **T19 Retrieval-scoped prompt** vs the T13 baseline and the T13c router. **T20 Dynamic few-shot** (filtered by tenant and by the role's visible catalog). **T21 (optional) reranking.**
-- **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). `[sec]`
+- **T27 Value resolution.** Local lookup resolvers per dimension (ADR 0001 D2). The isolation kit (T31a) then probes each `lookup:` dimension with another
+  tenant's value through the lookup: today it reports them as not tried (`lookup_required`). `[sec]`
 
 ## M5 — Trust UX
 - **T28 Deterministic explanation** (i18n templates, escaped values, says when a result is truncated). Missing I18n keys become warnings in `Report#warnings`, empty until then. `[sec]`

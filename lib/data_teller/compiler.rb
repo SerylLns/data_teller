@@ -3,10 +3,13 @@ module DataTeller
   # going through QueryValidator, even when called directly. Column names come from the catalog, never from the query.
   class Compiler
     class Refused < Error
-      attr_reader :reason
+      # codes: the validator's problem codes when it refused, never a value (QueryValidator#problems). For the isolation kit,
+      # which says why a query was not tried; the end user only ever sees `reason`.
+      attr_reader :reason, :codes
 
-      def initialize(reason = :unsupported_query, message = nil)
+      def initialize(reason = :unsupported_query, message = nil, codes: [])
         @reason = reason
+        @codes = codes
         super(message || reason.to_s)
       end
     end
@@ -27,7 +30,7 @@ module DataTeller
 
     def call(query)
       validation = QueryValidator.new(@catalog).call(query)
-      raise Refused.new(validation.refusal.reason) unless validation.ok?
+      raise Refused.new(validation.refusal.reason, codes: validation.problems.map { |problem| problem[:code] }.uniq) unless validation.ok?
       raise Refused.new(:unsupported_query, "only an answer compiles") unless query["intent"] == "answer"
 
       @group_nodes = nil

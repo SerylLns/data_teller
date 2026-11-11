@@ -15,7 +15,7 @@ module DataTeller
 
     # rows_read: dataset name => number of distinct rows read. unlisted: tables the SQL reads that the compiler built no tenant
     # filter for. partial: the cap was hit, so only part of the rows were checked. unkeyed: datasets with no single primary key.
-    # refusal: why the query did not run (a refusal reason or an error class), nil when it ran.
+    # refusal: why the query did not run (the validator's codes, a refusal reason or an error class), nil when it ran.
     Run = Data.define(:dataset, :shape, :tenant, :rows_read, :leaks, :unlisted, :partial, :unkeyed, :refusal) do
       def failed? = leaks.any? || unlisted.any?
     end
@@ -113,7 +113,8 @@ module DataTeller
       read = as_the_app(query, tenant) { |plan| [ plan.touched, plan.tables_read, plan.row_keys(cap: @cap) ] }
       check(probe, tenant, read)
     rescue Compiler::Refused => e
-      outcome(probe, tenant, refusal: e.reason)
+      # lookup_required says more than unsupported_query: which rule refused, so the integrator knows what was not tried.
+      outcome(probe, tenant, refusal: e.codes.any? ? e.codes.join("+") : e.reason)
     rescue ActiveRecord::StatementInvalid, Unprovable => e
       # The class only: a database message can hold values.
       outcome(probe, tenant, refusal: e.class.name)

@@ -44,6 +44,13 @@ RSpec.describe DataTeller::IsolationCheck do
                               "customer.city = a value of another tenant")
   end
 
+  # customer.name is matched through a lookup, which a probe cannot write yet: the report says which rule refused it.
+  it "says why a query was not tried with the validator's own code" do
+    run = check.runs.find { |one| one.dataset == "orders" && one.shape == "customer.name = a value of another tenant" }
+
+    expect(run.refusal).to eq("lookup_required")
+  end
+
   it "reports a dataset no chosen tenant read a row of as not proved" do
     report = check
 
