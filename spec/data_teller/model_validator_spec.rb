@@ -9,6 +9,7 @@ RSpec.describe DataTeller::ModelValidator do
       self.table_name = "orders"
 
       belongs_to :owner, polymorphic: true, optional: true
+      belongs_to :owner_product, class_name: "Product", foreign_key: :owner_id, optional: true # owner_type never checked
       belongs_to :ghost, class_name: "NoSuchModel", optional: true
       belongs_to :customer, optional: true
       belongs_to :billing_customer, class_name: "Customer", optional: true
@@ -91,6 +92,12 @@ RSpec.describe DataTeller::ModelValidator do
       expect(errors_for("SpecRecord", %i[owner])).to contain_exactly(/tenant_path: SpecRecord\.owner is polymorphic/)
     end
 
+    # The workaround the refusal above invites: an owner of type Customer with id 5 would pass for Product 5, another tenant's.
+    it "refuses a belongs_to on a polymorphic key, which reads the id without its type" do
+      expect(errors_for("SpecRecord", %i[owner_product account]))
+        .to contain_exactly(/tenant_path: SpecRecord\.owner_product reads owner_id, the key of a polymorphic association, without its type/)
+    end
+
     it "refuses an association whose class is missing" do
       expect(errors_for("SpecRecord", %i[ghost])).to contain_exactly(/tenant_path: SpecRecord\.ghost points to NoSuchModel, which does not exist/)
     end
@@ -133,6 +140,17 @@ RSpec.describe DataTeller::ModelValidator do
       Order._reflections.delete("spec_products_through")
     end
 
+    it "refuses a has_many on a polymorphic key without `as:`, and accepts it with" do
+      Product.has_many(:spec_records_by_key, class_name: "SpecRecord", foreign_key: :owner_id)
+      Product.has_many(:spec_records_typed, class_name: "SpecRecord", as: :owner)
+
+      expect(errors_for("Product", %i[account], metrics: [ metric(:x, "spec_records_by_key.total_cents"), metric(:y, "spec_records_typed.total_cents") ]))
+        .to contain_exactly(/metric x: Product\.spec_records_by_key reads owner_id, the key of a polymorphic association/)
+    ensure
+      Product._reflections.delete("spec_records_by_key")
+      Product._reflections.delete("spec_records_typed")
+    end
+
     it "refuses a path that comes back to a table it already went through" do
       expect(errors_for("Order", %i[account], metrics: [ metric(:x, "customer.orders.total_cents") ]))
         .to contain_exactly(/metric x: Customer\.orders comes back to the table orders/)
@@ -171,6 +189,13 @@ RSpec.describe DataTeller::ModelValidator do
       expect(DataTeller::DimensionPaths.shadowed(invoices, registry: registry, tenant_model_name: "Account").map { |left, kept| [ left.prefix, kept.prefix ] })
         .to eq([ %w[subscription.customer customer] ])
       expect(described_class.new(config: config, registry: registry).call.grep(/both lead/)).to eq([])
+    end
+
+    it "never go through a polymorphic key read without its type" do
+      registry.register(DataTeller::Dataset.new(model_name: "Product", roles: [ :admin ], tenant_path: %i[account]))
+      records = DataTeller::Dataset.new(model_name: "SpecRecord", roles: [ :admin ], tenant_path: %i[account])
+
+      expect(DataTeller::DimensionPaths.hops(records, registry: registry, tenant_model_name: "Account").map(&:prefix)).not_to include("owner_product")
     end
 
     it "are fine when the target is not exposed" do

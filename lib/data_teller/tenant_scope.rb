@@ -20,6 +20,9 @@ module DataTeller
       unless reflection&.belongs_to? && !reflection.polymorphic?
         raise Compiler::Refused.new(:unsupported_query, "#{klass.name}.#{step} is not a belongs_to association")
       end
+      if ModelLookup.untyped_polymorphic_key?(klass, reflection)
+        raise Compiler::Refused.new(:unsupported_query, "#{klass.name}.#{step} reads a polymorphic key without its type")
+      end
 
       key = reflection.foreign_key
 

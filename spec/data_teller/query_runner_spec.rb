@@ -138,6 +138,12 @@ RSpec.describe DataTeller::QueryRunner do
 
       expect { scope.condition_for(Order, nil) }.to raise_error(DataTeller::Compiler::Refused, /no tenant_path/)
       expect { scope.condition_for(Order, %i[nope]) }.to raise_error(DataTeller::Compiler::Refused, /not a belongs_to/)
+
+      stub_const("SpecNote", Class.new(ApplicationRecord) { self.table_name = "orders" })
+      SpecNote.belongs_to :subject, polymorphic: true
+      SpecNote.belongs_to :customer_subject, class_name: "Customer", foreign_key: :subject_id
+      expect { scope.condition_for(SpecNote, %i[customer_subject account]) }
+        .to raise_error(DataTeller::Compiler::Refused, /reads a polymorphic key without its type/)
     end
 
     it "filters a dataset on the tenant model by its own id" do

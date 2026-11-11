@@ -243,7 +243,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 
 Isolation is tested in `spec/security/` against hostile scopes and values, and on table shapes common in host apps (single table inheritance, soft-delete, nullable keys), on real rows across two tenants. That shows the cases tried, not all possible ones.
 
-Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed. The check for sensitive column names is a lint, not a guarantee.
+Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed; the isolation kit follows the same path, so it cannot catch it either. Polymorphic associations can't be on a path yet, nor can a plain association that reads a polymorphic key without its type: give such a table its own tenant key. The check for sensitive column names is a lint, not a guarantee.
 
 ## Development
 

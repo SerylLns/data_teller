@@ -245,8 +245,13 @@ end
 - `tenant_path` is mandatory on every dataset and written in full. There is no inference: `Order` already has two paths to `Account` (`account` and
   `customer.account`), and picking the shortest would be an implicit rule on the most sensitive point of the project. It shows up in diffs like `roles`.
 - The boot checks without reading the database that each step exists, is a non-polymorphic `belongs_to`, and that the last one reaches `model`.
+- A step may not read the key of a polymorphic association without its type (amended 2026-11-11). Refusing `belongs_to :commentable, polymorphic: true`
+  invites `belongs_to :post, foreign_key: :commentable_id`, which never checks `commentable_type`: a comment on Task 5 passes for one on Post 5, and
+  Post 5 may be another tenant's. The boot refuses it, on any path, `TenantScope` refuses it again, and dimension paths skip it. A `has_many as:`
+  carries the type and passes. The way out today is a direct tenant key on the table; polymorphic paths with an explicit list of types are an issue.
 - **Limit.** The boot checks that the path reaches the right model, not that it means the right thing: `belongs_to :billing_account, class_name: "Account"` passes.
-  Reviewing the file is what catches that, which is why it is explicit; the Security Test Kit can check it on data (T31a).
+  Reviewing the file is what catches that, which is why it is explicit. The isolation kit (T31a) cannot catch it either: it follows the declared path
+  too (ADR 0011 D1).
 - **Only exception:** a dataset on the tenant model itself has no path; the filter is `id = tenant.id`.
 - **Shared reference data** (`Country`, `Currency`) cannot be exposed for now. An escape hatch such as `tenant_path :none` would break the simple rule that
   every table is filtered, so it waits for a real case. A table reached by a path must be exposed too (ADR 0001 D4), metric paths included, so every table

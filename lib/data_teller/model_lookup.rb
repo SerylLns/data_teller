@@ -16,8 +16,27 @@ module DataTeller
         raise PathError, "#{current.name} has no association :#{step}" unless reflection
         raise PathError, "#{current.name}.#{step} is polymorphic, its target is only known per row" if reflection.polymorphic?
 
+        target = target_of(current, step, reflection)
+        if untyped_polymorphic_key?(current, reflection)
+          raise PathError, "#{current.name}.#{step} reads #{reflection.foreign_key}, the key of a polymorphic association, without its " \
+                           "type: it would match a row of another type, which can belong to another tenant"
+        end
+
         yield current, step, reflection if block_given?
-        target_of(current, step, reflection)
+        target
+      end
+    end
+
+    # The workaround a refused polymorphic path invites: `belongs_to :post, foreign_key: :commentable_id`. Nothing then checks
+    # commentable_type, so a comment on Task 5 passes for one on Post 5, and Post 5 may be another tenant's. The tenant filter
+    # and the isolation kit both follow the declared key, so neither would see it: it is stopped here. `has_many as:` carries
+    # the type condition and passes.
+    def untyped_polymorphic_key?(current, reflection)
+      return false if reflection.polymorphic? || reflection.through_reflection? || reflection.type
+
+      holder = reflection.belongs_to? ? current : reflection.klass
+      holder.reflect_on_all_associations(:belongs_to).any? do |other|
+        other.polymorphic? && other.foreign_key.to_s == reflection.foreign_key.to_s
       end
     end
 

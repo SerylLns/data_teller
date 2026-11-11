@@ -42,7 +42,8 @@ module DataTeller
     def walk(klass, steps, via, visited, registry, tenant_model_name)
       return [] if steps.size == MAX_DEPTH
 
-      klass.reflect_on_all_associations(:belongs_to).reject(&:polymorphic?).flat_map do |reflection|
+      reflections = klass.reflect_on_all_associations(:belongs_to)
+      reflections.reject { |reflection| reflection.polymorphic? || ModelLookup.untyped_polymorphic_key?(klass, reflection) }.flat_map do |reflection|
         target = target_class(reflection)
         next [] if target.nil? || visited.include?(target.table_name) || target.name == tenant_model_name
 

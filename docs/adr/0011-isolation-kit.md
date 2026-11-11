@@ -20,7 +20,9 @@ parent's `default_scope`, and every row under a soft-deleted parent would look l
 - **As the app runs:** each query runs as `QueryRunner` runs it, with the same database role and row security, so the report is about what the app
   returns. With `c.row_security` on, the database filters too, and a compiler bug it masks goes unseen; the report says so.
 - **Limits:** it needs an internal way to get the relation of a plan without the aggregate. Above a row cap per query, the report says the query was
-  checked in part, never that it passed.
+  checked in part, never that it passed. It proves the compiler against the declarations, not the declarations: the oracle follows the same
+  `tenant_path`, so a path that reaches the tenant by the wrong key (`billing_account`, or a polymorphic key read without its type) gives the same
+  wrong owner on both sides and no leak. The boot refuses the polymorphic case (ADR 0004); the wrong key is for review.
 
 Rejected: comparing each answer with and without the other tenants' rows (B: deleting a tenant's rows in a host app, even in a rolled-back
 transaction, runs into foreign keys, callbacks and `dependent: :restrict`; and it only sees a leak if the other tenant's rows change the result.
