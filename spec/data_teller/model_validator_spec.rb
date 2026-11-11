@@ -151,6 +151,16 @@ RSpec.describe DataTeller::ModelValidator do
       Product._reflections.delete("spec_records_typed")
     end
 
+    # Its join table has no model, so no tenant_path: it would be joined with no tenant filter, and Rails does not call it a through.
+    it "refuses a has_and_belongs_to_many for the same reason" do
+      Order.has_and_belongs_to_many(:spec_products_habtm, class_name: "Product", join_table: "line_items")
+
+      expect(errors_for("Order", %i[account], metrics: [ metric(:x, "spec_products_habtm.price_cents") ]))
+        .to contain_exactly(/metric x: Order\.spec_products_habtm goes through another table/)
+    ensure
+      Order._reflections.delete("spec_products_habtm")
+    end
+
     it "refuses a path that comes back to a table it already went through" do
       expect(errors_for("Order", %i[account], metrics: [ metric(:x, "customer.orders.total_cents") ]))
         .to contain_exactly(/metric x: Customer\.orders comes back to the table orders/)

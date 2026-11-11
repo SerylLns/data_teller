@@ -50,11 +50,15 @@ module DataTeller
 
     # A metric path touches each table once, and never a `through` one: the compiler reads and filters tables by name, so a table
     # met twice would be read under the wrong alias, and the table inside a `through` would be joined with no tenant filter.
+    # has_and_belongs_to_many is a `through` in disguise: its join table has no model, so no tenant_path, and Rails does not
+    # report it as through_reflection?.
     def follow_metric_path(klass, steps)
       seen = [ klass.table_name ]
 
       follow(klass, steps) do |current, step, reflection|
-        raise PathError, "#{current.name}.#{step} goes through another table, name each step instead" if reflection.through_reflection?
+        if reflection.through_reflection? || reflection.macro == :has_and_belongs_to_many
+          raise PathError, "#{current.name}.#{step} goes through another table, name each step instead"
+        end
 
         table = target_of(current, step, reflection).table_name
         raise PathError, "#{current.name}.#{step} comes back to the table #{table}" if seen.include?(table)

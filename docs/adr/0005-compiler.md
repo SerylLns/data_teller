@@ -41,7 +41,7 @@ Rejected: a join (natural SQL, often the fastest, but the filter gets mixed with
   Dates, not rows: by status and by day, 90 days is 90 points on 450 rows (amended 2026-11-07, the first version counted rows against the date cap and ignored `max_rows`).
 - **Joined tables are capped** at `max_joins` (5).
 - **A ratio over a metric with a path is refused at boot.** The join would change what the denominator counts.
-- **A metric path touches each table once, and never a `has_many :through`.** Columns and filters are built by table name, so a table met twice would be read under the wrong alias, and the table inside a `through` would have no tenant filter. Refused at boot.
+- **A metric path touches each table once, and never a `has_many :through`.** Columns and filters are built by table name, so a table met twice would be read under the wrong alias, and the table inside a `through` would have no tenant filter. Refused at boot. The same goes for `has_and_belongs_to_many` (amended 2026-11-11): its join table has no model, hence no `tenant_path`, and Rails does not report it as a `through`, so it passed the boot until then. Name a model on the join table and each step instead.
 - **A query reaches each table by one path only.** Each path is fine alone, but a dimension through `featured_product` and a metric through `line_items.product`
   would join `products` twice, and Rails aliases the second join: the sum and the tenant filter would read the first one. Refused per query, since a dataset can declare both (amended 2026-11-07).
 - **A descending order puts `NULL` last**: Postgres puts it first, and a group with no value would take a slot of a top N.
