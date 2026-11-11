@@ -29,7 +29,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   real calendar dates, lookups only where declared, granularity on dates only, `order_by` within the `group_by`, `too_many_groups` on two high-cardinality dimensions. Forbidden and unknown give the same result. `[sec]`
 - **T23 Compiler** — done (ADR 0005). Bound parameters, whitelisted operators, LIKE escaped, truncation (`max_groups`, `truncated`), a missing column means a refusal. `QueryRunner` is the entry point. `[sec]`
 - **T24 Tenant injection** — done (ADR 0005 D1). A sub-query on every table touched (joins, metric paths), applied last on top of segments, with a structural presence check.
-  `scope:` and `default_scope` limited to a whitelist (ADR 0004 D4). `spec/security/`: a matrix of attack vectors against query shapes, on real rows and two tenants, including the two regressions that returned 2001 instead of 1. Still to cover in T31a: soft-delete, STI, nullable tenant. `[sec]`
+  `scope:` and `default_scope` limited to a whitelist (ADR 0004 D4). `spec/security/`: a matrix of attack vectors against query shapes, on real rows and two tenants, including the two regressions that returned 2001 instead of 1. Soft-delete, STI and nullable keys: covered in T31a. `[sec]`
 - **T25 Execution guards** — done (ADR 0005 D3). Read-only transaction, compilation included, statement timeout (`query_timeout`), row, join and group caps as settings, automatic top-N with `truncated`, time-series point cap (`too_many_groups`). `[perf]` `[sec]`
 - **T26 Relative dates + tenant time zone** — done (ADR 0005 D2, D4). Periods, date grouping, `compare`. Left, refused until then: relative conditions in segments (`{ days_ago: 30 }`), whose syntax must be decided.
 - **T35 Permission basics** — done (ADR 0004 D5). Mandatory dataset roles, narrowing, derived metrics, segments and metrics inherit their columns, paths inherit every dataset on the way, fail-closed resolver,
@@ -45,6 +45,7 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
 - **T31a Security Test Kit v0** (ADR 0011). `[sec]`
   - Done: specs for single table inheritance, soft-delete and nullable keys (`spec/security/table_shapes_spec.rb`), on three tables of the dummy that the catalog does not expose.
+  - Done: a compiled plan gives the kit the datasets it filtered, the primary keys of every row it reads and the tables its SQL reads (ADR 0011 D5).
   - `DataTeller::IsolationCheck` and `rake data_teller:isolation`: on the integrator's own tables, every row read by one query per declaration is checked against
     its owner, found through the Ruby associations. Every declared role at once; three tenants by default, `TENANTS=` to choose. Ids only in the report.
   - Later: RSpec shared examples and a Minitest assertion over the same core; fuzzing (`FUZZ=`); sensitive aggregates and inference via filters/order/derived

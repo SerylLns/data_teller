@@ -91,7 +91,8 @@ Every value is a bound parameter, and every column name comes from your declarat
 | Evaluation suite, `rake data_teller:eval` | ✅ Done |
 | LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | ✅ Done |
 | Minimal palette and endpoint, **not for production yet: no per-user limit** | ✅ Done |
-| Minimum group size, complexity budget, security test kit | ⏳ Next |
+| Security test kit: tenant isolation checked on your own tables (`rake data_teller:isolation`) | 🚧 In progress |
+| Minimum group size, complexity budget | ⏳ Next |
 | Prompt tuning, retrieval (RAG), explanations, production UI | ⬜ Not started |
 
 ### First measures
@@ -112,6 +113,7 @@ Both say little until retrieval and tuning have something to compare to. The ful
 
 - A filter on a name the user wrote ("orders from Alice") is refused: lookups are not implemented yet.
 - Each question stands alone: "and in June?" after a first question does not work.
+- With a soft-deleted parent, a total and its breakdown can disagree. The total keeps a row whose parent is deleted (who owns a row does not depend on a soft-delete), while a `group_by` through that parent leaves it out, since the parent's `default_scope` applies to the join. With `discard`, which has no `default_scope`, discarded rows are counted unless a segment leaves them out.
 
 ## Try it in your app
 
@@ -236,7 +238,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 | With `c.row_security`, that role sees its tenant's rows only, even if the compiler's filter were gone | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
 | Minimum group size | 🗓️ Planned |
 
-Isolation is tested in `spec/security/` against hostile scopes and values, on real rows across two tenants. That shows the cases tried, not all possible ones.
+Isolation is tested in `spec/security/` against hostile scopes and values, and on table shapes common in host apps (single table inheritance, soft-delete, nullable keys), on real rows across two tenants. That shows the cases tried, not all possible ones.
 
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed. The check for sensitive column names is a lint, not a guarantee.
 
