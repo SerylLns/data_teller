@@ -62,3 +62,20 @@ dimension compared to a value read from **another** tenant's rows, the "another 
 Rejected for v0: every pair of declarations (B: thousands of queries on a large catalog, for interactions the compiler's own specs cover);
 reproducible fuzzing (C: coverage never guaranteed, a report that changes with the seed). Fuzzing stays a later option (`FUZZ=500`), to find what
 nobody thought of.
+
+## D5 — How the kit reads the rows: the plan's list, checked against its SQL (decided, "C")
+
+A compiled `Plan` gives the kit, and nothing else, three things: the datasets it touches (`touched`, the list the compiler builds its tenant
+filters from), `row_keys`, the same relation with no aggregate, no `GROUP BY` and no `ORDER BY` that plucks the primary key of each of those
+datasets, and `tables_read`, the tables in its `FROM` and its `JOIN`s, read from the relation's Arel. A `ComparedPlan` gives its two plans.
+
+- **Why:** the kit needs the dataset, not only the table, to follow the right `tenant_path`: one table can serve several classes (STI, a
+  soft-delete `default_scope` on a second class). Only the compiler knows which. But the compiler filters exactly the tables of that same list,
+  so a table missing from it would have no filter and no check. The kit therefore compares the list with the tables the SQL really reads:
+  a table read and not listed is a failure, even with no row leaked.
+- **Limits:** a dataset whose model has no single primary key cannot be checked row by row; the report says it is not proved. `row_keys`
+  reads at most `cap + 1` rows, the extra one telling the kit it checked in part. Neither method is reachable from a question: no IR field leads
+  to them.
+
+Rejected: the plan's list alone (A: a table the compiler forgot is skipped by the kit as well); tables read from the SQL alone (B: from a table
+name, the dataset is a guess as soon as two classes share a table).
