@@ -74,7 +74,8 @@ module DataTeller
         raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
       end
 
-      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, series: series, period: period)
+      Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, series: series, period: period,
+               touched: touched_datasets)
     end
 
     # ---- what the query touches

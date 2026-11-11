@@ -9,6 +9,9 @@ module DataTeller
       @metric_name = metric_name
     end
 
+    # For the isolation kit (ADR 0011 D5): both periods are checked.
+    def plans = [ @current, @previous ]
+
     def execute(recorder: nil)
       raw = @current.raw_rows(recorder)
       kept = @current.kept(raw)

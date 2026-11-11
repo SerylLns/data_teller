@@ -11,7 +11,13 @@ module DataTeller
     # series: the indexes of the date columns and the maximum number of time points, for a series the user did not cap.
     Series = Data.define(:columns, :max_points)
 
-    def initialize(relation:, columns:, selection:, decoders:, limit:, series: nil, period: nil)
+    # The rows behind an answer, for the isolation kit (ADR 0011 D5): one primary key per dataset of `datasets`, in that order.
+    # unkeyed: the touched datasets with no single primary key, which no row can be checked for.
+    RowKeys = Data.define(:datasets, :rows, :truncated, :unkeyed)
+
+    # touched: the datasets the compiler applied a tenant filter for, the dataset's own one last.
+    def initialize(relation:, columns:, selection:, decoders:, limit:, series: nil, period: nil, touched: [])
+      @touched = touched
       @series = series
       @period = period
       @relation = relation
@@ -24,7 +30,7 @@ module DataTeller
     # The same plan, on fewer rows and with no cap: the conditions come on top, so the tenant filter stays.
     def narrowed_to(conditions)
       self.class.new(relation: conditions.reduce(@relation) { |current, condition| current.where(condition) }, columns: @columns,
-                     selection: @selection, decoders: @decoders, limit: nil, period: @period)
+                     selection: @selection, decoders: @decoders, limit: nil, period: @period, touched: @touched)
     end
 
     def to_sql
@@ -51,7 +57,33 @@ module DataTeller
     def truncated?(raw) = !@limit.nil? && raw.size > @limit
     def decode(row) = row.each_with_index.map { |value, index| @decoders[index] ? @decoders[index].call(value) : value }
     def metric_decoder = @decoders.last
-    attr_reader :columns, :period
+    attr_reader :columns, :period, :touched
+
+    # ---- for the isolation kit only (ADR 0011 D5): no field of a query leads here.
+
+    def plans = [ self ]
+
+    # Every row the aggregate reads, not the groups it returns: the query's own limit caps groups, so it does not apply here.
+    def row_keys(cap:)
+      keyed, unkeyed = @touched.partition { |dataset| dataset.model_name.constantize.primary_key.is_a?(String) }
+      return RowKeys.new(datasets: [], rows: [], truncated: false, unkeyed: unkeyed) if keyed.empty?
+
+      keys = keyed.map { |dataset| dataset.model_name.constantize.then { |model| model.arel_table[model.primary_key] } }
+      raw = @relation.unscope(:group, :order).limit(cap + 1).pluck(*keys)
+      raw = raw.map { |key| [ key ] } if keys.one?
+
+      RowKeys.new(datasets: keyed, rows: raw.first(cap), truncated: raw.size > cap, unkeyed: unkeyed)
+    end
+
+    # Read from the relation, not from `touched`: the kit compares the two, since a table missing from `touched` has no tenant
+    # filter either. Anything but a plain table (an alias, a sub-query, SQL text) comes out as "not a table" and matches no dataset.
+    def tables_read
+      arel = @relation.arel
+
+      [ arel.source.left, *arel.join_sources.map(&:left) ].map do |source|
+        source.is_a?(Arel::Table) && source.table_alias.nil? ? source.name : "(not a table: #{source.class.name})"
+      end
+    end
 
     private
 
