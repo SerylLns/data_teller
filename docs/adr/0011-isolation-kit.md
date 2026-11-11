@@ -10,11 +10,15 @@ the declarations without reading rows; the kit reads rows.
 ## D1 — The oracle: who owns each row read, found by another way (decided, "A")
 
 For each query, the kit runs the compiled relation without its aggregate and collects the primary key of **every table it touches**: the dataset's
-own table and each joined one (possible because the compiler refuses to join a table twice). Then, for each row, it follows the `tenant_path` of that
-table's own dataset through the Ruby associations, preloaded by batches, and checks that it ends at the tenant who asked.
+own table and each joined one (possible because the compiler refuses to join a table twice). Then, for each row, it follows the foreign keys of the
+`tenant_path` of that table's own dataset, one table at a time and by batches, matches them in Ruby, and checks that they end at the tenant who asked.
+Parents are read unscoped, as `TenantScope` does: who owns a row does not depend on a soft-delete. Rails' association readers would apply the
+parent's `default_scope`, and every row under a soft-deleted parent would look like a leak.
 
-- **Why:** the check is independent of what it checks. The compiler filters with SQL sub-queries built by `TenantScope`; the kit walks associations
-  loaded by ActiveRecord. A bug has to be in both to go unseen. It judges each row, not a total that could balance out, and it writes nothing.
+- **Why:** the check is independent of what it checks. The compiler filters with SQL sub-queries built by `TenantScope`; the kit reads foreign keys
+  table by table and matches them in Ruby. A bug has to be in both to go unseen. It judges each row, not a total that could balance out, and it writes nothing.
+- **As the app runs:** each query runs as `QueryRunner` runs it, with the same database role and row security, so the report is about what the app
+  returns. With `c.row_security` on, the database filters too, and a compiler bug it masks goes unseen; the report says so.
 - **Limits:** it needs an internal way to get the relation of a plan without the aggregate. Above a row cap per query, the report says the query was
   checked in part, never that it passed.
 
