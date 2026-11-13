@@ -257,6 +257,20 @@ RSpec.describe DataTeller::Validator do
     end
   end
 
+  describe "min_group_size (ADR 0012 D2)" do
+    it "refuses an exempt role that cannot read the dataset: a typo there would exempt no one" do
+      dataset(min_group_size: DataTeller::MinGroupSize.new(minimum: 5, except: %i[admin amdin]))
+
+      expect(report.errors).to contain_exactly(/dataset orders: min_group_size except: \[:amdin\] are not in the dataset's roles/)
+    end
+
+    it "accepts exempt roles the dataset has" do
+      dataset(min_group_size: DataTeller::MinGroupSize.new(minimum: 5, except: %i[admin]))
+
+      expect(report).to be_ok
+    end
+  end
+
   it "reports every problem at once" do
     config.instance_variable_set(:@tenant, nil)
     dataset(roles: nil, dimensions: [ dimension(:email) ])

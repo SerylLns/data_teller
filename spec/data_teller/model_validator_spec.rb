@@ -177,6 +177,31 @@ RSpec.describe DataTeller::ModelValidator do
     end
   end
 
+  # The unit is counted on the dataset's own table (ADR 0012 D1).
+  describe "min_group_size of:" do
+    def errors_with_unit(model, unit) = errors_for(model, %i[account], min_group_size: DataTeller::MinGroupSize.new(minimum: 5, of: unit))
+
+    it "accepts a direct belongs_to" do
+      expect(errors_with_unit("Order", :customer)).to eq([])
+    end
+
+    it "refuses an unknown association and a has_many" do
+      expect(errors_with_unit("Order", :nope)).to contain_exactly(/dataset orders: min_group_size of: Order has no association :nope/)
+      expect(errors_with_unit("Customer", :orders)).to include(/min_group_size of: Customer\.orders is a has_many, the unit must be a belongs_to/)
+    end
+
+    it "refuses a polymorphic belongs_to" do
+      expect(errors_for("SpecRecord", %i[customer account], min_group_size: DataTeller::MinGroupSize.new(minimum: 5, of: :owner)))
+        .to include(/min_group_size of: SpecRecord\.owner is polymorphic/)
+    end
+
+    # It would count a customer and a product with the same id as one person.
+    it "refuses a polymorphic key read without its type" do
+      expect(errors_for("SpecRecord", %i[customer account], min_group_size: DataTeller::MinGroupSize.new(minimum: 5, of: :owner_product)))
+        .to include(/min_group_size of: SpecRecord\.owner_product reads owner_id, the key of a polymorphic association/)
+    end
+  end
+
   describe "two paths to the same dataset (ADR 0001 D4)" do
     it "are refused, the LLM could not tell them apart" do
       registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: [ :admin ], tenant_path: %i[account],

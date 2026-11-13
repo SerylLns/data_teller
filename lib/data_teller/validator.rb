@@ -93,7 +93,19 @@ module DataTeller
       check_metrics(dataset)
       check_metric_columns(dataset)
       check_role_narrowing(dataset)
+      check_min_group_size_exemptions(dataset)
       note_shadowed_paths(dataset)
+    end
+
+    # A role that cannot read the dataset has nothing to be exempt from: it is a typo, and a typo here would leave the role meant to be
+    # exempt held to the threshold, or worse, read as an exemption that was never given to anyone (ADR 0012 D2).
+    def check_min_group_size_exemptions(dataset)
+      return if dataset.roles.nil? || dataset.min_group_size.nil?
+
+      unknown = dataset.min_group_size.except - dataset.roles
+      return if unknown.empty?
+
+      @errors << "dataset #{dataset.name}: min_group_size except: #{unknown.inspect} are not in the dataset's roles #{dataset.roles.inspect}"
     end
 
     # Not a mistake, but a dimension the developer may look for: say where it went.

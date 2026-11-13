@@ -40,6 +40,22 @@ module DataTeller
       check_metric_paths(dataset, klass)
       check_scopes(dataset, klass)
       check_paths_are_distinct(dataset)
+      check_group_size_unit(dataset, klass)
+    end
+
+    # The unit is counted on the dataset's own table, so it must be a key of that table: a direct belongs_to, never through a polymorphic
+    # key read without its type, which would count rows of other types as the same person (ADR 0012 D1).
+    def check_group_size_unit(dataset, klass)
+      unit = dataset.min_group_size&.of
+      return unless unit
+
+      ModelLookup.follow(klass, [ unit ]) do |current, step, reflection|
+        unless reflection.belongs_to?
+          raise ModelLookup::PathError, "#{current.name}.#{step} is a #{reflection.macro}, the unit must be a belongs_to of the dataset"
+        end
+      end
+    rescue ModelLookup::PathError => e
+      @errors << "dataset #{dataset.name}: min_group_size of: #{e.message}"
     end
 
     # The LLM could not tell customer.city from billing_customer.city (ADR 0001 D4).

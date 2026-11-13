@@ -24,6 +24,23 @@ RSpec.describe "DataTeller.refine" do
     expect(dataset.segments[:paid].where).to eq({ status: :paid })
   end
 
+  # ADR 0012: no threshold unless declared; declared, every role but the ones named is held to it.
+  it "declares a minimum group size, its unit and the exempt roles" do
+    expect(refine_orders { roles :admin }.min_group_size).to be_nil
+
+    size = refine_orders { min_group_size 5, of: :customer, except: :admin }.min_group_size
+    expect(size).to have_attributes(minimum: 5, of: :customer, except: %i[admin])
+    expect(refine_orders { min_group_size 3 }.min_group_size).to have_attributes(of: nil, except: [])
+  end
+
+  it "holds every role to the threshold unless one of them is exempt" do
+    size = DataTeller::MinGroupSize.new(minimum: 5, except: %i[admin])
+
+    expect(size.applies_to?(%i[support])).to be(true)
+    expect(size.applies_to?(%i[support admin])).to be(false)
+    expect(size.applies_to?(%i[analyst_added_later])).to be(true)
+  end
+
   it "keeps the tenant path in order" do
     expect(refine_orders { tenant_path :customer, :account }.tenant_path).to eq(%i[customer account])
   end
@@ -53,6 +70,13 @@ RSpec.describe "DataTeller.refine" do
   describe "declaration errors" do
     it "needs a block" do
       expect { DataTeller::Loader.capture { DataTeller.refine(Order) } }.to raise_error(DataTeller::DeclarationError, /block/)
+    end
+
+    it "rejects a minimum group size that protects no one or is not a number" do
+      [ 1, 0, "5", 5.0 ].each do |minimum|
+        expect { refine_orders { min_group_size minimum } }.to raise_error(DataTeller::DeclarationError, /min_group_size must be an Integer of at least 2/)
+      end
+      expect { refine_orders { min_group_size 5, of: "customer.id" } }.to raise_error(DataTeller::DeclarationError, /min_group_size of: name must match/)
     end
 
     it "rejects a metric without an aggregation, or with two" do

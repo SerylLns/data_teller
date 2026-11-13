@@ -14,6 +14,7 @@ module DataTeller
       @metrics = []
       @dimensions = []
       @segments = []
+      @min_group_size = nil
       @problems = []
     end
 
@@ -41,11 +42,16 @@ module DataTeller
       collect_problems { @segments << Segment.new(name: name, **options) }
     end
 
+    # min_group_size 5, of: :customer, except: %i[admin] (ADR 0012).
+    def min_group_size(minimum, of: nil, except: [])
+      collect_problems { @min_group_size = MinGroupSize.new(minimum: minimum, of: of, except: except) }
+    end
+
     def build
       dataset = collect_problems do
         Dataset.new(
           model_name: @model_name, name: @name, roles: @roles, tenant_path: @tenant_path, synonyms: @synonyms,
-          metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments
+          metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments, min_group_size: @min_group_size
         )
       end
       raise DeclarationError.new(@problems) if @problems.any?
@@ -61,6 +67,11 @@ module DataTeller
       return metrics if metrics.any? { |metric| metric.name == :count }
 
       [ Metric.new(name: :count, aggregation: :count), *metrics ]
+    end
+
+    # min_group_size 5, of: :customer, except: %i[admin] (ADR 0012).
+    def min_group_size(minimum, of: nil, except: [])
+      collect_problems { @min_group_size = MinGroupSize.new(minimum: minimum, of: of, except: except) }
     end
 
     def build_metric(name, options)

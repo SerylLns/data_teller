@@ -3,8 +3,10 @@ require "active_support/core_ext/string/inflections"
 module DataTeller
   # roles is required by boot validation (T07, ADR 0004 D5); it is allowed to be nil here so that the validator
   # can report every missing declaration at once instead of failing on the first one.
-  class Dataset < Data.define(:name, :model_name, :roles, :tenant_path, :metrics, :dimensions, :segments, :synonyms)
-    def initialize(model_name:, name: nil, roles: nil, tenant_path: nil, metrics: [], dimensions: [], segments: [], synonyms: [])
+  # min_group_size: a MinGroupSize, nil when the dataset declares none (ADR 0012).
+  class Dataset < Data.define(:name, :model_name, :roles, :tenant_path, :metrics, :dimensions, :segments, :synonyms, :min_group_size)
+    def initialize(model_name:, name: nil, roles: nil, tenant_path: nil, metrics: [], dimensions: [], segments: [], synonyms: [],
+                   min_group_size: nil)
       model_name = model_name.to_s
       derived = model_name.demodulize.underscore.pluralize
 
@@ -16,7 +18,8 @@ module DataTeller
         metrics: index_by_name(model_name, metrics, "metric"),
         dimensions: index_by_name(model_name, dimensions, "dimension"),
         segments: index_by_name(model_name, segments, "segment"),
-        synonyms: synonyms.map { |s| s.to_s.strip.freeze }.reject(&:empty?).uniq.freeze
+        synonyms: synonyms.map { |s| s.to_s.strip.freeze }.reject(&:empty?).uniq.freeze,
+        min_group_size: min_group_size
       )
     end
 
@@ -30,7 +33,8 @@ module DataTeller
         synonyms: synonyms.sort,
         metrics: metrics.sort.to_h { |key, metric| [ key, canonical_member(metric) ] },
         dimensions: dimensions.sort.to_h { |key, dimension| [ key, canonical_member(dimension) ] },
-        segments: segments.sort.to_h { |key, segment| [ key, canonical_member(segment) ] }
+        segments: segments.sort.to_h { |key, segment| [ key, canonical_member(segment) ] },
+        min_group_size: min_group_size && canonical(min_group_size.to_h)
       }
     end
 
