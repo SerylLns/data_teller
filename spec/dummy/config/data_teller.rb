@@ -11,8 +11,9 @@ DataTeller.configure do |c|
   c.locale { |_user| ENV["DUMMY_LOCALE"] }
   c.expose Order, Customer, Product, LineItem, Shipment, Refund, Coupon, Subscription, Invoice, SupportTicket, Review
 
-  # Real eval runs only (ADR 0008 D2): the key comes from the shell, never from a file in the repo, and the CI has none.
-  if ENV["OPENAI_API_KEY"].present?
+  # Real eval runs only (ADR 0008 D2): the key comes from the shell, never from a file in the repo, and the CI has none. Never in the test
+  # environment: a key left in the shell would turn any spec that does not stub the LLM into a paid call.
+  if ENV["OPENAI_API_KEY"].present? && !Rails.env.test?
     c.llm = DataTeller::Providers::OpenAI.new(api_key: ENV["OPENAI_API_KEY"], model: ENV.fetch("OPENAI_MODEL", "gpt-6-luna"))
   end
 end
