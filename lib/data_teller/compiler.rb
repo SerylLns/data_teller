@@ -72,13 +72,14 @@ module DataTeller
       filters = tenant_filters
       relation = filters.reduce(relation) { |current, condition| current.where(condition) }
       relation = apply_grouping(relation)
+      relation = relation.having(big_enough) if big_enough
 
       unless @tenant_scope.present_in?(relation, filters)
         raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
       end
 
       Plan.new(relation: relation, columns: columns, selection: selection, decoders: decoders, limit: row_limit, series: series, period: period,
-               touched: touched_datasets)
+               touched: touched_datasets, big_enough: big_enough)
     end
 
     # ---- what the query touches
@@ -241,6 +242,46 @@ module DataTeller
       datasets
     rescue ModelLookup::PathError => e
       raise Refused.new(:unsupported_query, e.message)
+    end
+
+    # ---- minimum group size (ADR 0012)
+
+    # Every protected dataset the query reads, for these roles, counted by its own unit (D4). Each is already in the FROM or a JOIN, since it
+    # was touched, so counting it adds no table. nil when no threshold applies.
+    def big_enough
+      sizes = touched_datasets.filter_map do |dataset|
+        size = dataset.min_group_size
+        next unless size&.applies_to?(@catalog.roles)
+
+        group_size(dataset, size).gteq(size.minimum)
+      end
+      sizes.reduce { |all, one| all.and(one) }
+    end
+
+    def group_size(dataset, size)
+      # COUNT(*) only where it equals COUNT(DISTINCT): the distinct count makes Postgres sort every row of the group, with no hash
+      # aggregate and no parallel workers, measured 12x slower on 500k rows (ADR 0012 D3).
+      return Arel.star.count if dataset.name == @entry.dataset.name && size.of.nil? && own_rows_unique?
+
+      model = dataset.model_name.constantize
+      column = size.of ? model.reflect_on_association(size.of)&.foreign_key&.to_s : model.primary_key
+      # Fail closed: the boot checks the unit, and a table with no single key cannot be counted, so it cannot be shown.
+      raise Refused.new(:unsupported_query, "#{model.name} has no single key to count its groups by") unless column.is_a?(String)
+
+      model.arel_table[column].count(true)
+    end
+
+    # Each row of the dataset appears once in the joined rows when every join is a belongs_to on the parent's primary key: one parent
+    # at most per row. A has_many on a metric path, or a key that is not unique, repeats it.
+    def own_rows_unique?
+      join_paths.all? do |steps|
+        steps.reduce(@klass) do |klass, step|
+          reflection = klass.reflect_on_association(step)
+          return false unless reflection&.belongs_to? && !reflection.polymorphic? && reflection.association_primary_key == reflection.klass.primary_key
+
+          reflection.klass
+        end
+      end
     end
 
     # ---- grouping and output

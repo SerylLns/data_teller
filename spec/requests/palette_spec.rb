@@ -330,7 +330,7 @@ RSpec.describe "the palette", type: :request do
 
   # Every reason a query can be refused for has a sentence, in both languages: a missing key would show a raw translation error.
   it "has a sentence for every reason, in both languages" do
-    reasons = %w[engine_disabled invalid_question llm_unavailable no_tenant query_timeout too_many_groups unknown_dataset unknown_metric unsupported_query not_a_data_question]
+    reasons = %w[engine_disabled invalid_question llm_unavailable no_tenant query_timeout too_many_groups group_too_small unknown_dataset unknown_metric unsupported_query not_a_data_question]
     %i[en fr].each do |locale|
       reasons.each { |reason| expect(I18n.exists?("data_teller.refusal.#{reason}", locale)).to be(true), "#{locale}: #{reason}" }
     end

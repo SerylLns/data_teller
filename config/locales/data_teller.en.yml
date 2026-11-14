@@ -19,6 +19,7 @@ en:
       unsupported_query: I can't answer this question in that form.
       not_a_data_question: I can only answer questions about your data.
       too_many_groups: This would return too many results. Try narrowing it down.
+      group_too_small: This would be about too few people to be shown. Try a broader question.
       query_timeout: This question took too long to answer. Try narrowing it down.
       invalid_question: Please type a question of 500 characters at most.
       llm_unavailable: The assistant is not available right now. Please try again later.

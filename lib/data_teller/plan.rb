@@ -2,7 +2,8 @@ module DataTeller
   # A compiled query, ready to run. Reading its SQL runs nothing, which is what the tests and later the explanation rely on.
   class Plan
     # period and compared_period are two dates, the end being exclusive. nil when the query has none.
-    Result = Data.define(:columns, :rows, :truncated, :period, :compared_period) do
+    # suppressed: the groups left out because they were under a minimum group size (ADR 0012 D3).
+    Result = Data.define(:columns, :rows, :truncated, :period, :compared_period, :suppressed) do
       # The single number of a query with no group_by.
       def value = rows.first&.at(compared_period ? -2 : -1)
       def previous_value = compared_period ? rows.first&.last : nil
@@ -15,9 +16,11 @@ module DataTeller
     # unkeyed: the touched datasets with no single primary key, which no row can be checked for.
     RowKeys = Data.define(:datasets, :rows, :truncated, :unkeyed)
 
-    # touched: the datasets the compiler applied a tenant filter for, the dataset's own one last.
-    def initialize(relation:, columns:, selection:, decoders:, limit:, series: nil, period: nil, touched: [])
+    # touched: the datasets the compiler applied a tenant filter for, the dataset's own one last. big_enough: the HAVING condition of the
+    # minimum group sizes that apply, nil when none does (ADR 0012).
+    def initialize(relation:, columns:, selection:, decoders:, limit:, series: nil, period: nil, touched: [], big_enough: nil)
       @touched = touched
+      @big_enough = big_enough
       @series = series
       @period = period
       @relation = relation
@@ -30,7 +33,7 @@ module DataTeller
     # The same plan, on fewer rows and with no cap: the conditions come on top, so the tenant filter stays.
     def narrowed_to(conditions)
       self.class.new(relation: conditions.reduce(@relation) { |current, condition| current.where(condition) }, columns: @columns,
-                     selection: @selection, decoders: @decoders, limit: nil, period: @period, touched: @touched)
+                     selection: @selection, decoders: @decoders, limit: nil, period: @period, touched: @touched, big_enough: @big_enough)
     end
 
     def to_sql
@@ -40,9 +43,28 @@ module DataTeller
     # recorder, when given, receives the SQL before it runs (QueryRunner's trace).
     def execute(recorder: nil)
       raw = raw_rows(recorder)
+      raise Compiler::Refused.new(:group_too_small) if too_small?(raw)
       raise Compiler::Refused.new(:too_many_groups) if series_too_long?(raw)
 
-      Result.new(columns: @columns, rows: kept(raw).map { |row| decode(row) }, truncated: truncated?(raw), period: @period, compared_period: nil)
+      Result.new(columns: @columns, rows: kept(raw).map { |row| decode(row) }, truncated: truncated?(raw), period: @period, compared_period: nil,
+                 suppressed: suppressed(recorder))
+    end
+
+    def protected? = !@big_enough.nil?
+    def grouped? = @relation.group_values.any?
+
+    # Without group_by an aggregate always returns one row, 0 when nothing matches; the HAVING turns it into none. So no row is a single
+    # value under the threshold, zero included, never "0 orders" (ADR 0012 D4).
+    def too_small?(raw) = protected? && !grouped? && raw.empty?
+
+    # The groups the HAVING left out, counted apart: the answer cannot hold them. Their labels and values never leave the database.
+    def suppressed(recorder = nil)
+      return 0 unless protected? && grouped?
+
+      small = @relation.unscope(:having, :order).having(Arel::Nodes::Not.new(@big_enough)).select(Arel.sql("1"))
+      counting = @relation.klass.unscoped.from(small.arel.as("small_groups"))
+      recorder&.call(counting.select(Arel.star.count).to_sql)
+      counting.count
     end
 
     # As returned by the database, with the extra row that tells a result was cut. ComparedPlan works on these: groups line up
@@ -69,7 +91,8 @@ module DataTeller
       return RowKeys.new(datasets: [], rows: [], truncated: false, unkeyed: unkeyed) if keyed.empty?
 
       keys = keyed.map { |dataset| dataset.model_name.constantize.then { |model| model.arel_table[model.primary_key] } }
-      raw = @relation.unscope(:group, :order).limit(cap + 1).pluck(*keys)
+      # The HAVING of a minimum group size goes too: the aggregate reads the rows of the small groups, so they are checked.
+      raw = @relation.unscope(:group, :order, :having).limit(cap + 1).pluck(*keys)
       raw = raw.map { |key| [ key ] } if keys.one?
 
       RowKeys.new(datasets: keyed, rows: raw.first(cap), truncated: raw.size > cap, unkeyed: unkeyed)

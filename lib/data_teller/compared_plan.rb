@@ -14,23 +14,34 @@ module DataTeller
 
     def execute(recorder: nil)
       raw = @current.raw_rows(recorder)
+      raise Compiler::Refused.new(:group_too_small) if @current.too_small?(raw)
+
       kept = @current.kept(raw)
       earlier = previous_values(kept, recorder)
+      # Under a minimum group size, a group with no previous row was small then, or absent: its change would give the hidden value by a
+      # subtraction, so the group goes, not only its previous value (ADR 0012 D4).
+      shown = @current.protected? ? kept.select { |row| earlier.key?(row[0...-1]) } : kept
 
-      rows = kept.map do |row|
+      rows = shown.map do |row|
         previous = earlier[row[0...-1]]
         @current.decode(row) + [ decode_metric(previous) ]
       end
 
       Plan::Result.new(columns: @current.columns + [ "previous_#{@metric_name}" ], rows: rows, truncated: @current.truncated?(raw),
-                       period: @current.period, compared_period: @previous.period)
+                       period: @current.period, compared_period: @previous.period,
+                       suppressed: @current.suppressed(recorder) + kept.size - shown.size)
     end
 
     private
 
     # Narrowed to the groups being shown rather than cut by rank: a group's previous value must not depend on how it ranked then.
     def previous_values(kept, recorder)
-      return { [] => @previous.raw_rows(recorder).first&.last } if @group_columns.empty?
+      if @group_columns.empty?
+        previous = @previous.raw_rows(recorder)
+        raise Compiler::Refused.new(:group_too_small) if @previous.too_small?(previous)
+
+        return { [] => previous.first&.last }
+      end
       return {} if kept.empty?
 
       @previous.narrowed_to(group_conditions(kept)).raw_rows(recorder).to_h { |row| [ row[0...-1], row.last ] }

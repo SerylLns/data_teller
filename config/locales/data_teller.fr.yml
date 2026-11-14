@@ -18,6 +18,7 @@ fr:
       unsupported_query: Je ne peux pas répondre à cette question sous cette forme.
       not_a_data_question: Je ne réponds qu'aux questions sur vos données.
       too_many_groups: Cela donnerait trop de résultats. Essayez de préciser votre question.
+      group_too_small: Cela concernerait trop peu de personnes pour être affiché. Essayez une question plus large.
       query_timeout: Cette question a pris trop de temps. Essayez de la préciser.
       invalid_question: Merci de saisir une question de 500 caractères au maximum.
       llm_unavailable: L'assistant n'est pas disponible pour le moment. Merci de réessayer plus tard.

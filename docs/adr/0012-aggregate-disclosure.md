@@ -15,8 +15,9 @@ answer. A dataset can name its unit instead, a direct `belongs_to`: `of: :custom
 - **Why:** twelve orders from one customer pass a threshold of five rows and still describe one person; the unit is what makes it count people.
   Limited to a direct `belongs_to` because its key is a column of the dataset's own table: counting it adds no join, so no new table that would
   need its own tenant filter.
-- **Limits:** a unit two steps away (`line_items` counted by `order.customer`) is not possible yet; it waits for a real case. Distinct counts cost
-  a little more than `COUNT(*)`, on groups already capped by `max_groups`.
+- **Limits:** a unit two steps away (`line_items` counted by `order.customer`) is not possible yet; it waits for a real case. A distinct count
+  is not cheap, see D3: the compiler writes `COUNT(*)` where it gives the same number, the dataset's own rows when every join is a `belongs_to`
+  on the parent's primary key, and `COUNT(DISTINCT)` only for a joined dataset, an `of:` unit or a metric path that repeats rows.
 
 Rejected: rows only (A: protects rows, not people, and an equality filter on a customer narrows any total to one person); any declared path as
 the unit (B: a unit two steps away adds a join, a table the compiler must filter for the tenant, for a case nobody has yet).
@@ -50,7 +51,20 @@ The explanation (T28) says it from a template: "3 groups of fewer than 5 custome
   the list of customers, and "there is a customer in Lyon" is already something. Removing in SQL keeps the top N honest: the 20 groups shown are
   20 groups that may be shown, not 20 minus the ones removed afterwards.
 - **What it still tells:** how many groups are small, never which ones.
-- **To measure at implementation:** counting the removed groups needs the size of every group, a window over a sub-query or a second query.
+- **Cost, measured at implementation (2026-11-14).** Counting the removed groups is a second query, the same one with the `HAVING` reversed,
+  so a protected answer runs the grouping twice. Synthetic data on local Postgres, one tenant with 50,000 customers in 2,000 cities and 500,000
+  orders, threshold 20, 50 groups shown, both queries together:
+
+  | Query | Exempt role | Protected role | `HAVING` |
+  |---|---|---|---|
+  | `customers` by `city` | 24 ms | 42 ms | `COUNT(*)` |
+  | `orders` by `customer.city`, `customers` protected | 143 ms | 3,547 ms | `COUNT(DISTINCT customers.id)` |
+
+  A distinct count stops Postgres from aggregating by hash or in parallel: it sorts every joined row. `COUNT(*)` keeps the plain plan, hence
+  the rule in D1. What is left is the joined case and `of:`, about 1.8 s per query here, against a default `statement_timeout` of 5 s; a tenant
+  with a few million rows in a joined query reaches `query_timeout`. One pass instead of two (the sizes in a sub-query, the removed groups
+  counted by a window) would halve it; it waits for a real integration that hits the timeout. Rejected: counting distinct pairs in a sub-query
+  first (245 ms in a first measure), because an average, a min or a max cannot be rebuilt from the pairs' sub-totals.
 
 Rejected: kept with a masked value, `< 5` (B: shows the labels of groups under the threshold); merged into "Other" (C: an average, a min or a max
 cannot be rebuilt from the groups', so a second query, and "Other" can be under the threshold itself).
