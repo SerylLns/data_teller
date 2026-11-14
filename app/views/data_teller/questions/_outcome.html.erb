@@ -5,9 +5,10 @@
   <p class="dt-understood">
     <%= outcome.query["dataset"] %> · <%= outcome.query["metric"] %><% if result.period %> · <%= result.period.first %> → <%= result.period.last - 1 %><% end %>
   </p>
-  <% if result.rows.empty? %>
+  <%# Every group hidden is not "nothing matches": the note below says why the table is empty (ADR 0012 D3). %>
+  <% if result.rows.empty? && result.suppressed.zero? %>
     <p class="dt-message"><%= t("data_teller.outcome.no_rows") %></p>
-  <% else %>
+  <% elsif result.rows.any? %>
     <table class="dt-result">
       <thead><tr><% result.columns.each do |column| %><th scope="col"><%= column %></th><% end %></tr></thead>
       <tbody>
@@ -18,6 +19,8 @@
     </table>
     <% if result.truncated %><p class="dt-note"><%= t("data_teller.outcome.truncated", count: result.rows.size) %></p><% end %>
   <% end %>
+  <%# How many, never which: the labels of the hidden groups are data too. %>
+  <% if result.suppressed.positive? %><p class="dt-note"><%= t("data_teller.outcome.suppressed", count: result.suppressed) %></p><% end %>
 <% when :clarify %>
   <p class="dt-message"><%= t("data_teller.outcome.clarify") %></p>
   <ul class="dt-options"><% outcome.query.dig("clarify", "options").each do |option| %><li><%= option %></li><% end %></ul>

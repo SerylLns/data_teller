@@ -12,6 +12,9 @@ en:
       truncated:
         one: Only the first row is shown.
         other: Only the first %{count} rows are shown.
+      suppressed:
+        one: 1 group is not shown, it is about too few people.
+        other: "%{count} groups are not shown, each is about too few people."
     # A forbidden name and an unknown one read the same (ADR 0001 D5).
     refusal:
       unknown_dataset: This isn't something I can answer with the data available to you.
