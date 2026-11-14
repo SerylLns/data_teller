@@ -92,7 +92,8 @@ Every value is a bound parameter, and every column name comes from your declarat
 | LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | ✅ Done |
 | Minimal palette and endpoint, **not for production yet: no per-user limit** | ✅ Done |
 | Security test kit: tenant isolation checked on your own tables, `rake data_teller:isolation` | ✅ Done (v0) |
-| Minimum group size, complexity budget | ⏳ Next |
+| Minimum group size: small groups hidden from the roles you choose | ✅ Done |
+| Complexity budget | ⏳ Next |
 | Prompt tuning, retrieval (RAG), explanations, production UI | ⬜ Not started |
 
 ### First measures
@@ -176,6 +177,24 @@ end
 
 A column that isn't declared can't be queried. A `count` metric exists on every dataset without being declared.
 
+<details>
+<summary>Optional: hide small groups from some roles</summary>
+
+```ruby
+# config/data_teller/customers.rb
+DataTeller.refine Customer do
+  roles :admin, :support
+  tenant_path :account
+  min_group_size 5, except: :admin
+
+  dimension :acquisition_channel
+end
+```
+
+On a dataset that describes people, a group of fewer than 5 rows is hidden from every role not named in `except:`, in any query that reads the dataset, joins included. The answer says how many groups were hidden, never which. A single number under 5 is refused, zero included: if 0 were shown, "hidden" would mean "at least one". `of: :customer` counts the distinct values of a direct `belongs_to` instead of rows, so that twelve orders from one customer count as one ([ADR 0012](docs/adr/0012-aggregate-disclosure.md)).
+
+</details>
+
 ### 3. Check it
 
 ```bash
@@ -239,11 +258,21 @@ These are the rules the project is built around. **Only what is marked as enforc
 | No sentence shown to an end user comes from the LLM | ✅ Enforced: messages come from translations, and clarification options are names the validator checked |
 | With `c.database_role`, queries run as a Postgres role that reads the declared columns only | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
 | With `c.row_security`, that role sees its tenant's rows only, even if the compiler's filter were gone | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
-| Minimum group size | 🗓️ Planned |
+| With `min_group_size`, a group of fewer than N rows, or N of a declared unit, is hidden from the roles not exempted, in any query that reads the dataset; a single value under N is refused | 🔒 Opt-in, per dataset |
 
 Isolation is tested in `spec/security/` against hostile scopes and values, and on table shapes common in host apps (single table inheritance, soft-delete, nullable keys), on real rows across two tenants. That shows the cases tried, not all possible ones.
 
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed; the isolation kit follows the same path, so it cannot catch it either. Polymorphic associations can't be on a path yet, nor can a plain association that reads a polymorphic key without its type: give such a table its own tenant key. The check for sensitive column names is a lint, not a guarantee.
+
+A minimum group size stops a role from reading a small group directly. It does not stop someone who sets out to cross-check answers ([ADR 0012](docs/adr/0012-aggregate-disclosure.md) D5):
+
+- **Totals give a hidden group away.** The total minus the groups shown is the group hidden.
+- **`min` and `max` return one row's value**, however large the group: give them to the exempt roles only, with a metric's `roles:`.
+- **Dominance.** A group where one person makes most of the total gives that person's amount, roughly.
+- **Differencing.** Two questions one person apart give that person's value. Only a rate limit and an audit trail, not built yet, make it slow and visible.
+- **The threshold follows the datasets a query reads, not what a metric means.** A count of distinct customers on `orders` does not read `customers`, so the threshold of `customers` does not apply; declare one on `orders` too, with `of: :customer`.
+
+It also has a cost. Counting distinct customers per group makes Postgres sort every joined row: on 500,000 orders grouped by a customer's city, about 1.8 s per query instead of 0.15 s, and the answer runs two queries. Counting a dataset's own rows stays fast.
 
 ## Development
 
