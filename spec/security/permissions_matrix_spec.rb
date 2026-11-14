@@ -41,8 +41,12 @@ RSpec.describe "Permissions matrix" do
   USES.each do |use, (query, allowed, refusal)|
     ALL.each do |role|
       if allowed.include?(role)
+        # group_too_small counts as allowed: the dummy protects customers from support (ADR 0012), and that refusal comes after the
+        # query ran, every permission passed. Here a customer or none, so a single value about customers is always under it.
         it "#{role} can #{use}" do
-          expect(DataTeller::QueryRunner.call(answer(**query.transform_keys(&:to_sym)), user: user_with(role)).status).to eq(:answered)
+          outcome = DataTeller::QueryRunner.call(answer(**query.transform_keys(&:to_sym)), user: user_with(role))
+
+          expect([ outcome.status, outcome.refusal&.reason ]).to be_in([ [ :answered, nil ], [ :refused, :group_too_small ] ])
         end
       else
         it "#{role} cannot #{use}, and is told the same thing as for something that does not exist" do

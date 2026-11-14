@@ -91,6 +91,19 @@ RSpec.describe "the palette", type: :request do
       expect(response.body).to eq(forbidden)
     end
 
+    # The dummy declares min_group_size 5 on customers, admin exempt (ADR 0012): support sees how many groups are hidden, never which.
+    it "hides a group of too few customers from support, and says how many" do
+      with_llm(count_orders.merge("dataset" => "customers", "group_by" => [ { "dimension" => "acquisition_channel" } ]))
+      5.times { |index| Customer.create!(account: acme, name: "Ads #{index}", email: "ads#{index}@example.test", acquisition_channel: :ads) }
+      Customer.create!(account: acme, name: "Only referral", email: "referral@example.test", acquisition_channel: :referral)
+      sign_in(acme, "support")
+
+      ask("customers by channel?")
+
+      expect(response.body).to include("<td>ads</td>", "1 group is not shown")
+      expect(response.body).not_to include("referral")
+    end
+
     it "escapes what the database holds" do
       with_llm(count_orders.merge("metric" => "count", "group_by" => [ { "dimension" => "customer.name" } ]))
       order(acme, name: "<script>alert(1)</script>")
