@@ -6,11 +6,12 @@ module DataTeller
   class Configuration
     ON_INVALID_CONFIG = %i[raise disable].freeze
 
-    MIN_STATEMENT_TIMEOUT = 0.001
+    MIN_QUERY_TIMEOUT = 0.001
 
     LIMITS = {
-      # Seconds. Postgres reads 0 as "no timeout", which is why zero is refused below.
-      statement_timeout: 5,
+      # Seconds, for a whole question, however many statements it runs (ADR 0013 D2). Postgres reads 0 as "no timeout", which is why
+      # zero is refused below.
+      query_timeout: 5,
       # Applies to a high-cardinality group_by whose dimension has no max_groups (ADR 0004 D3).
       default_max_groups: 50,
       max_rows: 1_000,
@@ -76,16 +77,16 @@ module DataTeller
     end
 
     # A typo here must never mean "no limit".
-    def statement_timeout=(value)
+    def query_timeout=(value)
       # Below a millisecond it would round to 0, which Postgres reads as no timeout.
-      unless value.is_a?(Numeric) && value.real? && value.finite? && value >= MIN_STATEMENT_TIMEOUT
-        raise ConfigurationError, "statement_timeout must be a number of seconds, of at least #{MIN_STATEMENT_TIMEOUT}, got #{value.inspect}"
+      unless value.is_a?(Numeric) && value.real? && value.finite? && value >= MIN_QUERY_TIMEOUT
+        raise ConfigurationError, "query_timeout must be a number of seconds, of at least #{MIN_QUERY_TIMEOUT}, got #{value.inspect}"
       end
 
-      @statement_timeout = value
+      @query_timeout = value
     end
 
-    LIMITS.keys.without(:statement_timeout).each do |name|
+    LIMITS.keys.without(:query_timeout).each do |name|
       define_method(:"#{name}=") do |value|
         # 0 is a real setting for these two: no join allowed, the router on every question.
         minimum = %i[max_joins route_above_datasets].include?(name) ? 0 : 1

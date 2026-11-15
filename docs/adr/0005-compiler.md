@@ -64,7 +64,7 @@ ROLLBACK
   `SELECT 1` is what makes the second part true (amended 2026-11-07): Postgres lets a top-level transaction go back to read-write until its first query, and a `SET` is not one.
   The specs missed it because transactional fixtures turn the guard into a savepoint; a spec now runs it outside any transaction.
 - **A scope can still change its own `statement_timeout`** with `SET LOCAL`. It is the host's code, and nothing inside a transaction can forbid it.
-- **Limits** are settings (`statement_timeout`, `default_max_groups`, `max_rows`, `max_time_points`, `max_joins`). A value that would mean "no limit", such as a timeout of 0, or under a millisecond, which rounded to 0, is a configuration error.
+- **Limits** are settings (`query_timeout`, named `statement_timeout` until ADR 0013 made it a budget per question, `default_max_groups`, `max_rows`, `max_time_points`, `max_joins`). A value that would mean "no limit", such as a timeout of 0, or under a millisecond, which rounded to 0, is a configuration error.
 
 Performance: four more round trips per query (`BEGIN`, two `SET`, `SELECT 1`), and a `ROLLBACK`. Not measured.
 

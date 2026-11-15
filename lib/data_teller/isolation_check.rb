@@ -125,7 +125,7 @@ module DataTeller
       model = @catalog.dataset(query["dataset"]).model_name.constantize
       time_zone = @config.time_zone_for(tenant) || ActiveSupport::TimeZone["UTC"]
 
-      ReadOnlyExecution.run(model, timeout: @config.statement_timeout, role: @config.database_role,
+      ReadOnlyExecution.run(model, timeout: @config.query_timeout, role: @config.database_role,
                                    tenant_id: (key_of(tenant) if @config.row_security)) do
         Compiler.new(catalog: @catalog, tenant: tenant, time_zone: time_zone, now: @now).call(query).plans.map(&block)
       end
@@ -142,7 +142,7 @@ module DataTeller
       keys = as_the_app(query, other) { |plan| plan.row_keys(cap: 50).rows.map(&:last) }.first
       model = field.model
 
-      ReadOnlyExecution.run(model, timeout: @config.statement_timeout) do
+      ReadOnlyExecution.run(model, timeout: @config.query_timeout) do
         model.unscoped.where(model.primary_key => keys).where.not(field.dimension.column => nil).pick(field.dimension.column)
       end
     rescue Compiler::Refused
@@ -182,7 +182,7 @@ module DataTeller
       klass = dataset.model_name.constantize
       return ids.to_h { |id| [ id, id ] } if dataset.tenant_path.nil?
 
-      ReadOnlyExecution.run(klass, timeout: @config.statement_timeout) do
+      ReadOnlyExecution.run(klass, timeout: @config.query_timeout) do
         reached = ids.to_h { |id| [ id, id ] }
         lookup = klass.primary_key
 

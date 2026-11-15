@@ -151,7 +151,7 @@ RSpec.describe DataTeller::ReadOnlyExecution, "outside of any transaction" do
     subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| statements << payload[:sql] }
 
     begin
-      guarded(timeout: DataTeller::Configuration::MIN_STATEMENT_TIMEOUT) { nil }
+      guarded(timeout: DataTeller::Configuration::MIN_QUERY_TIMEOUT) { nil }
     ensure
       ActiveSupport::Notifications.unsubscribe(subscriber)
     end

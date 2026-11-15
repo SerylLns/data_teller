@@ -61,7 +61,7 @@ The explanation (T28) says it from a template: "3 groups of fewer than 5 custome
   | `orders` by `customer.city`, `customers` protected | 143 ms | 3,547 ms | `COUNT(DISTINCT customers.id)` |
 
   A distinct count stops Postgres from aggregating by hash or in parallel: it sorts every joined row. `COUNT(*)` keeps the plain plan, hence
-  the rule in D1. What is left is the joined case and `of:`, about 1.8 s per query here, against a default `statement_timeout` of 5 s; a tenant
+  the rule in D1. What is left is the joined case and `of:`, about 1.8 s per query here, against a default `query_timeout` of 5 s; a tenant
   with a few million rows in a joined query reaches `query_timeout`. One pass instead of two (the sizes in a sub-query, the removed groups
   counted by a window) would halve it; it waits for a real integration that hits the timeout. Rejected: counting distinct pairs in a sub-query
   first (245 ms in a first measure), because an average, a min or a max cannot be rebuilt from the pairs' sub-totals.

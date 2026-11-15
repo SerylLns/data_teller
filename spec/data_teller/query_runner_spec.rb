@@ -584,13 +584,13 @@ RSpec.describe DataTeller::QueryRunner do
 
     describe "statement timeout" do
       it "uses the configured value" do
-        with_settings(statement_timeout: 2)
+        with_settings(query_timeout: 2)
 
         expect(sql_of { run_query(answer) }.map { |s| s[:sql] }).to include("SET LOCAL statement_timeout = 2000")
       end
 
       it "gives a dedicated refusal, and the host's transaction goes on" do
-        with_settings(statement_timeout: 0.05)
+        with_settings(query_timeout: 0.05)
         allow_any_instance_of(DataTeller::Plan).to receive(:execute) { Order.with_connection { |c| c.execute("SELECT pg_sleep(2)") } }
         allow(Rails.logger).to receive(:error)
 
