@@ -64,6 +64,7 @@ module DataTeller
       small = @relation.unscope(:having, :order).having(Arel::Nodes::Not.new(@big_enough)).select(Arel.sql("1"))
       counting = @relation.klass.unscoped.from(small.arel.as("small_groups"))
       recorder&.call(counting.select(Arel.star.count).to_sql)
+      ReadOnlyExecution.before_statement
       counting.count
     end
 
@@ -71,6 +72,7 @@ module DataTeller
     # on their stored values.
     def raw_rows(recorder = nil)
       recorder&.call(to_sql)
+      ReadOnlyExecution.before_statement
       raw = limited.pluck(*aliased_selection)
       @selection.one? ? raw.map { |value| [ value ] } : raw
     end
@@ -92,6 +94,7 @@ module DataTeller
 
       keys = keyed.map { |dataset| dataset.model_name.constantize.then { |model| model.arel_table[model.primary_key] } }
       # The HAVING of a minimum group size goes too: the aggregate reads the rows of the small groups, so they are checked.
+      ReadOnlyExecution.before_statement
       raw = @relation.unscope(:group, :order, :having).limit(cap + 1).pluck(*keys)
       raw = raw.map { |key| [ key ] } if keys.one?
 

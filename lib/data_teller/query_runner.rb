@@ -43,8 +43,8 @@ module DataTeller
     rescue Compiler::Refused => e
       Rails.logger&.info("[DataTeller] query refused by the compiler: #{e.reason}")
       refused(e.reason)
-    rescue ActiveRecord::QueryCanceled => e
-      Rails.logger&.error("[DataTeller] query cancelled by the statement timeout: #{e.class}")
+    rescue ActiveRecord::QueryCanceled, ReadOnlyExecution::OutOfTime => e
+      Rails.logger&.error("[DataTeller] query stopped by the time budget: #{e.class}")
       refused(:query_timeout)
     rescue ActiveRecord::StatementInvalid => e
       # A column missing despite `rake data_teller:check` (ADR 0004 D6), a scope that tried to write, or a column the database

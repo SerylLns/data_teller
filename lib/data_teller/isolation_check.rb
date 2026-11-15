@@ -115,7 +115,7 @@ module DataTeller
     rescue Compiler::Refused => e
       # lookup_required says more than unsupported_query: which rule refused, so the integrator knows what was not tried.
       outcome(probe, tenant, refusal: e.codes.any? ? e.codes.join("+") : e.reason)
-    rescue ActiveRecord::StatementInvalid, Unprovable => e
+    rescue ActiveRecord::StatementInvalid, ReadOnlyExecution::OutOfTime, Unprovable => e
       # The class only: a database message can hold values.
       outcome(probe, tenant, refusal: e.class.name)
     end

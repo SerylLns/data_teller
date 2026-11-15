@@ -45,6 +45,62 @@ RSpec.describe DataTeller::ReadOnlyExecution do
     end
   end
 
+  # ADR 0013 D2: the timeout is for the whole block. Postgres times each statement, so each one gets what is left.
+  describe "the time budget" do
+    def milliseconds(setting) = Integer(setting.delete_suffix("ms"))
+
+    it "gives the next statement the time left" do
+      left = guarded(timeout: 1) do
+        sleep 0.3
+        described_class.before_statement
+        milliseconds(setting("statement_timeout"))
+      end
+
+      expect(left).to be_between(1, 700)
+    end
+
+    # pg_sleep(0.4) fits in the 0.6 s the block started with, not in the 0.3 s left: the database is what stops it.
+    it "has the database cancel a statement that goes past the deadline" do
+      expect do
+        guarded(timeout: 0.6) do
+          sleep 0.3
+          described_class.before_statement
+          Order.with_connection { |c| c.execute("SELECT pg_sleep(0.4)") }
+        end
+      end.to raise_error(ActiveRecord::QueryCanceled)
+    end
+
+    it "sends nothing once the time is spent" do
+      statements = []
+
+      expect do
+        guarded(timeout: 0.05) do
+          sleep 0.06
+          subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| statements << payload[:sql] }
+          begin
+            described_class.before_statement
+          ensure
+            ActiveSupport::Notifications.unsubscribe(subscriber)
+          end
+        end
+      end.to raise_error(described_class::OutOfTime)
+      expect(statements).to be_empty
+    end
+
+    it "gives a run inside another its own budget, and the outer one back after it" do
+      guarded(timeout: 5) do
+        guarded(timeout: 0.05) { sleep 0.06 }
+        described_class.before_statement
+
+        expect(milliseconds(setting("statement_timeout"))).to be > 4_000
+      end
+    end
+
+    it "does nothing outside a guarded run" do
+      expect { described_class.before_statement }.not_to raise_error
+    end
+  end
+
   # T37: the role reads the declared columns only. Created inside the spec's transaction, so it is gone afterwards.
   describe "with a database role" do
     let(:role) { "data_teller_spec_reader" }

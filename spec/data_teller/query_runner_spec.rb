@@ -589,6 +589,20 @@ RSpec.describe DataTeller::QueryRunner do
         expect(sql_of { run_query(answer) }.map { |s| s[:sql] }).to include("SET LOCAL statement_timeout = 2000")
       end
 
+      # Two statements each well under the timeout, together over it (ADR 0013 D2): a compare, or a count of hidden groups.
+      it "is a budget for the whole question, not for each statement" do
+        with_settings(query_timeout: 0.3)
+        allow_any_instance_of(DataTeller::Plan).to receive(:execute).and_wrap_original do |original|
+          2.times.map do
+            sleep 0.2
+            original.receiver.raw_rows
+          end
+        end
+        allow(Rails.logger).to receive(:error)
+
+        expect(run_query(answer).refusal.reason).to eq(:query_timeout)
+      end
+
       it "gives a dedicated refusal, and the host's transaction goes on" do
         with_settings(query_timeout: 0.05)
         allow_any_instance_of(DataTeller::Plan).to receive(:execute) { Order.with_connection { |c| c.execute("SELECT pg_sleep(2)") } }
