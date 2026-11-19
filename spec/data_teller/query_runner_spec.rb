@@ -613,6 +613,68 @@ RSpec.describe DataTeller::QueryRunner do
       end
     end
 
+    describe "estimated cost (ADR 0013 D3)" do
+      def explains(statements) = statements.select { |sql| sql.start_with?("EXPLAIN") }
+      def reads_orders(statements) = statements.select { |sql| sql.include?(%(FROM "orders")) }
+
+      # The estimate of each statement alone, and of the question, from the statements the runner hands to QueryCost.
+      def costs_of(query)
+        with_settings(max_query_cost: 1e12)
+        statements = nil
+        allow(DataTeller::QueryCost).to receive(:estimate).and_wrap_original do |original, model, given, **options|
+          statements = given
+          original.call(model, given, **options)
+        end
+        run_query(query)
+        given = statements
+        [ given.map { |sql| DataTeller::QueryCost.estimate(Order, [ sql ]) }, DataTeller::QueryCost.estimate(Order, given) ]
+      end
+
+      it "sends no EXPLAIN when it is off" do
+        expect(explains(sql_of { run_query(answer) }.map { |s| s[:sql] })).to be_empty
+      end
+
+      it "refuses a question over the threshold before any of its statements runs" do
+        with_settings(max_query_cost: 0.01)
+        outcome = nil
+        statements = sql_of { outcome = run_query(answer) }.map { |s| s[:sql] }
+
+        expect(outcome.refusal.reason).to eq(:too_complex)
+        expect(reads_orders(statements)).to all(start_with("EXPLAIN (FORMAT JSON)"))
+      end
+
+      it "plans in the read-only transaction, then answers under the threshold" do
+        with_settings(max_query_cost: 1e12)
+        outcome = nil
+        statements = sql_of { outcome = run_query(answer) }.map { |s| s[:sql] }
+
+        expect(outcome.result.value).to eq(3)
+        explain = statements.index { |sql| sql.start_with?("EXPLAIN") }
+        expect(statements.index("SET TRANSACTION READ ONLY")).to be < explain
+        expect(explain).to be < statements.index { |sql| sql.include?(%(FROM "orders")) && !sql.start_with?("EXPLAIN") }
+      end
+
+      # Two statements each under the threshold, together over it: a threshold per statement would let a compare through at twice it.
+      it "is for the whole question, every statement added up" do
+        compare = answer("orders", "revenue", period: { "dimension" => "ordered_at", "range" => { "relative" => "last_month" } },
+                                              compare: "previous_period")
+        each, total = costs_of(compare)
+        expect(each.size).to eq(2)
+
+        with_settings(max_query_cost: each.max)
+        expect(run_query(compare).refusal.reason).to eq(:too_complex)
+
+        with_settings(max_query_cost: total)
+        expect(run_query(compare).status).to eq(:answered)
+      end
+
+      it "shows its EXPLAIN in the developer's trace" do
+        with_settings(max_query_cost: 0.01)
+
+        expect(run_query(answer, trace: true).trace).to have_attributes(stage: :execution, sql: [ start_with("EXPLAIN (FORMAT JSON) SELECT") ])
+      end
+    end
+
     # Each path alone is fine. Together Rails aliases the second join, and the sum and the tenant filter read the first one.
     describe "two paths to one table in a query" do
       let(:catalog_models) do

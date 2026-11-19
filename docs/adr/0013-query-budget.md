@@ -48,6 +48,16 @@ the sum of their plans' `Total Cost` is compared to the setting. Over it, the qu
 - **Limits:** an estimate can be wrong by orders of magnitude, mostly on row counts. A low estimate lets a heavy question through, and the time
   budget of D2 stops it; a high one refuses a question that would have been fast.
 
+Implementation notes (2026-11-19):
+
+- Each plan lists the statements it sends (`Plan#statements`), and a spec holds that list to the SQL `execute` actually sends. The previous
+  period of a grouped `compare` is narrowed to the groups shown, which are known only once the current period ran: it is estimated whole,
+  with no narrowing, so it reads no fewer rows than the statement that runs.
+- `EXPLAIN` gets the SQL with its values written in, quoted by Rails as with `prepared_statements: false`: Rails keeps the methods that
+  return the SQL and its binds separately private. The values were cast by the compiler. The planner estimates a literal as it does a bound
+  value in a custom plan; after a few runs Postgres may switch a prepared statement to a generic plan, so the estimate is of the plan for
+  these values, not always of the one cached.
+
 Rejected: a threshold per statement (A2: a protected `compare` would pass at four times the threshold); checking each statement just before it
 runs, adding as it goes (A3: the first statements would have run for nothing when a later one goes over).
 

@@ -12,6 +12,13 @@ module DataTeller
     # For the isolation kit (ADR 0011 D5): both periods are checked.
     def plans = [ @current, @previous ]
 
+    # For the cost estimate (ADR 0013 D3). The previous period of a grouped compare is narrowed to the groups shown, known only once the
+    # current one ran: it is estimated whole, which reads at least the same rows.
+    def statements
+      previous = @group_columns.empty? ? @previous : @previous.narrowed_to([])
+      @current.statements + [ previous.to_sql ]
+    end
+
     def execute(recorder: nil)
       raw = @current.raw_rows(recorder)
       raise Compiler::Refused.new(:group_too_small) if @current.too_small?(raw)

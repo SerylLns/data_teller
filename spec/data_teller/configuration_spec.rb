@@ -172,6 +172,20 @@ RSpec.describe DataTeller::Configuration do
       expect { config.max_time_points = "many" }.to raise_error(DataTeller::ConfigurationError, /max_time_points/)
     end
 
+    # In the planner's units, which have no meaning without the integrator's data (ADR 0013 D1): off until set.
+    it "has no max_query_cost by default, and refuses anything but a positive number or nil" do
+      expect(config.max_query_cost).to be_nil
+
+      config.max_query_cost = 2_500.5
+      expect(config.max_query_cost).to eq(2_500.5)
+      config.max_query_cost = nil
+      expect(config.max_query_cost).to be_nil
+
+      [ 0, -1, "1000", Float::INFINITY, Float::NAN, Complex(1, 1) ].each do |value|
+        expect { config.max_query_cost = value }.to raise_error(DataTeller::ConfigurationError, /max_query_cost/)
+      end
+    end
+
     it "takes 0 for route_above_datasets, the router on every question, and refuses the rest" do
       expect(config.route_above_datasets).to eq(12)
 

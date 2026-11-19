@@ -27,7 +27,7 @@ module DataTeller
     # A plain Postgres name: it is quoted in the SQL anyway, and this keeps a typo from becoming a role nobody created.
     DATABASE_ROLE = /\A[a-z_][a-z0-9_]{0,62}\z/
 
-    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, :row_security, :llm, *LIMITS.keys
+    attr_reader :on_invalid_config, :ui, :roles_resolver, :database_role, :row_security, :llm, :max_query_cost, *LIMITS.keys
 
     def initialize
       @on_invalid_config = :raise
@@ -42,6 +42,7 @@ module DataTeller
       @authorization = nil
       @database_role = nil
       @row_security = false
+      @max_query_cost = nil
       LIMITS.each { |name, value| instance_variable_set(:"@#{name}", value) }
     end
 
@@ -84,6 +85,16 @@ module DataTeller
       end
 
       @query_timeout = value
+    end
+
+    # In the planner's units, not seconds (ADR 0013 D3): they depend on the database's statistics and settings, so there is no default.
+    # nil, off, sends no EXPLAIN at all.
+    def max_query_cost=(value)
+      unless value.nil? || (value.is_a?(Numeric) && value.real? && value.finite? && value.positive?)
+        raise ConfigurationError, "max_query_cost must be a positive number, in the planner's cost units, or nil to turn it off, got #{value.inspect}"
+      end
+
+      @max_query_cost = value
     end
 
     LIMITS.keys.without(:query_timeout).each do |name|

@@ -66,11 +66,29 @@ module DataTeller
                                             tenant_id: (tenant.id if DataTeller.config.row_security)) do
         plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
         @stage = :execution
-        plan.execute(recorder: (->(sql) { @sql << sql } if @trace))
+        check_cost(model, plan)
+        plan.execute(recorder: recorder)
       end
 
       @stage = nil
       outcome(:answered, result: result)
+    end
+
+    # Before anything runs, so a question too heavy has read no row (ADR 0013 D3).
+    def check_cost(model, plan)
+      maximum = DataTeller.config.max_query_cost
+      return unless maximum
+
+      cost = QueryCost.estimate(model, plan.statements, recorder: recorder)
+      return if cost <= maximum
+
+      # The numbers are the planner's, no value of a row: they are what the integrator needs to tune the setting.
+      Rails.logger&.info("[DataTeller] estimated cost #{cost.round} is over max_query_cost #{maximum}")
+      raise Compiler::Refused.new(:too_complex)
+    end
+
+    def recorder
+      ->(sql) { @sql << sql } if @trace
     end
 
     # A count has no "today": a tenant's broken time zone must not refuse it.

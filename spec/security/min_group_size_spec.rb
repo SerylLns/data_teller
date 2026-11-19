@@ -103,6 +103,36 @@ RSpec.describe "Minimum group size" do
     expect(keys.rows.flatten).to match_array(acme.customers.ids)
   end
 
+  # The cost estimate reads Plan#statements before anything runs (ADR 0013 D3): it must hold what execute sends, the count of the
+  # hidden groups included.
+  describe "the statements a plan declares" do
+    def plan_for(query)
+      catalog = DataTeller::Catalog.new(%i[support], registry: registry, tenant_model_name: "Account")
+      DataTeller::Compiler.new(catalog: catalog, tenant: acme, time_zone: ActiveSupport::TimeZone["UTC"], now: now)
+                          .call({ "version" => 1, "intent" => "answer", "metric" => "count" }.merge(query))
+    end
+
+    def sent_by(plan) = [].tap { |sent| plan.execute(recorder: ->(sql) { sent << sql }) }
+
+    it "are the ones it sends, the count of hidden groups included" do
+      plan = plan_for(by_city)
+
+      expect(plan.statements.size).to eq(2)
+      expect(plan.statements).to eq(sent_by(plan))
+    end
+
+    # The previous period is narrowed to the groups shown once the current one ran: it is declared whole, which reads no fewer rows.
+    it "hold both periods of a compare, the previous one whole" do
+      plan = plan_for(by_city("orders", period: { "dimension" => "ordered_at", "range" => { "last" => { "n" => 7, "unit" => "day" } } },
+                                        compare: "previous_period"))
+      sent = sent_by(plan)
+
+      expect(plan.statements.size).to eq(sent.size)
+      expect(plan.statements.first(2)).to all(be_in(sent))
+      expect(plan.statements.last).not_to include(" IN (")
+    end
+  end
+
   describe "a single value" do
     def in_city(city) = { "dataset" => "customers", "filters" => [ { "dimension" => "city", "op" => "eq", "value" => city } ] }
 

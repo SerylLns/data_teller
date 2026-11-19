@@ -59,13 +59,16 @@ module DataTeller
 
     # The groups the HAVING left out, counted apart: the answer cannot hold them. Their labels and values never leave the database.
     def suppressed(recorder = nil)
-      return 0 unless protected? && grouped?
+      return 0 unless counts_suppressed?
 
-      small = @relation.unscope(:having, :order).having(Arel::Nodes::Not.new(@big_enough)).select(Arel.sql("1"))
-      counting = @relation.klass.unscoped.from(small.arel.as("small_groups"))
-      recorder&.call(counting.select(Arel.star.count).to_sql)
+      recorder&.call(suppressed_counting.select(Arel.star.count).to_sql)
       ReadOnlyExecution.before_statement
-      counting.count
+      suppressed_counting.count
+    end
+
+    # Every statement execute sends, known before any runs, for the cost estimate (ADR 0013 D3).
+    def statements
+      [ to_sql, (suppressed_counting.select(Arel.star.count).to_sql if counts_suppressed?) ].compact
     end
 
     # As returned by the database, with the extra row that tells a result was cut. ComparedPlan works on these: groups line up
@@ -112,6 +115,13 @@ module DataTeller
     end
 
     private
+
+    def counts_suppressed? = protected? && grouped?
+
+    def suppressed_counting
+      small = @relation.unscope(:having, :order).having(Arel::Nodes::Not.new(@big_enough)).select(Arel.sql("1"))
+      @relation.klass.unscoped.from(small.arel.as("small_groups"))
+    end
 
     # Counted on the dates, not the rows: by status and by day, 90 days is 90 points on 450 rows. Cutting would hide the end.
     def series_too_long?(raw)
