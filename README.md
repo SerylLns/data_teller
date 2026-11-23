@@ -104,7 +104,7 @@ Both say little until retrieval and tuning have something to compare to.
 
 - A filter on a name the user wrote ("orders from Alice") is refused: lookups are not implemented yet.
 - Each question stands alone: "and in June?" after a first question does not work.
-- With a soft-deleted parent, a total and its breakdown can disagree. The total keeps a row whose parent is deleted (who owns a row does not depend on a soft-delete), while a `group_by` through that parent leaves it out, since the parent's `default_scope` applies to the join. With `discard`, which has no `default_scope`, discarded rows are counted unless a segment leaves them out.
+- With a soft-deleted parent, a total and its breakdown can disagree. The total keeps a row whose parent is deleted (who owns a row does not depend on a soft-delete), while a `group_by` through that parent leaves it out, since the parent's `default_scope` applies to the join. The same goes for an `always` condition. With `discard`, which has no `default_scope`, discarded rows are counted unless `always` leaves them out.
 
 ## Try it in your app
 
@@ -194,6 +194,23 @@ end
 ```
 
 On a dataset that describes people, a group of fewer than 5 rows is hidden from every role not named in `except:`, in any query that reads the dataset, joins included. The answer says how many groups were hidden, never which. A single number under 5 is refused, zero included: if 0 were shown, "hidden" would mean "at least one". `of: :customer` counts the distinct values of a direct `belongs_to` instead of rows, so that twelve orders from one customer count as one ([ADR 0012](docs/adr/0012-aggregate-disclosure.md)).
+
+</details>
+
+<details>
+<summary>Optional: leave out rows your app always hides</summary>
+
+```ruby
+# config/data_teller/orders.rb
+DataTeller.refine Order do
+  roles :admin, :support
+  tenant_path :account
+  always where: { archived: false }
+  always scope: :not_cancelled   # the negative scope Rails defines for `enum :status`
+end
+```
+
+For rows your app hides on every screen without a `default_scope`: archived with `discard`, or a status left out by a policy scope. Every query that reads the dataset gets the condition, joins included, and the model never sees it. It takes a segment's `where:` or `scope:`, and the same checks apply. A "not equal" goes in a scope; on an enum, Rails already defines one per value ([ADR 0014](docs/adr/0014-always-conditions.md)).
 
 </details>
 
