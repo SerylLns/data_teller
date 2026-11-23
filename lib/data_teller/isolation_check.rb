@@ -91,6 +91,36 @@ module DataTeller
       end
     end
 
+    # As QueryRunner runs it, with the same database role and row security, so that the report is about what the app does. Also
+    # CostReport's way in (ADR 0013 D4).
+    def as_the_app(query, tenant, &block)
+      model = @catalog.dataset(query["dataset"]).model_name.constantize
+      time_zone = @config.time_zone_for(tenant) || ActiveSupport::TimeZone["UTC"]
+
+      ReadOnlyExecution.run(model, timeout: @config.query_timeout, role: @config.database_role,
+                                   tenant_id: (key_of(tenant) if @config.row_security)) do
+        Compiler.new(catalog: @catalog, tenant: tenant, time_zone: time_zone, now: @now).call(query).plans.map(&block)
+      end
+    end
+
+    # A value of `field` in the rows `tenant` reads, through the app's own path. Read as another tenant, it is the "another customer's
+    # id" attack: a value the other tenant could really see, read back by primary key outside it. CostReport reads the tenant's own.
+    def value_seen_by(field, tenant)
+      # The table that holds the column: the last one joined for a path (customer.city), the dataset's own otherwise.
+      owner = field.via.last ? @catalog.dataset(field.via.last.name) : @catalog.datasets.find { |entry| entry.model_name == field.model_name }
+      return nil unless owner
+
+      query = { "version" => 1, "intent" => "answer", "dataset" => owner.name.to_s, "metric" => default_metric(owner).name.to_s }
+      keys = as_the_app(query, tenant) { |plan| plan.row_keys(cap: 50).rows.map(&:last) }.first
+      model = field.model
+
+      ReadOnlyExecution.run(model, timeout: @config.query_timeout) do
+        model.unscoped.where(model.primary_key => keys).where.not(field.dimension.column => nil).pick(field.dimension.column)
+      end
+    rescue Compiler::Refused
+      nil
+    end
+
     private
 
     def default_metric(entry) = entry.metrics.find { |metric| metric.name == :count } || entry.metrics.first
@@ -104,7 +134,7 @@ module DataTeller
     def run(probe, tenant, other)
       query = probe.query
       if probe.other_value
-        value = other && value_of_another_tenant(probe.other_value, other)
+        value = other && value_seen_by(probe.other_value, other)
         return outcome(probe, tenant, refusal: other ? :no_value_in_another_tenant : :one_tenant_only) if value.nil?
 
         query = query.merge("filters" => [ { "dimension" => probe.other_value.name.to_s, "op" => "eq", "value" => value } ])
@@ -118,35 +148,6 @@ module DataTeller
     rescue ActiveRecord::StatementInvalid, ReadOnlyExecution::OutOfTime, Unprovable => e
       # The class only: a database message can hold values.
       outcome(probe, tenant, refusal: e.class.name)
-    end
-
-    # As QueryRunner runs it, with the same database role and row security, so that the report is about what the app does.
-    def as_the_app(query, tenant, &block)
-      model = @catalog.dataset(query["dataset"]).model_name.constantize
-      time_zone = @config.time_zone_for(tenant) || ActiveSupport::TimeZone["UTC"]
-
-      ReadOnlyExecution.run(model, timeout: @config.query_timeout, role: @config.database_role,
-                                   tenant_id: (key_of(tenant) if @config.row_security)) do
-        Compiler.new(catalog: @catalog, tenant: tenant, time_zone: time_zone, now: @now).call(query).plans.map(&block)
-      end
-    end
-
-    # The "another customer's id" attack: a value that exists only in the other tenant's rows. Read through the app's own path,
-    # so it is a value the other tenant could really see, then read back by primary key outside it.
-    def value_of_another_tenant(field, other)
-      # The table that holds the column: the last one joined for a path (customer.city), the dataset's own otherwise.
-      owner = field.via.last ? @catalog.dataset(field.via.last.name) : @catalog.datasets.find { |entry| entry.model_name == field.model_name }
-      return nil unless owner
-
-      query = { "version" => 1, "intent" => "answer", "dataset" => owner.name.to_s, "metric" => default_metric(owner).name.to_s }
-      keys = as_the_app(query, other) { |plan| plan.row_keys(cap: 50).rows.map(&:last) }.first
-      model = field.model
-
-      ReadOnlyExecution.run(model, timeout: @config.query_timeout) do
-        model.unscoped.where(model.primary_key => keys).where.not(field.dimension.column => nil).pick(field.dimension.column)
-      end
-    rescue Compiler::Refused
-      nil
     end
 
     def check(probe, tenant, read)

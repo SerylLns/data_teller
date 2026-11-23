@@ -86,6 +86,9 @@ module DataTeller
     def metric_decoder = @decoders.last
     attr_reader :columns, :period, :touched
 
+    # The dataset's model: its connection is the one the statements run on.
+    def model = @relation.klass
+
     # ---- for the isolation kit only (ADR 0011 D5): no field of a query leads here.
 
     def plans = [ self ]

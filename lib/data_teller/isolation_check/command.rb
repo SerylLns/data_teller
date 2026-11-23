@@ -32,14 +32,16 @@ module DataTeller
 
       def tenant_model = @config.tenant_model_name.constantize
 
-      # TENANTS=12,57,301 replaces the default three, in that order.
-      def chosen_tenants
-        ids = @env["TENANTS"]&.split(",")&.map(&:strip)&.reject(&:empty?)
+      def chosen_tenants = Command.tenants(@env["TENANTS"], tenant_model)
+
+      # TENANTS=12,57,301 replaces the default three, in that order. Shared with rake data_teller:costs.
+      def self.tenants(listed, tenant_model)
+        ids = listed&.split(",")&.map(&:strip)&.reject(&:empty?)
         return IsolationCheck.default_tenants(tenant_model) if ids.nil? || ids.empty?
 
         found = tenant_model.unscoped.where(tenant_model.primary_key => ids).index_by { |tenant| tenant.public_send(tenant_model.primary_key).to_s }
         missing = ids - found.keys
-        raise Usage, "TENANTS: no #{@config.tenant_model_name} with id #{missing.join(', ')}" if missing.any?
+        raise Usage, "TENANTS: no #{tenant_model.name} with id #{missing.join(', ')}" if missing.any?
 
         ids.map { |id| found[id] }
       end

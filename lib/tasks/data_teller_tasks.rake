@@ -44,6 +44,13 @@ namespace :data_teller do
     exit DataTeller::IsolationCheck::Command.new.call
   end
 
+  desc "Print each isolation-kit query's estimated cost next to its real duration, to choose max_query_cost. Runs them for real: " \
+       "use a copy of production, not the primary. TENANTS=12,57,301"
+  task costs: :environment do
+    # Read-only and always rolled back, each query under query_timeout. Prints costs and durations, never a value.
+    exit DataTeller::CostReport::Command.new.call
+  end
+
   desc "Validate the DataTeller declarations, columns included (run it in CI and after migrations)"
   task check: %i[defer_boot environment] do
     report = DataTeller.check(Rails.root, schema: true)
