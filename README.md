@@ -1,52 +1,52 @@
-<h1 align="center">DataTeller</h1>
-
 <p align="center">
-  <strong>Your users ask questions about their own data in plain language.<br>The LLM never writes SQL.</strong>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.svg">
+    <img src="docs/assets/banner-light.svg" width="900" alt="DataTeller: a question goes to an LLM that fills a JSON query; a validator, a compiler that adds the tenant filter, and a read-only Postgres transaction take it from there. The LLM never writes SQL.">
+  </picture>
 </p>
 
 <p align="center">
   <a href="https://github.com/SerylLns/data_teller/actions/workflows/ci.yml"><img src="https://github.com/SerylLns/data_teller/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/status-experimental-orange" alt="Status: experimental">
   <img src="https://img.shields.io/badge/ruby-%3E%3D%203.2-CC342D?logo=ruby&logoColor=white" alt="Ruby 3.2 or later">
   <img src="https://img.shields.io/badge/rails-%3E%3D%207.2-D30001?logo=rubyonrails&logoColor=white" alt="Rails 7.2 or later">
   <img src="https://img.shields.io/badge/PostgreSQL-only-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL only">
   <a href="MIT-LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://dev.to/seryllns_/building-datateller-0-why-i-dont-let-an-llm-write-sql-2hjl"><img src="https://img.shields.io/badge/the%20build-on%20dev.to-0A0A0A?logo=devdotto&logoColor=white" alt="The build, written up on dev.to"></a>
 </p>
 
 <p align="center">
+  <a href="#why">Why</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#where-it-stands">Where it stands</a> ·
   <a href="#try-it-in-your-app">Try it</a> ·
   <a href="#security-model">Security model</a> ·
-  <a href="#design-decisions">Design decisions</a>
+  <a href="#follow-the-build">Follow the build</a>
 </p>
 
-A mountable Rails engine for multi-tenant apps. The LLM fills in a structured query, which is validated against what you declared, then compiled to ActiveRecord with the tenant filter added by the compiler.
+DataTeller is a mountable Rails engine for multi-tenant apps. Your users ask a question in their own words; an LLM turns it into a structured query, which is checked against what you declared, then compiled to ActiveRecord with the tenant filter added by the compiler, on every table.
 
 > [!WARNING]
 > **Early work in progress, not for production.** It answers questions through a minimal palette, with OpenAI only. There is no per-user limit yet, so anyone with access can spend your provider budget. It is not on RubyGems.
 
-## How it works
+## Why
 
 Letting a model write SQL makes tenant isolation an instruction in a prompt, and every query a piece of generated code that nobody reviewed. DataTeller takes the opposite approach: the model only picks names from a closed list, and everything that touches the database is our code.
 
-```mermaid
-flowchart TD
-    Q([Question]) --> N["Narrow the catalog<br/>to what is relevant"]
-    N -- "the question and the names this role can see,<br/>never rows from the database" --> L["The LLM fills in a JSON query"]
-    L --> V["Validate names, types and permissions"]
-    V --> C["Compile to ActiveRecord,<br/>tenant filter last"]
-    C --> R["Run read-only, with limits"]
-    R --> A([Result, and what it was read from])
+| | Text-to-SQL | DataTeller |
+|---|---|---|
+| **Who writes the SQL** | The model | The compiler, from your declarations |
+| **Tenant isolation** | A line in the prompt, or a check on SQL someone else wrote | A filter the compiler adds to every table it touches, checked before the query runs |
+| **What a prompt injection gets** | Whatever SQL the checks miss | A query the user was allowed to ask anyway, or a refusal |
+| **What the provider sees** | Depends on the tool: the schema, sometimes sample rows | The question, the date and the names this role may use. Never a row |
+| **How you test it** | Read the queries it generated | `rake data_teller:isolation` traces every row read back to its tenant, on your own tables |
+| **What it costs you** | Little setup | Declarations to write, and only the question shapes the format allows |
 
-    classDef untrusted stroke:#cf222e,stroke-width:2px
-    classDef ours stroke:#1a7f37,stroke-width:2px
-    class L untrusted
-    class V,C,R ours
-```
+## How it works
 
-<sub>Red: untrusted output. Green: our code, from there on.</sub>
+The banner above is the whole pipeline, and only one step of it is the model's. Before that step, the role's catalog is narrowed to what the question needs (a router call above 12 datasets); after it, the JSON is validated against the role's permissions, compiled with bound parameters only, and run in a read-only transaction with a time budget. The answer is a table, with the dataset, metric and period it was read from.
 
-Retrieval (RAG) and a written explanation of the answer are the plan, not built yet. Today the role's whole catalog goes in the prompt (above 12 datasets, a router call narrows it first), and the answer is a table with the dataset, metric and period it was read from.
+Retrieval (RAG) and a written explanation of the answer are the plan, not built yet.
 
 ### One question, end to end
 
@@ -79,22 +79,12 @@ Every value is a bound parameter, and every column name comes from your declarat
 
 ## Where it stands
 
-| Piece | State |
-|---|---|
-| Query format (JSON Schema), declaration DSL, tenant declaration | ✅ Done |
-| Boot validation, `rake data_teller:check` | ✅ Done |
-| Per-role catalog, schema generated for the LLM | ✅ Done |
-| Query validator, permissions by role on every use of a name | ✅ Done |
-| Compiler, tenant filter on every table, period comparison (`compare`) | ✅ Done |
-| Execution guards: read-only transaction, a time budget per question, row and group caps | ✅ Done |
-| Read-only database role limited to the declared columns, Postgres row-level security | ✅ Done |
-| Evaluation suite, `rake data_teller:eval` | ✅ Done |
-| LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | ✅ Done |
-| Minimal palette and endpoint, **not for production yet: no per-user limit** | ✅ Done |
-| Security test kit: tenant isolation checked on your own tables, `rake data_teller:isolation` | ✅ Done (v0) |
-| Minimum group size: small groups hidden from the roles you choose | ✅ Done |
-| Query budget: one time limit for a whole question, an optional cost estimate checked before anything runs | ✅ Done |
-| Prompt tuning, retrieval (RAG), explanations, production UI | ⬜ Not started |
+Built one decision at a time, each written down with the options rejected. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+- ✅ **The core, with no LLM in it.** Query format, declaration DSL checked at boot, validator, compiler with the tenant filter on every table, permissions by role on every use of a name, read-only execution with one time budget per question and an optional cost check, a read-only database role and row-level security, a minimum group size.
+- ✅ **Tools to check it on your own data.** `rake data_teller:check`, the isolation kit, the cost report, the evaluation suite.
+- ✅ **A first LLM integration.** OpenAI client, `DataTeller.ask`, a router for large catalogs, a minimal palette. **No per-user limit yet.**
+- ⬜ **Next.** Prompt tuning, retrieval (RAG), filters on names, explanations, rate limits, a production UI.
 
 ### First measures
 
@@ -108,7 +98,7 @@ On fake data, with `gpt-6-luna` and a first prompt nobody has tuned yet:
 - **The 87.6%** counts answers accepted after a review of the first run, which took that run from 79.7% to 85.1% ([ADR 0007](docs/adr/0007-catalog-narrowing.md), [ADR 0009](docs/adr/0009-baseline.md)).
 - **The 70.0%** comes from one run, where one answer is worth 5 points, so the gap between the two numbers is a hint. These questions are never used for tuning, but they were seen during development, so this is not presented as an independent measure ([ADR 0006](docs/adr/0006-evaluation-dataset.md)).
 
-Both say little until retrieval and tuning have something to compare to. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+Both say little until retrieval and tuning have something to compare to.
 
 ### Known gaps
 
@@ -220,9 +210,14 @@ bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODE
 
 An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app boots without the engine and logs the error. The boot itself never reads the database, so it can't block a migration.
 
+<details>
+<summary>What the isolation kit and the cost report do</summary>
+
 `data_teller:isolation` runs one query per declaration (each dimension, segment, metric path, and each filter compared to another tenant's value) as three tenants: by default the first two and the last one. It traces every row each query reads back to its owner through the `tenant_path` foreign keys, apart from the compiler, and exits 1 if a row belongs to another tenant or a table was read without a tenant filter. It only reads, in a transaction that is always rolled back, so you can point it at an anonymised copy of production; it prints dataset names and ids, never a value. A dataset no tenant read a row of is reported as not proved, not as passed ([ADR 0011](docs/adr/0011-isolation-kit.md)).
 
 `data_teller:costs` runs the same queries, as the same tenants, with `EXPLAIN ANALYZE`, and prints each one's estimated cost next to how long it took, sorted by cost, with a line where your `max_query_cost` falls. Set the threshold below the costs where the durations take off, with a margin: these queries are simple, and real questions combine them. Unlike the kit, it runs every query for real, each under `query_timeout`: point it at a copy of production, not at the primary. It prints costs and durations, never a value.
+
+</details>
 
 ### 4. Mount the engine and add the palette
 
@@ -277,6 +272,9 @@ These are the rules the project is built around. **Only what is marked as enforc
 
 Isolation is tested in `spec/security/` against hostile scopes and values, and on table shapes common in host apps (single table inheritance, soft-delete, nullable keys), on real rows across two tenants. That shows the cases tried, not all possible ones.
 
+<details>
+<summary>Known limits: what these rules do not cover</summary>
+
 Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed; the isolation kit follows the same path, so it cannot catch it either. Polymorphic associations can't be on a path yet, nor can a plain association that reads a polymorphic key without its type: give such a table its own tenant key. The check for sensitive column names is a lint, not a guarantee.
 
 A minimum group size stops a role from reading a small group directly. It does not stop someone who sets out to cross-check answers ([ADR 0012](docs/adr/0012-aggregate-disclosure.md) D5):
@@ -289,6 +287,8 @@ A minimum group size stops a role from reading a small group directly. It does n
 
 It also has a cost. Counting distinct customers per group makes Postgres sort every joined row: on 500,000 orders grouped by a customer's city, about 1.8 s per query instead of 0.15 s, and the answer runs two queries. Counting a dataset's own rows stays fast.
 
+</details>
+
 ## Development
 
 You need PostgreSQL with the `vector`, `pg_trgm` and `unaccent` extensions. `docker compose up -d` starts a suitable database on port 5433; if you use it, set `PGHOST=127.0.0.1 PGPORT=5433 PGUSER=postgres PGPASSWORD=postgres`.
@@ -300,7 +300,7 @@ bundle exec rspec
 bin/rubocop
 ```
 
-`spec/dummy` is a small shop app (accounts, customers, products, orders) with **fake, deterministic seeds**, for development and tests only. To run a JSON query on them and see the SQL:
+`spec/dummy` is a small shop app (accounts, customers, products, orders, invoices, refunds, support tickets…) with **fake, deterministic seeds**, for development and tests only. To run a JSON query on them and see the SQL:
 
 ```bash
 cd spec/dummy
@@ -315,9 +315,12 @@ cd spec/dummy
 OPENAI_API_KEY=... bin/rails server   # then open http://localhost:3000, sign in, and press Ctrl/Cmd+K
 ```
 
-## Design decisions
+## Follow the build
 
-Each decision is written down with the options that were rejected:
+I'm writing the build up as a series on dev.to, decisions and measures included: [part 0, why I don't let an LLM write SQL](https://dev.to/seryllns_/building-datateller-0-why-i-dont-let-an-llm-write-sql-2hjl).
+
+<details>
+<summary>The design decisions, each with the options rejected</summary>
 
 | ADR | Decision |
 |---|---|
@@ -334,6 +337,10 @@ Each decision is written down with the options that were rejected:
 | [0011](docs/adr/0011-isolation-kit.md) | The isolation kit: proving tenant isolation on the integrator's own tables |
 | [0012](docs/adr/0012-aggregate-disclosure.md) | Aggregate disclosure: a minimum group size per dataset |
 | [0013](docs/adr/0013-query-budget.md) | The query budget: a time per question, and an optional cost estimate |
+
+</details>
+
+Found a security issue? Please don't open a public issue: see [SECURITY.md](SECURITY.md).
 
 ## License
 
