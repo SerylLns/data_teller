@@ -89,6 +89,15 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
   this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.
+- **T41 Integrator documentation.** Added 2026-11-23: the README is both the pitch and the only guide, and no reference exists, so some DSL
+  options (`synonyms`, `max_groups`, `lookup:`, `group:`) are documented nowhere. Markdown in `docs/`, no site and no new dependency until the gem
+  is published. In order:
+  - **References**, the stable part: every DSL keyword with its options, every setting with its default, every rake task. A spec fails when a
+    setting or a keyword is missing from them, so the reference cannot drift in silence.
+  - **An integration guide**, written during the first real integration (the production app tried locally, then T40): its gaps show where an
+    integrator falls into them, not where they are guessed.
+  - **The README back to a showcase**: the pitch, a quick start, links to the guide, the references and the security model.
+  - A site (and a choice of tool) at publication, with T34.
 - **T40 `data_teller-demo` repository** (after T13b). Separate Rails app using the gem like an integrator. Decided 2026-11-07, two parts in one app:
   - **The demo: a fake merchant back-office** (dashboard, orders, a customer page; 3 or 4 read-only pages, generated from fake seeds, no real
     back-office features) with the DataTeller palette of T13b as the point of it: an end user asks, and gets the answer the way a real app would show it.
