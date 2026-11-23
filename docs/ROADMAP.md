@@ -89,6 +89,9 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
   this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.
+- **T42 Conditions always applied** (done 2026-11-23, [ADR 0014](adr/0014-always-conditions.md)). Found in the first real integration: rows
+  an app hides without a `default_scope` (a status left out by its policy scope, `discard`) were counted. `always where:` / `always scope:` on a
+  dataset, applied on every table the query reads, joins included. Not a security item: it only narrows, the tenant filter does not depend on it.
 - **T41 Integrator documentation.** Added 2026-11-23: the README is both the pitch and the only guide, and no reference exists, so some DSL
   options (`synonyms`, `max_groups`, `lookup:`, `group:`) are documented nowhere. Markdown in `docs/`, no site and no new dependency until the gem
   is published. In order:
