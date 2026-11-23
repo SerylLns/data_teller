@@ -276,6 +276,15 @@ RSpec.describe DataTeller::ModelValidator do
       expect(DataTeller::ModelLookup.declared_scope?(SpecChild, :inherited_one)).to be(true)
     end
 
+    it "accepts an always condition on a scope of the model (ADR 0014)" do
+      expect(errors_for("Order", %i[account], always: [ DataTeller::Always.new(scope: :paid) ])).to eq([])
+    end
+
+    it "refuses an always condition on a scope the model does not declare (ADR 0014)" do
+      expect(errors_for("Order", %i[account], always: [ DataTeller::Always.new(scope: :nope) ]))
+        .to contain_exactly(/always scope: :nope: Order has no scope :nope/)
+    end
+
     it "leaves built-in methods to the declaration lint, which has a clearer message" do
       expect(errors_for("Order", %i[account], segments: [ scope_segment(:destroy_all) ])).to eq([])
     end

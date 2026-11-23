@@ -201,6 +201,21 @@ RSpec.describe DataTeller::Validator do
     end
   end
 
+  # ADR 0014: it applies to everyone, so it needs no roles; a built-in method is refused as for a segment.
+  describe "always conditions" do
+    it "accept a scope of the model without roles" do
+      dataset(always: [ DataTeller::Always.new(scope: :paid) ])
+
+      expect(report).to be_ok
+    end
+
+    it "refuse a built-in ActiveRecord method" do
+      dataset(always: [ DataTeller::Always.new(scope: :unscoped) ])
+
+      expect(report.errors).to include(/always scope: :unscoped: a built-in ActiveRecord method/)
+    end
+  end
+
   it "requires explicit roles on a scope segment" do
     dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :vip_customers) ])
 

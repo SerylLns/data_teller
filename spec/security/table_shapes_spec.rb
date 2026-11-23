@@ -53,8 +53,8 @@ RSpec.describe "Table shapes" do
     SpecNote.create!(account: nil, value: sentinel)
   end
 
-  def dataset(model, tenant_path, column: :amount_cents, dimensions: [])
-    DataTeller::Dataset.new(model_name: model, roles: %i[admin], tenant_path: tenant_path,
+  def dataset(model, tenant_path, column: :amount_cents, dimensions: [], always: [])
+    DataTeller::Dataset.new(model_name: model, roles: %i[admin], tenant_path: tenant_path, always: always,
                             dimensions: dimensions.map { |name| DataTeller::Dimension.new(name: name, group: true) },
                             metrics: [ DataTeller::Metric.new(name: :total, aggregation: :sum, column: column) ])
   end
@@ -111,6 +111,49 @@ RSpec.describe "Table shapes" do
 
       expect(rows(declared, "spec_disputes")).to eq([ [ 70 ] ])
       expect(rows(declared, "spec_disputes", tenant: globex)).to eq([ [ sentinel * 2 ] ])
+    end
+  end
+
+  # The same soft-delete with no default_scope, as `discard` has it, or a status the app hides in its policy only (ADR 0014).
+  describe "conditions always applied" do
+    before do
+      SpecPayment.scope :kept, -> { where(deleted_at: nil) }
+      SpecPayment.scope :not_refunds, -> { where.not(type: "SpecRefund") }
+    end
+
+    let(:kept) { DataTeller::Always.new(where: { deleted_at: nil }) }
+
+    it "leaves the rows out of the dataset, as a where: or as a scope" do
+      expect(rows([ dataset("SpecPayment", %i[order account], always: [ kept ]) ], "spec_payments")).to eq([ [ 3_800 ] ])
+      expect(rows([ dataset("SpecPayment", %i[order account], always: [ DataTeller::Always.new(scope: :kept) ]) ], "spec_payments")).to eq([ [ 3_800 ] ])
+      expect(rows([ dataset("SpecPayment", %i[order account], always: [ kept ]) ], "spec_payments", tenant: globex)).to eq([ [ sentinel * 2 ] ])
+    end
+
+    it "applies every condition, a negation written as a scope among them" do
+      both = [ kept, DataTeller::Always.new(scope: :not_refunds) ]
+
+      expect(rows([ dataset("SpecPayment", %i[order account], always: both) ], "spec_payments")).to eq([ [ 5_000 ] ])
+    end
+
+    it "leaves the rows out of a joined table, built on that table" do
+      declared = [ dataset("SpecDispute", %i[payment order account]), dataset("SpecPayment", %i[order account], dimensions: %i[amount_cents], always: [ kept ]) ]
+
+      expect(rows(declared, "spec_disputes", by_payment_amount("payment"))).to contain_exactly([ -1_200, 10 ], [ 5_000, 20 ])
+    end
+
+    # As with a default_scope: the total keeps the dispute on a deleted payment, the breakdown through it does not (ADR 0014 D2).
+    it "does not change who owns a row" do
+      declared = [ dataset("SpecDispute", %i[payment order account]), dataset("SpecPayment", %i[order account], always: [ kept ]) ]
+
+      expect(rows(declared, "spec_disputes")).to eq([ [ 70 ] ])
+      expect(rows(declared, "spec_disputes", tenant: globex)).to eq([ [ sentinel * 2 ] ])
+    end
+
+    it "refuses the query when the scope no longer holds only conditions" do
+      SpecPayment.scope :kept, -> { where(deleted_at: nil).limit(1) }
+
+      expect { rows([ dataset("SpecPayment", %i[order account], always: [ DataTeller::Always.new(scope: :kept) ]) ], "spec_payments") }
+        .to raise_error(DataTeller::Compiler::Refused, /scope :kept uses limit/)
     end
   end
 

@@ -41,6 +41,22 @@ RSpec.describe "DataTeller.refine" do
     expect(size.applies_to?(%i[analyst_added_later])).to be(true)
   end
 
+  # ADR 0014: the grammar of a segment, no name, no roles.
+  it "declares conditions always applied, in order" do
+    dataset = refine_orders do
+      always where: { status: %i[paid shipped] }
+      always scope: :with_coupon
+    end
+
+    expect(dataset.always).to eq([ DataTeller::Always.new(where: { status: %i[paid shipped] }), DataTeller::Always.new(scope: :with_coupon) ])
+    expect(refine_orders { roles :admin }.always).to eq([])
+  end
+
+  it "leaves the fingerprint of a dataset without an always condition as it was" do
+    expect(refine_orders { roles :admin }.to_h).not_to have_key(:always)
+    expect(refine_orders { always scope: :with_coupon }.to_h[:always]).to eq([ { scope: :with_coupon, where: nil } ])
+  end
+
   it "keeps the tenant path in order" do
     expect(refine_orders { tenant_path :customer, :account }.tenant_path).to eq(%i[customer account])
   end
@@ -101,6 +117,14 @@ RSpec.describe "DataTeller.refine" do
 
     it "rejects a lambda in a segment" do
       expect { refine_orders { segment :today, where: -> { Date.today } } }.to raise_error(DataTeller::DeclarationError, /where: must be a non-empty Hash/)
+    end
+
+    it "rejects an always condition with both forms, neither, a lambda or a relative offset" do
+      expect { refine_orders { always } }.to raise_error(DataTeller::DeclarationError, /always: give exactly one of where: or scope:/)
+      expect { refine_orders { always where: { status: :paid }, scope: :with_coupon } }.to raise_error(DataTeller::DeclarationError, /always: give exactly one/)
+      expect { refine_orders { always where: -> { Date.today } } }.to raise_error(DataTeller::DeclarationError, /always: where: must be a non-empty Hash/)
+      expect { refine_orders { always where: { ship_on: { days_ago: 30 } } } }.to raise_error(DataTeller::DeclarationError, /relative offset/)
+      expect { refine_orders { always scope: :paid, roles: :admin } }.to raise_error(DataTeller::DeclarationError, /Order.*roles/)
     end
 
     it "rejects a duplicate name inside a dataset and a dataset declared twice" do

@@ -66,6 +66,7 @@ module DataTeller
       # A default order cannot apply to an aggregate. Everything else a default_scope could hold is refused just above.
       relation = apply_scope_segments(@klass.all.unscope(:order))
       relation = apply_joins(relation)
+      relation = apply_always(relation)
       relation = apply_conditions(relation)
 
       # Last on purpose: a scope above can hold anything, and nothing below removes a condition (ADR 0005 D1).
@@ -146,6 +147,23 @@ module DataTeller
       end
     rescue ScopeInspector::Rejected => e
       raise Refused.new(:unsupported_query, e.message)
+    end
+
+    # Every table read, joined ones included, as a default_scope would be (ADR 0014 D2). Each condition is an Arel node on its own
+    # table: a hash given to `where` would be read against the dataset's table.
+    def apply_always(relation)
+      touched_datasets.reduce(relation) do |current, dataset|
+        klass = dataset.model_name.constantize
+        dataset.always.filter_map { |condition| always_node(klass, condition) }.reduce(current) { |inner, node| inner.where(node) }
+      end
+    rescue ScopeInspector::Rejected => e
+      raise Refused.new(:unsupported_query, e.message)
+    end
+
+    def always_node(klass, condition)
+      return ScopeInspector.conditions(klass, condition.scope) if condition.scope?
+
+      Arel::Nodes::Grouping.new(klass.unscoped.where(condition.where).where_clause.ast)
     end
 
     def apply_joins(relation)

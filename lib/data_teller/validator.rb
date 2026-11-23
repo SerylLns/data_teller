@@ -90,6 +90,7 @@ module DataTeller
       check_dimensions(dataset)
       check_same_column_same_roles(dataset)
       check_segments(dataset)
+      check_always(dataset)
       check_metrics(dataset)
       check_metric_columns(dataset)
       check_role_narrowing(dataset)
@@ -161,6 +162,15 @@ module DataTeller
         if segment.where && segment.roles.nil? && sensitive_identifier?(*segment.where.keys)
           @errors << "#{at}: a condition on a sensitive-looking column needs explicit `roles:`"
         end
+      end
+    end
+
+    # No roles to require: an always condition applies to everyone and is never shown (ADR 0014).
+    def check_always(dataset)
+      dataset.always.each do |condition|
+        next unless condition.scope? && ActiveRecord::Base.respond_to?(condition.scope)
+
+        @errors << "dataset #{dataset.name}, #{condition.label}: a built-in ActiveRecord method, not a scope of the model"
       end
     end
 

@@ -91,6 +91,13 @@ RSpec.describe DataTeller::ReaderGrants do
       .to eq("accounts" => %w[id name])
   end
 
+  # ADR 0014: the compiler compares them on every query, so the role must read them.
+  it "grants the columns of always conditions, as a where: and as a scope" do
+    columns = columns_for(dataset("SpecGrantOrder", always: [ DataTeller::Always.new(where: { coupon_id: nil }), DataTeller::Always.new(scope: :touched) ]))
+
+    expect(columns["orders"]).to include("coupon_id", "updated_at")
+  end
+
   it "adds nothing for a scope the compiler would refuse" do
     SpecGrantOrder.scope :reads_raw_sql, -> { where("total_cents > 0") }
 

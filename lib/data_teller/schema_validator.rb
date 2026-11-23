@@ -38,6 +38,7 @@ module DataTeller
       dataset.dimensions.each_value { |dimension| check_dimension(dataset, klass, dimension) }
       dataset.metrics.each_value { |metric| check_metric(dataset, klass, metric) }
       dataset.segments.each_value { |segment| check_segment(dataset, klass, segment) }
+      dataset.always.each { |condition| check_always(dataset, klass, condition) }
     end
 
     def check_dimension(dataset, klass, dimension)
@@ -84,6 +85,17 @@ module DataTeller
       else
         # A nested hash such as { days_ago: 30 } is a declarative condition, interpreted by the compiler.
         segment.where.each { |key, value| column_of(at, klass, key.to_s) unless value.is_a?(Hash) }
+      end
+    end
+
+    # As a segment: the same scope checks, and plain values only, so every key is a column (ADR 0014).
+    def check_always(dataset, klass, condition)
+      at = "dataset #{dataset.name}, #{condition.label}"
+
+      if condition.scope?
+        check_scope(at, klass, condition.scope) if ModelLookup.declared_scope?(klass, condition.scope)
+      else
+        condition.where.each_key { |key| column_of(at, klass, key.to_s) }
       end
     end
 

@@ -68,6 +68,7 @@ module DataTeller
       dataset.dimensions.each_value { |dimension| table << dimension.column }
       dataset.metrics.each_value { |metric| collect_metric(klass, metric, found) }
       dataset.segments.each_value { |segment| collect_segment(klass, segment, table) }
+      dataset.always.each { |condition| collect_segment(klass, condition, table) }
       table.merge(compared_columns(klass, default_scope_conditions(klass)))
       collect_tenant_path(klass, dataset.tenant_path, found)
       collect_dimension_paths(klass, dataset, found)

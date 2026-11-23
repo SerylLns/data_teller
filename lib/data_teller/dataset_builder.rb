@@ -15,6 +15,7 @@ module DataTeller
       @dimensions = []
       @segments = []
       @min_group_size = nil
+      @always = []
       @problems = []
     end
 
@@ -47,11 +48,17 @@ module DataTeller
       collect_problems { @min_group_size = MinGroupSize.new(minimum: minimum, of: of, except: except) }
     end
 
+    # always scope: :visible, or always where: { archived: false } (ADR 0014).
+    def always(**options)
+      collect_problems { @always << Always.new(**options) }
+    end
+
     def build
       dataset = collect_problems do
         Dataset.new(
           model_name: @model_name, name: @name, roles: @roles, tenant_path: @tenant_path, synonyms: @synonyms,
-          metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments, min_group_size: @min_group_size
+          metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments, min_group_size: @min_group_size,
+          always: @always
         )
       end
       raise DeclarationError.new(@problems) if @problems.any?

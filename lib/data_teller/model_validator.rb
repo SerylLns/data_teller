@@ -145,6 +145,13 @@ module DataTeller
         @errors << "dataset #{dataset.name}, segment #{segment.name}: #{klass.name} has no scope :#{segment.scope} " \
                    "(declared with `scope`; a class method could do anything when called)"
       end
+      dataset.always.each do |condition|
+        next if !condition.scope? || ActiveRecord::Base.respond_to?(condition.scope)
+        next if ModelLookup.declared_scope?(klass, condition.scope)
+
+        @errors << "dataset #{dataset.name}, #{condition.label}: #{klass.name} has no scope :#{condition.scope} " \
+                   "(declared with `scope`; a class method could do anything when called)"
+      end
     end
   end
 end

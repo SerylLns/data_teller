@@ -155,6 +155,23 @@ RSpec.describe DataTeller::SchemaValidator do
     end
   end
 
+  # ADR 0014: the checks of a segment.
+  describe "always conditions" do
+    it "accept existing columns and a scope that only adds conditions" do
+      expect(errors_for(always: [ DataTeller::Always.new(where: { status: :paid }) ])).to eq([])
+      expect(errors_for("SpecScopes", always: [ DataTeller::Always.new(scope: :fine) ])).to eq([])
+    end
+
+    it "refuse a column that does not exist" do
+      expect(errors_for(always: [ DataTeller::Always.new(where: { nope: 1 }) ])).to contain_exactly(/always where: nope: Order has no column nope/)
+    end
+
+    it "hold a scope to what a segment's scope may hold" do
+      expect(errors_for("SpecScopes", always: [ DataTeller::Always.new(scope: :limited) ]))
+        .to contain_exactly(/always scope: :limited: scope :limited uses limit/)
+    end
+  end
+
   it "reports an unreachable database as one problem" do
     allow(Order).to receive(:table_exists?).and_raise(ActiveRecord::ConnectionNotEstablished, "no route")
 
