@@ -45,7 +45,10 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   Proposed shape, not decided: `segment :vip, scope: :vip_customers, unsafe: "uses LOWER(city), reviewed in #123"`. A reason, not `true`; never a global setting;
   listed by `rake data_teller:check` and warned at boot; refused at boot unless RLS is on, since without it the code is the only line and this would reopen the leaks of the third review.
   First add to the whitelist what is safe by construction (`LOWER`, `LIKE`), and consider sub-queries compiled with their own tenant filter.
-- **T38 Query complexity budget.** `EXPLAIN (FORMAT JSON)` cost check before execution. `[perf]`
+- **T38 Query budget** — done (ADR 0013). `query_timeout` is a budget for the whole question: the time left is set before each statement, so a
+  protected `compare` no longer holds a connection for four timeouts. `max_query_cost`, off by default: every statement planned with `EXPLAIN` before any
+  runs, the sum compared, `too_complex` over it. `rake data_teller:costs` prints the kit's queries' estimated costs next to their real durations, to choose
+  the threshold. Left: the costs of real, combined questions, at T40. `[perf]`
 - **T31a Security Test Kit v0** (ADR 0011). `[sec]`
   - Done: specs for single table inheritance, soft-delete and nullable keys (`spec/security/table_shapes_spec.rb`), on three tables of the dummy that the catalog does not expose.
   - Done: a compiled plan gives the kit the datasets it filtered, the primary keys of every row it reads and the tables its SQL reads (ADR 0011 D5).

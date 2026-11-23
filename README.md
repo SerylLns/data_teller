@@ -86,14 +86,14 @@ Every value is a bound parameter, and every column name comes from your declarat
 | Per-role catalog, schema generated for the LLM | ✅ Done |
 | Query validator, permissions by role on every use of a name | ✅ Done |
 | Compiler, tenant filter on every table, period comparison (`compare`) | ✅ Done |
-| Execution guards: read-only transaction, statement timeout, row and group caps | ✅ Done |
+| Execution guards: read-only transaction, a time budget per question, row and group caps | ✅ Done |
 | Read-only database role limited to the declared columns, Postgres row-level security | ✅ Done |
 | Evaluation suite, `rake data_teller:eval` | ✅ Done |
 | LLM client (OpenAI), `DataTeller.ask`, a router for large catalogs | ✅ Done |
 | Minimal palette and endpoint, **not for production yet: no per-user limit** | ✅ Done |
 | Security test kit: tenant isolation checked on your own tables, `rake data_teller:isolation` | ✅ Done (v0) |
 | Minimum group size: small groups hidden from the roles you choose | ✅ Done |
-| Complexity budget | ⏳ Next |
+| Query budget: one time limit for a whole question, an optional cost estimate checked before anything runs | ✅ Done |
 | Prompt tuning, retrieval (RAG), explanations, production UI | ⬜ Not started |
 
 ### First measures
@@ -156,6 +156,18 @@ Without `c.current_user`, nobody has access. Without `c.llm`, questions are refu
 
 </details>
 
+<details>
+<summary>Optional: how heavy a question may be</summary>
+
+```ruby
+c.query_timeout = 5           # seconds for a whole question, every statement included (the default)
+c.max_query_cost = 20_000     # an example, off by default: choose yours with rake data_teller:costs
+```
+
+`query_timeout` bounds a question, not each statement: a `compare` or a protected answer runs up to four, and they share the time. With `max_query_cost`, every statement of a question is planned with `EXPLAIN` before any runs, and a question whose estimated cost adds up to more is refused without reading a row. The cost is in the planner's units, which depend on your data and settings, so there is no default ([ADR 0013](docs/adr/0013-query-budget.md)).
+
+</details>
+
 ### 2. Declare each exposed model, in one file per model
 
 ```ruby
@@ -202,12 +214,15 @@ bin/rails data_teller:check                # in CI and after migrations: reads t
 bin/rails "data_teller:schema[support]"    # the JSON schema this role would get
 bin/rails "data_teller:catalog[support]"   # the same names, a few lines per dataset, for a person
 bin/rails data_teller:isolation            # every row read traced back to its tenant, on this database's rows (TENANTS=12,57,301 CAP=5000)
+bin/rails data_teller:costs                # each of those queries' estimated cost next to its real duration, to choose max_query_cost
 bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODEL=perfect|replay|naive|routed, SAVE=1 to keep the run; naive and routed are paid calls)
 ```
 
 An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app boots without the engine and logs the error. The boot itself never reads the database, so it can't block a migration.
 
 `data_teller:isolation` runs one query per declaration (each dimension, segment, metric path, and each filter compared to another tenant's value) as three tenants: by default the first two and the last one. It traces every row each query reads back to its owner through the `tenant_path` foreign keys, apart from the compiler, and exits 1 if a row belongs to another tenant or a table was read without a tenant filter. It only reads, in a transaction that is always rolled back, so you can point it at an anonymised copy of production; it prints dataset names and ids, never a value. A dataset no tenant read a row of is reported as not proved, not as passed ([ADR 0011](docs/adr/0011-isolation-kit.md)).
+
+`data_teller:costs` runs the same queries, as the same tenants, with `EXPLAIN ANALYZE`, and prints each one's estimated cost next to how long it took, sorted by cost, with a line where your `max_query_cost` falls. Set the threshold below the costs where the durations take off, with a margin: these queries are simple, and real questions combine them. Unlike the kit, it runs every query for real, each under `query_timeout`: point it at a copy of production, not at the primary. It prints costs and durations, never a value.
 
 ### 4. Mount the engine and add the palette
 
@@ -253,7 +268,7 @@ These are the rules the project is built around. **Only what is marked as enforc
 | Values are bound parameters; column names come from declarations, never from the query | ✅ Enforced |
 | The tenant filter is applied last, on every table touched, and checked before running | ✅ Enforced |
 | A `scope:` used as a segment, and a `default_scope`, can only hold comparisons of the model's columns to plain values | ✅ Enforced: raw SQL, sub-queries, `from`, `joins` and the like are refused |
-| Queries run in a read-only transaction with a timeout, enforced by the database | ✅ Enforced |
+| Queries run in a read-only transaction, within one time budget per question, enforced by the database | ✅ Enforced |
 | No row is sent to the LLM provider | ✅ Enforced by construction: what is sent is the question, the date and the role's declarations |
 | No sentence shown to an end user comes from the LLM | ✅ Enforced: messages come from translations, and clarification options are names the validator checked |
 | With `c.database_role`, queries run as a Postgres role that reads the declared columns only | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
@@ -317,6 +332,8 @@ Each decision is written down with the options that were rejected:
 | [0009](docs/adr/0009-baseline.md) | The naive baseline: model and prompt |
 | [0010](docs/adr/0010-ways-in.md) | The ways in: `DataTeller.ask`, the endpoint, the helper, and who is asking |
 | [0011](docs/adr/0011-isolation-kit.md) | The isolation kit: proving tenant isolation on the integrator's own tables |
+| [0012](docs/adr/0012-aggregate-disclosure.md) | Aggregate disclosure: a minimum group size per dataset |
+| [0013](docs/adr/0013-query-budget.md) | The query budget: a time per question, and an optional cost estimate |
 
 ## License
 
