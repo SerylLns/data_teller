@@ -12,6 +12,9 @@ en:
       truncated:
         one: Only the first row is shown.
         other: Only the first %{count} rows are shown.
+      list: list
+      list_count: "%{to} of %{total} rows"
+      more: Show more
       suppressed:
         one: 1 group is not shown, it is about too few people.
         other: "%{count} groups are not shown, each is about too few people."

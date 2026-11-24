@@ -1,0 +1,6 @@
+<div class="dt-list-footer">
+  <p class="dt-note"><%= t("data_teller.outcome.list_count", to: to, total: total) %></p>
+  <% if after %>
+    <button type="button" class="dt-more" data-query="<%= query.to_json %>" data-after="<%= after.to_json %>" data-total="<%= total %>"><%= t("data_teller.outcome.more") %></button>
+  <% end %>
+</div>

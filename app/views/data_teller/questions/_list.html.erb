@@ -1,0 +1,16 @@
+<%# A list's first page (ADR 0016). Escaped by ERB like every answer; the query and the cursor go back to the server as data attributes. %>
+<% result = outcome.result %>
+<p class="dt-understood">
+  <%= outcome.query["dataset"] %> · <%= t("data_teller.outcome.list") %><% if result.period %> · <%= result.period.first %> → <%= result.period.last - 1 %><% end %>
+</p>
+<% if result.rows.empty? %>
+  <p class="dt-message"><%= t("data_teller.outcome.no_rows") %></p>
+<% else %>
+  <div class="dt-list">
+    <table class="dt-result">
+      <thead><tr><% result.columns.each do |column| %><th scope="col"><%= column %></th><% end %></tr></thead>
+      <tbody><%= render "data_teller/questions/list_rows", rows: result.rows %></tbody>
+    </table>
+    <%= render "data_teller/questions/list_footer", query: outcome.query, after: result.after, to: result.rows.size, total: result.total %>
+  </div>
+<% end %>

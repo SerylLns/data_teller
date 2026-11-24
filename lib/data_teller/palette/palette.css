@@ -108,3 +108,26 @@ data-teller-palette .dt-result td {
   padding: 0.35rem 0.6rem;
   text-align: left;
 }
+
+data-teller-palette .dt-list-footer {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+data-teller-palette .dt-more {
+  background: transparent;
+  border: 1px solid var(--dt-border);
+  border-radius: 6px;
+  color: var(--dt-text);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.35rem 0.8rem;
+}
+
+data-teller-palette .dt-more:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}

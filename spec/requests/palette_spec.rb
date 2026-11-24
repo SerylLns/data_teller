@@ -231,6 +231,83 @@ RSpec.describe "the palette", type: :request do
     end
   end
 
+  # ADR 0016 D4: the first page comes from /ask, the next ones from /rows, which never calls the provider and validates everything again.
+  describe "lists" do
+    let(:list_orders) { { "version" => 1, "intent" => "answer", "dataset" => "orders", "list" => true, "columns" => %w[status] } }
+
+    def more_button = Nokogiri::HTML.fragment(response.body).at_css(".dt-more")
+
+    def more(button = more_button, **overrides)
+      params = { data_teller_query: button["data-query"], data_teller_after: button["data-after"], data_teller_total: button["data-total"] }
+      post "/data_teller/rows", params: params.merge(overrides)
+    end
+
+    before do
+      3.times { |index| order(acme, name: "Buyer #{index}") }
+      order(globex, name: "Globex buyer")
+    end
+
+    it "shows the first page with the total, then the next pages without asking the provider again" do
+      adapter = with_llm(list_orders)
+      DataTeller.config.max_list_rows = 2
+      sign_in(acme, "admin")
+
+      ask
+      expect(response.body).to include("<th scope=\"col\">status</th>", "2 of 3 rows")
+      expect(response.body.scan("<td>paid</td>").size).to eq(2)
+
+      more
+      expect(response).to have_http_status(:ok)
+      expect(response.body.scan("<td>paid</td>").size).to eq(1)
+      expect(response.body).to include("3 of 3 rows")
+      expect(more_button).to be_nil
+      expect(adapter.calls.size).to eq(1)
+    end
+
+    it "needs a user, and answers garbage with 422" do
+      with_llm(list_orders)
+      DataTeller.config.max_list_rows = 1
+      sign_in(acme, "admin")
+      ask
+      button = more_button
+
+      more(button, data_teller_query: "{not json")
+      expect(response).to have_http_status(:unprocessable_entity)
+      more(button, data_teller_query: "x" * 10_001)
+      expect(response).to have_http_status(:unprocessable_entity)
+
+      reset!
+      more(button)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "refuses what is not a list, or a list the role may not see, as any answer would be refused" do
+      with_llm(list_orders)
+      DataTeller.config.max_list_rows = 1
+      sign_in(acme, "support")
+      ask
+      button = more_button
+
+      more(button, data_teller_query: count_orders.to_json)
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t("data_teller.refusal.unsupported_query")))
+
+      more(button, data_teller_query: list_orders.merge("columns" => %w[customer.city]).to_json)
+      expect(response.body).to include(ERB::Util.html_escape(I18n.t("data_teller.refusal.unsupported_query")))
+    end
+
+    it "keeps to the signed-in user's tenant, whatever the query and cursor sent" do
+      with_llm(list_orders)
+      DataTeller.config.max_list_rows = 1
+      sign_in(globex, "admin")
+      ask
+
+      expect(response.body).to include("1 of 1 rows")
+      expect(more_button).to be_nil
+      more(Nokogiri::HTML.fragment(%(<button data-query='#{list_orders.to_json}' data-after='{"values":["2000-01-01T00:00:00.000000Z",1],"shown":1}' data-total="1">)).at_css("button"))
+      expect(response.body.scan("<td>").size).to be <= 1
+    end
+  end
+
   describe "CSRF", :aggregate_failures do
     around do |example|
       original = ActionController::Base.allow_forgery_protection

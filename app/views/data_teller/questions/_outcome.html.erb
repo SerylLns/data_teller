@@ -2,6 +2,9 @@
 <% case outcome.status %>
 <% when :answered %>
   <% result = outcome.result %>
+  <% if result.respond_to?(:list?) %>
+  <%= render "data_teller/questions/list", outcome: outcome %>
+  <% else %>
   <p class="dt-understood">
     <%= outcome.query["dataset"] %> · <%= outcome.query["metric"] %><% if result.period %> · <%= result.period.first %> → <%= result.period.last - 1 %><% end %>
   </p>
@@ -21,6 +24,7 @@
   <% end %>
   <%# How many, never which: the labels of the hidden groups are data too. %>
   <% if result.suppressed.positive? %><p class="dt-note"><%= t("data_teller.outcome.suppressed", count: result.suppressed) %></p><% end %>
+  <% end %>
 <% when :clarify %>
   <p class="dt-message"><%= t("data_teller.outcome.clarify") %></p>
   <ul class="dt-options"><% outcome.query.dig("clarify", "options").each do |option| %><li><%= option %></li><% end %></ul>

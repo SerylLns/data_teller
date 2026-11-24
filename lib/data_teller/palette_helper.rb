@@ -31,7 +31,7 @@ module DataTeller
       ui = DataTeller.config.ui
       content_tag("data-teller-palette", nil, data: {
         mode: mode, theme: ui.theme, shortcut: ui.keyboard_shortcut,
-        endpoint: Engine.routes.url_helpers.ask_path, csrf_token: form_authenticity_token,
+        endpoint: Engine.routes.url_helpers.ask_path, rows_endpoint: Engine.routes.url_helpers.rows_path, csrf_token: form_authenticity_token,
         trigger: t("data_teller.palette.trigger"), placeholder: t("data_teller.palette.placeholder"),
         submit: t("data_teller.palette.submit"), error: t("data_teller.palette.error")
       })

@@ -1,0 +1,4 @@
+<%# The next page: rows for the table already shown, and its footer. The total is the one the first page gave, sent back for the count only. %>
+<% result = outcome.result %>
+<table><tbody><%= render "data_teller/questions/list_rows", rows: result.rows %></tbody></table>
+<%= render "data_teller/questions/list_footer", query: outcome.query, after: result.after, to: result.after ? result.after["shown"] : total, total: total %>

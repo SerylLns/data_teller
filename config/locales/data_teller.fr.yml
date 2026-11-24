@@ -12,6 +12,9 @@ fr:
       truncated:
         one: Seule la première ligne est affichée.
         other: Seules les %{count} premières lignes sont affichées.
+      list: liste
+      list_count: "%{to} lignes sur %{total}"
+      more: Afficher plus
       suppressed:
         one: 1 groupe n'est pas affiché, il concerne trop peu de personnes.
         other: "%{count} groupes ne sont pas affichés, chacun concerne trop peu de personnes."
