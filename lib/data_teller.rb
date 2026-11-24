@@ -27,6 +27,7 @@ require "data_teller/scope_inspector"
 require "data_teller/tenant_scope"
 require "data_teller/plan"
 require "data_teller/compared_plan"
+require "data_teller/list_plan"
 require "data_teller/read_only_execution"
 require "data_teller/query_cost"
 require "data_teller/compiler"
@@ -140,6 +141,17 @@ module DataTeller
     # A question and a user in, an outcome out (ADR 0010 D1): rows, a clarification or a refusal, for any visual.
     def ask(question, user:, now: Time.current)
       Ask.call(question, user: user, now: now)
+    end
+
+    # The next page of a list (ADR 0016 D4): the query the previous page answered and the cursor it gave, both from the client and
+    # validated again as if the model had written them. Lists only; the provider is never called.
+    def rows(query, user:, after:, now: Time.current)
+      unless query.is_a?(Hash) && query["list"] == true
+        return QueryRunner::Outcome.new(status: :refused, query: query, result: nil,
+                                        refusal: QueryValidator::Refusal.new(reason: :unsupported_query), trace: nil)
+      end
+
+      QueryRunner.call(query, user: user, now: now, after: after)
     end
 
     # For tests only.

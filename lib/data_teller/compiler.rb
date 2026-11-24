@@ -15,6 +15,12 @@ module DataTeller
     end
 
     # A parameter the database receives apart from the SQL: the query's text can never become part of the statement.
+    # What a cursor value may be (ADR 0016 D4): the scalars a filter takes, a string no longer than a name, no NUL byte.
+    CURSOR_VALUE = lambda do |value|
+      value.nil? || value == true || value == false || (value.is_a?(Numeric) && value.finite?) ||
+        (value.is_a?(String) && value.size <= 200 && !value.include?("\u0000"))
+    end
+
     def self.bind(klass, column, value)
       Arel::Nodes::BindParam.new(
         ActiveRecord::Relation::QueryAttribute.new(column.to_s, value, klass.type_for_attribute(column.to_s))
@@ -28,7 +34,8 @@ module DataTeller
       @now = now
     end
 
-    def call(query)
+    # after: the cursor of a list's next page, as the previous page gave it (ADR 0016 D4). Untrusted like the query: checked below.
+    def call(query, after: nil)
       validation = QueryValidator.new(@catalog).call(query)
       raise Refused.new(validation.refusal.reason, codes: validation.problems.map { |problem| problem[:code] }.uniq) unless validation.ok?
       raise Refused.new(:unsupported_query, "only an answer compiles") unless query["intent"] == "answer"
@@ -38,6 +45,8 @@ module DataTeller
       @entry = @catalog.dataset(query["dataset"])
       @klass = @entry.model_name.constantize
       @metric = @entry.metrics.find { |metric| metric.name.to_s == query["metric"] }
+      return build_list(current_period, after) if query["list"]
+      raise Refused.new(:unsupported_query, "only a list has pages") if after
 
       query["compare"] ? build_comparison : build_plan(current_period)
     end
@@ -96,10 +105,10 @@ module DataTeller
     def period_field = @query["period"] && field(@query["period"]["dimension"])
 
     def fields_used
-      [ *comparisons.map { |item| field(item["dimension"]) }, *group_fields, period_field ].compact.uniq(&:name)
+      [ *comparisons.map { |item| field(item["dimension"]) }, *group_fields, period_field, *list_fields, list_order_field ].compact.uniq(&:name)
     end
 
-    def metric_steps = @metric.steps
+    def metric_steps = @metric ? @metric.steps : []
 
     def touched_datasets
       [ *fields_used.flat_map(&:via), *metric_path_datasets, @entry.dataset ].uniq(&:name)
@@ -260,6 +269,133 @@ module DataTeller
       datasets
     rescue ModelLookup::PathError => e
       raise Refused.new(:unsupported_query, e.message)
+    end
+
+    # ---- lists (ADR 0016)
+
+    def list_fields
+      return [] unless @query["list"]
+
+      names = @query["columns"] || @entry.dataset.list.default.map(&:to_s)
+      names.filter_map { |name| field(name) }
+    end
+
+    # The query's order, else the default time dimension, newest first; nil when the dataset has neither, and the key orders alone.
+    def list_order_field
+      return nil unless @query["list"]
+
+      @query["order_by"] ? field(@query["order_by"]["dimension"]) : @entry.fields.find { |found| found.steps.empty? && found.dimension.time }
+    end
+
+    def list_direction = @query["order_by"] ? @query["order_by"]["dir"] : "desc"
+
+    def build_list(period, after)
+      @period = period
+      check_join_cap
+      check_tables_joined_once
+      check_default_scopes
+      # The validator refuses these already; the compiler is called directly too, and a list must never read rows a threshold protects.
+      raise Refused.new(:unsupported_query, "a list cannot read a dataset under min_group_size") if big_enough
+
+      key = primary_key_field
+      relation = apply_conditions(apply_always(apply_joins(apply_scope_segments(@klass.all.unscope(:order)))))
+      filters = tenant_filters
+      relation = filters.reduce(relation) { |current, condition| current.where(condition) }
+      unless @tenant_scope.present_in?(relation, filters)
+        raise Refused.new(:unsupported_query, "a tenant filter is missing from the final relation")
+      end
+
+      counted = relation
+      keys = [ (order_attribute if list_order_field), key ].compact
+      relation = relation.where(after_condition(keys, after)) if after
+      relation = relation.order(*keys.map { |attribute| directed_nulls_last(attribute, list_direction) })
+
+      ListPlan.new(relation: relation, columns: list_fields.map { |found| found.name.to_s }, selection: [ *list_attributes, *keys ],
+                   decoders: list_fields.map { |found| list_decoder(found) }, keys: cursor_encoders, page: page_size(after),
+                   shown: after ? shown_before(after) : 0, cap: @query["limit"], counted: counted, period: period, touched: touched_datasets)
+    end
+
+    def list_attributes = list_fields.map { |found| found.model.arel_table[found.dimension.column] }
+    def order_attribute = list_order_field.model.arel_table[list_order_field.dimension.column]
+
+    # A page cannot be found again without a total order: rows with the same date would move from one page to the next.
+    def primary_key_field
+      key = @klass.primary_key
+      raise Refused.new(:unsupported_query, "#{@klass.name} has no single primary key to page by") unless key.is_a?(String)
+
+      @klass.arel_table[key]
+    end
+
+    # Rows with no value come last in both directions, so the cursor of a NULL is past every value.
+    def directed_nulls_last(node, direction)
+      direction == "desc" ? Arel::Nodes::Descending.new(node).nulls_last : Arel::Nodes::Ascending.new(node).nulls_last
+    end
+
+    def page_size(after)
+      size = limits.max_list_rows
+      return size unless @query["limit"]
+
+      [ size, @query["limit"] - (after ? shown_before(after) : 0) ].min.clamp(1, size)
+    end
+
+    # The order value as a filter would compare it, then the key, for the next page; only what was sent before is read.
+    def cursor_encoders
+      key = ->(raw) { raw }
+      return [ key ] unless list_order_field
+
+      [ ->(raw) { cursor_value(raw) }, key ]
+    end
+
+    def cursor_value(raw)
+      case raw
+      when ActiveSupport::TimeWithZone, Time, DateTime then raw.utc.iso8601(6)
+      when Date then raw.iso8601
+      else list_order_field.kind == :enum ? list_decoder(list_order_field).call(raw) : raw
+      end
+    end
+
+    # ---- the cursor, sent back by the client: never trusted, every value bound through its column's type
+
+    def shown_before(after)
+      shown = after["shown"]
+      return shown if shown.is_a?(Integer) && shown.positive? && shown < 1_000_000
+
+      raise Refused.new(:unsupported_query, "invalid cursor", codes: [ :invalid_cursor ])
+    end
+
+    def after_condition(keys, after)
+      values = after.is_a?(Hash) && after["values"]
+      unless values.is_a?(Array) && values.size == keys.size && values.all?(&CURSOR_VALUE) && !values.last.nil? && shown_before(after)
+        raise Refused.new(:unsupported_query, "invalid cursor", codes: [ :invalid_cursor ])
+      end
+
+      key_value = bind_key(values.last)
+      return keyed_after(keys.last, key_value) if keys.one?
+
+      ordered_after(keys.first, values.first, keys.last, key_value)
+    end
+
+    def bind_key(value) = self.class.bind(@klass, @klass.primary_key, value)
+
+    def keyed_after(key, value) = list_direction == "desc" ? key.lt(value) : key.gt(value)
+
+    # (value, key) strictly after the last row, NULLs last in both directions.
+    def ordered_after(attribute, value, key, key_value)
+      if value.nil?
+        attribute.eq(nil).and(keyed_after(key, key_value))
+      else
+        bound = self.class.bind(list_order_field.model, list_order_field.dimension.column, value)
+        beyond = list_direction == "desc" ? attribute.lt(bound) : attribute.gt(bound)
+        Arel::Nodes::Grouping.new(beyond.or(attribute.eq(bound).and(keyed_after(key, key_value))).or(attribute.eq(nil)))
+      end
+    end
+
+    # Enum names, as everywhere else; datetimes in the tenant's zone, the zone its "today" is in.
+    def list_decoder(found)
+      return decoder_for(found) if found.kind == :enum
+      return nil unless found.date?
+
+      ->(raw) { raw.respond_to?(:in_time_zone) && !raw.is_a?(Date) ? raw.in_time_zone(@time_zone) : raw }
     end
 
     # ---- minimum group size (ADR 0012)

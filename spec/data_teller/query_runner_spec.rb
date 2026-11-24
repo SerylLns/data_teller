@@ -1000,6 +1000,35 @@ RSpec.describe DataTeller::QueryRunner do
     end
   end
 
+  # ADR 0016, through the whole runner and the dummy's declarations: the security cases are in spec/security/lists_spec.rb.
+  describe "lists" do
+    def listed(**rest) = { "version" => 1, "intent" => "answer", "dataset" => "orders", "list" => true }.merge(rest.transform_keys(&:to_s))
+
+    it "answers the tenant's rows with the default columns, and the next page from DataTeller.rows" do
+      allow(DataTeller).to receive(:config).and_return(DataTeller.config.dup.tap { |config| config.max_list_rows = 2 })
+      first = described_class.call(listed, user: admin)
+
+      expect(first.status).to eq(:answered)
+      expect(first.result.columns).to eq(%w[ordered_at status channel ship_on])
+      expect(first.result).to have_attributes(total: 3, rows: have_attributes(size: 2))
+
+      second = DataTeller.rows(listed, user: admin, after: first.result.after)
+      expect(second.result).to have_attributes(total: nil, after: nil, rows: have_attributes(size: 1))
+    end
+
+    it "refuses a customer column to support, whom the customers' min_group_size holds" do
+      expect(described_class.call(listed(columns: %w[status customer.city]), user: support).refusal.reason).to eq(:unsupported_query)
+      expect(described_class.call(listed(columns: %w[status customer.city]), user: admin).status).to eq(:answered)
+    end
+
+    it "gives pages to lists only, and refuses a cursor it did not give" do
+      aggregate = { "version" => 1, "intent" => "answer", "dataset" => "orders", "metric" => "count" }
+
+      expect(DataTeller.rows(aggregate, user: admin, after: nil).refusal.reason).to eq(:unsupported_query)
+      expect(DataTeller.rows(listed, user: admin, after: { "values" => "x" }).refusal.reason).to eq(:unsupported_query)
+    end
+  end
+
   describe "other intents" do
     it "passes clarify through, untouched" do
       query = { "version" => 1, "intent" => "clarify", "clarify" => { "reason" => "ambiguous_metric", "options" => %w[count revenue] } }

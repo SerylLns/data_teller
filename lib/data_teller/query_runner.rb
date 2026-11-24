@@ -11,15 +11,17 @@ module DataTeller
 
     STAGES = %i[access validation compilation execution].freeze
 
-    def self.call(query, user:, now: Time.current, trace: false)
-      new(query, user, now, trace).call
+    # after: the cursor of a list's next page (ADR 0016 D4).
+    def self.call(query, user:, now: Time.current, trace: false, after: nil)
+      new(query, user, now, trace, after).call
     end
 
-    def initialize(query, user, now, trace = false)
+    def initialize(query, user, now, trace = false, after = nil)
       @query = query
       @user = user
       @now = now
       @trace = trace
+      @after = after
       @stage = :access
       @problems = []
       @sql = []
@@ -64,7 +66,7 @@ module DataTeller
       model = catalog.dataset(@query["dataset"]).model_name.constantize
       result = ReadOnlyExecution.run(model, timeout: DataTeller.config.query_timeout, role: DataTeller.config.database_role,
                                             tenant_id: (tenant.id if DataTeller.config.row_security)) do
-        plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query)
+        plan = Compiler.new(catalog: catalog, tenant: tenant, time_zone: time_zone, now: @now).call(@query, after: @after)
         @stage = :execution
         check_cost(model, plan)
         plan.execute(recorder: recorder)
@@ -91,9 +93,9 @@ module DataTeller
       ->(sql) { @sql << sql } if @trace
     end
 
-    # A count has no "today": a tenant's broken time zone must not refuse it.
+    # A count has no "today": a tenant's broken time zone must not refuse it. A list shows its dates in that zone.
     def needs_time_zone?
-      @query["period"] || Array(@query["group_by"]).any? { |item| item["granularity"] }
+      @query["period"] || @query["list"] || Array(@query["group_by"]).any? { |item| item["granularity"] }
     end
 
     def passed_through

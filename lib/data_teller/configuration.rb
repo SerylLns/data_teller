@@ -15,6 +15,8 @@ module DataTeller
       # Applies to a high-cardinality group_by whose dimension has no max_groups (ADR 0004 D3).
       default_max_groups: 50,
       max_rows: 1_000,
+      # Rows on one page of a list (ADR 0016 D4); the next page is asked with a cursor.
+      max_list_rows: 50,
       # Beyond this a date series is refused, not cut: a top N of days means nothing.
       max_time_points: 366,
       # Tables joined for one query (ADR 0001 D4).
