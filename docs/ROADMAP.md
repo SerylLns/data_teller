@@ -89,6 +89,26 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
 - **T33 Pundit adapter** (`unscope(:order)` on aggregates; isolation check in CI, not at boot). `[sec]`
 - **T34 Full install generator.** Core piece since ADR 0001 D4. Consider pulling it forward. The minimal generator of T07a only writes the global file;
   this one infers dimensions, labels, tenant path and hidden columns, and writes one file per model plus the locale files.
+- **Found in the first real integration, not decided yet** (2026-11-23/24, a production app tried locally on fake data, the palette used
+  by its author). Each one a decision of its own, labels first:
+  - **Labels.** The palette shows raw identifiers to the end user: dataset and metric names over the result, column headers (`count`, a
+    dimension name), ISO dates, in an interface in another language. No label is declared for a dataset, a metric or a dimension.
+  - **A word shared by two datasets.** The app's own screens used one word for two datasets. On one dataset as a synonym, the model never
+    asks; on neither, it falls on the dataset whose name translates it. No way to declare a word ambiguous so that the model asks.
+  - **Amounts in cents as a dimension.** Filtering on a price needs the cents column as a dimension, and the model converts "500 euros"
+    itself. `format: :money` exists for metrics only.
+  - **A refusal that says what is missing.** "Not in this form" for a filter on an undeclared column gives the user nothing to rephrase with.
+  - **A catalog that depends on the tenant.** Tenants of different kinds (a mode, a plan) use the same word for different datasets, and some
+    have no rows in a dataset at all, which the model is still offered. A dataset's roles are any-of, so roles cannot say it.
+  - **Questions asking for a list** ("show me the ...") are the first a user types, and get the generic refusal. Lists are out of scope by
+    design (ADR 0004 D2); the refusal could say the gem answers with numbers and offer the count.
+  - **A path through an optional `belongs_to`** drops the rows with no parent (inner join): a total and a breakdown by that parent disagree
+    silently. More common than the soft-delete case the README notes.
+  - **A user who sees several tenants.** The tenant resolver returns one; such users get the narrower view.
+  - **The catalog lists enum values an `always` condition hides**; filtering on one returns 0.
+  - **The quick start does not show `c.current_user`**: without it the palette renders nothing and the endpoint answers 401, with no message (T41).
+  - **Eval noise.** On a 28-question set, 3 or 4 answers of 56 moved between two runs with nothing changed for them: one run does not compare
+    two declarations.
 - **T42 Conditions always applied** (done 2026-11-23, [ADR 0014](adr/0014-always-conditions.md)). Found in the first real integration: rows
   an app hides without a `default_scope` (a status left out by its policy scope, `discard`) were counted. `always where:` / `always scope:` on a
   dataset, applied on every table the query reads, joins included. Not a security item: it only narrows, the tenant filter does not depend on it.
