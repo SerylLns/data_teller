@@ -100,8 +100,8 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   - **A refusal that says what is missing.** "Not in this form" for a filter on an undeclared column gives the user nothing to rephrase with.
   - **A catalog that depends on the tenant.** Tenants of different kinds (a mode, a plan) use the same word for different datasets, and some
     have no rows in a dataset at all, which the model is still offered. A dataset's roles are any-of, so roles cannot say it.
-  - **Questions asking for a list** ("show me the ...") are the first a user types, and get the generic refusal. Lists are out of scope by
-    design (ADR 0004 D2); the refusal could say the gem answers with numbers and offer the count.
+  - **Questions asking for a list** ("show me the ...") are the first a user types, and got the generic refusal: lists were out of scope
+    (ADR 0004 D2). Taken up by T44.
   - **A path through an optional `belongs_to`** drops the rows with no parent (inner join): a total and a breakdown by that parent disagree
     silently. More common than the soft-delete case the README notes.
   - **A user who sees several tenants.** The tenant resolver returns one; such users get the narrower view.
@@ -109,6 +109,14 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   - **The quick start does not show `c.current_user`**: without it the palette renders nothing and the endpoint answers 401, with no message (T41).
   - **Eval noise.** On a 28-question set, 3 or 4 answers of 56 moved between two runs with nothing changed for them: one run does not compare
     two declarations.
+- **T44 Lists** ([ADR 0016](adr/0016-lists.md)). Found in the first real integration: "show me the ..." got the generic refusal. An answer
+  with `list: true` and model-picked `columns`, on datasets that declare `list default:`, refused where `min_group_size` protects; pages of 50
+  by cursor, the palette sending the query back to `/rows`. In order, each step with its specs:
+  - DSL `list default:` and boot checks; query schema branch; validator (incl. the `min_group_size` refusal);
+  - compiler list plan (select, order, keyset cursor, total), `DataTeller.rows`;
+  - isolation kit and cost report probes on lists;
+  - palette table, total, "more" through `POST /rows`;
+  - generated schema and prompt; eval questions and scoring; one paid eval run before, one after.
 - **T43 The eval's "to review" flag in a host app** (done 2026-11-24, [ADR 0015](adr/0015-eval-executor-without-user.md)). Found in the first
   real integration: the executor built a user only the dummy's resolvers could read, so `same_result` was always false elsewhere. It now runs
   a query from the question's role and the set's tenant, as the isolation kit does.
