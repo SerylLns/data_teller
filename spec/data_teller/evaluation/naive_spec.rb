@@ -49,7 +49,7 @@ RSpec.describe DataTeller::Evaluation::Models::Naive do
 
     report = run_with(adapter)
 
-    expect(report.summary["score"]).to eq("right" => 74, "total" => 74, "percent" => 100.0)
+    expect(report.summary["score"]).to eq("right" => 82, "total" => 82, "percent" => 100.0)
     # Every answer was found under the role of its question (fetch above), with that role's schema.
     roles = adapter.calls.map { |entry| entry[:system][/Catalog for (\w+)\./, 1] }
     expect(roles.tally).to eq(dev["questions"].map { |question| question.fetch("role", "admin") }.tally.transform_values { |count| count * 2 })
@@ -61,7 +61,7 @@ RSpec.describe DataTeller::Evaluation::Models::Naive do
   it "reports the model answered with, the cached tokens and the prompt it measured" do
     report = run_with(adapter_class.new(answers, {}, []), save: true)
 
-    expect(out.string).to include("model naive fake-model", "Tokens: 7400 in (4440 cached), 740 out", "Answered by: fake-model-2026-11-01")
+    expect(out.string).to include("model naive fake-model", "Tokens: 8200 in (4920 cached), 820 out", "Answered by: fake-model-2026-11-01")
     saved = JSON.parse(root.join(out.string[/Saved: (.+)$/, 1]).read)
     expect(saved["fingerprint"]).to eq("prompt #{DataTeller::Prompt.fingerprint}")
     expect(saved["answers"].first).to include("answered_by" => "fake-model-2026-11-01", "cached_input_tokens" => 60, "failure" => nil)

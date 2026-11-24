@@ -26,8 +26,19 @@ module DataTeller
       lines << "  dates:    #{dates.map { |field| date_label(field) }.join(', ')}" if dates.any?
       lines << "  fields:   #{others.map { |field| field_label(field) }.join(', ')}" if others.any?
       lines << "  segments: #{entry.segments.map(&:name).join(', ')}" if entry.segments.any?
+      lines << "  list:     #{list_label(entry)}" if (default = list_defaults(entry))&.any?
       lines.join("\n") + "\n"
     end
+
+    # ADR 0016: only where the validator accepts a list for these roles, with the default columns they see.
+    def list_defaults(entry)
+      dataset = entry.dataset
+      return nil unless dataset.list && !dataset.min_group_size&.applies_to?(@catalog.roles)
+
+      dataset.list.default.map(&:to_s) & entry.fields.map { |field| field.name.to_s }
+    end
+
+    def list_label(entry) = "yes, default columns #{list_defaults(entry).join(', ')}"
 
     def metric_label(metric)
       detail = metric.ratio? ? "#{metric.of.join(' / ')}" : [ metric.aggregation, metric.column ].compact.join(" ")

@@ -17,7 +17,7 @@ RSpec.describe "evaluation dataset" do
 
   it "has the working set" do
     expect(self.class.splits).to include("dev")
-    expect(load_split("dev")["questions"].size).to eq(37)
+    expect(load_split("dev")["questions"].size).to eq(41)
   end
 
   splits.each do |split|

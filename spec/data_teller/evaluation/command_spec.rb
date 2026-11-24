@@ -34,8 +34,8 @@ RSpec.describe DataTeller::Evaluation::Command do
 
     report = run
 
-    expect(report.summary["score"]).to eq("right" => 74, "total" => 74, "percent" => 100.0)
-    expect(out.string).to include("Score: 100.0% (74/74)", "Errors: none")
+    expect(report.summary["score"]).to eq("right" => 82, "total" => 82, "percent" => 100.0)
+    expect(out.string).to include("Score: 100.0% (82/82)", "Errors: none")
   end
 
   it "replays a saved run, and classes each mistake" do
@@ -45,8 +45,8 @@ RSpec.describe DataTeller::Evaluation::Command do
 
     summary = run("dev", model: "replay", replay: replay.to_s).summary
 
-    expect(summary["score"]).to eq("right" => 71, "total" => 74, "percent" => 95.9)
-    expect(summary["by_language"]).to eq("en" => { "right" => 34, "total" => 37, "percent" => 91.9 }, "fr" => { "right" => 37, "total" => 37, "percent" => 100.0 })
+    expect(summary["score"]).to eq("right" => 79, "total" => 82, "percent" => 96.3)
+    expect(summary["by_language"]).to eq("en" => { "right" => 38, "total" => 41, "percent" => 92.7 }, "fr" => { "right" => 41, "total" => 41, "percent" => 100.0 })
     expect(summary["errors"]).to eq("answered_out_of_scope" => 1, "invalid_output" => 1, "wrong_answer" => 1)
     expect(summary["by_severity"]).to eq("high" => 2, "low" => 1)
     expect(out.string).to include("net_revenue_last_month/en: wrong_answer, differs on metric")

@@ -11,7 +11,7 @@ module DataTeller
 
       def call(query)
         case query["intent"]
-        when "answer" then answer(query)
+        when "answer" then query["list"] ? list(query) : answer(query)
         when "clarify" then { "intent" => "clarify", "reason" => query["clarify"]["reason"], "options" => query["clarify"]["options"].sort }
         else { "intent" => query["intent"], "reason" => query.dig("out_of_scope", "reason") }
         end
@@ -32,6 +32,37 @@ module DataTeller
           "limit" => query["limit"],
           "compare" => query["compare"]
         }
+      end
+
+      # ADR 0016: the same rows in the same columns. No columns means the defaults the role sees, as the compiler reads it; their order
+      # is presentation. Without a limit every row comes back, so the order is presentation too, as for an aggregate.
+      def list(query)
+        {
+          "intent" => "answer",
+          "dataset" => query["dataset"],
+          "list" => true,
+          "columns" => list_columns(query).sort,
+          "filters" => Array(query["filters"]).map { |filter| filter_key(filter) }.sort_by(&:to_s),
+          "period" => query["period"] && [ query["period"]["dimension"], *@periods.call(query["period"]["range"]) ],
+          "order_by" => query["limit"] && list_order(query),
+          "limit" => query["limit"]
+        }
+      end
+
+      def list_columns(query)
+        return query["columns"] if query["columns"]
+
+        entry = @catalog.dataset(query["dataset"])
+        visible = entry.fields.map { |field| field.name.to_s }
+        entry.dataset.list.default.map(&:to_s) & visible
+      end
+
+      # The compiler's default: the dataset's own default date, newest first.
+      def list_order(query)
+        return [ query["order_by"]["dimension"], query["order_by"]["dir"] ] if query["order_by"]
+
+        default = @catalog.dataset(query["dataset"]).fields.find { |field| field.steps.empty? && field.dimension.time }
+        default && [ default.name.to_s, "desc" ]
       end
 
       def filter_key(filter)

@@ -1,4 +1,5 @@
-# Evaluation questions, working set (T09, ADR 0006): 30 drafted during development, 7 by the author. The domain is the dummy app's: FAKE data.
+# Evaluation questions, working set (T09, ADR 0006): 30 drafted during development, 7 by the author, 4 lists (T44, ADR 0016). The domain
+# is the dummy app's: FAKE data.
 # Each question in English (the main set) and French (a faithful translation), the role it is asked with, and the query expected.
 # also_accepted lists other queries that answer the same question just as well; nothing else scores.
 #
@@ -351,3 +352,44 @@ questions:
     tags: [group, path, permission]
     expected:
       { version: 1, intent: answer, dataset: reviews, metric: avg_rating, group_by: [ { dimension: product.category } ] }
+
+  # ---- lists (T44, ADR 0016): the records themselves, not a number. Added 2026-11-24, after the 37 above were measured.
+
+  - id: list_orders_to_ship_tomorrow
+    en: Show me the orders shipping tomorrow
+    fr: Montre-moi les commandes qui partent demain
+    tags: [list, period, non_default_date]
+    expected:
+      { version: 1, intent: answer, dataset: orders, list: true,
+        period: { dimension: ship_on, range: { relative: tomorrow } } }
+
+  - id: list_cancelled_last_week
+    en: List the orders cancelled last week
+    fr: Liste les commandes annulées la semaine dernière
+    tags: [list, filter, period]
+    expected:
+      { version: 1, intent: answer, dataset: orders, list: true, filters: [ { dimension: status, op: eq, value: cancelled } ],
+        period: { dimension: ordered_at, range: { relative: last_week } } }
+
+  # "With the city" adds a column to the usual ones; naming only the city, or the date and the city, shows what was asked too.
+  - id: list_latest_with_city
+    en: Show me our 10 latest orders with the customer's city
+    fr: Montre-moi nos 10 dernières commandes avec la ville du client
+    tags: [list, columns, path, top_n]
+    expected:
+      { version: 1, intent: answer, dataset: orders, list: true, columns: [ ordered_at, status, channel, ship_on, customer.city ], limit: 10 }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: orders, list: true, columns: [ customer.city ], limit: 10 }
+      - { version: 1, intent: answer, dataset: orders, list: true, columns: [ ordered_at, customer.city ], limit: 10 }
+
+  - id: list_paid_today
+    role: member
+    en: Show me today's paid orders
+    fr: Montre-moi les commandes payées aujourd'hui
+    tags: [list, segment, period, permission]
+    expected:
+      { version: 1, intent: answer, dataset: orders, list: true, filters: [ { segment: paid } ],
+        period: { dimension: ordered_at, range: { relative: today } } }
+    also_accepted:
+      - { version: 1, intent: answer, dataset: orders, list: true, filters: [ { dimension: status, op: eq, value: paid } ],
+          period: { dimension: ordered_at, range: { relative: today } } }

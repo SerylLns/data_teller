@@ -92,7 +92,7 @@ RSpec.describe "rake data_teller:eval" do
     stdout, stderr, status = run_task("data_teller:eval[dev]", env: { "LANGUAGES" => "en" })
 
     expect(status.exitstatus).to eq(0), stderr
-    expect(stdout).to include("Score: 100.0% (37/37)")
+    expect(stdout).to include("Score: 100.0% (41/41)")
   end
 
   it "says what is wrong instead of a stack trace" do

@@ -13,6 +13,12 @@ RSpec.describe DataTeller::CatalogSummary do
     expect(text).to include("  segments: paid, open, with_coupon")
   end
 
+  # ADR 0016: where a list is accepted for the role, with the default columns it sees.
+  it "says which datasets can be listed and their default columns" do
+    expect(summary(:member)).to include("  list:     yes, default columns ordered_at, status, channel, ship_on\n")
+    expect(summary(:admin).scan("  list:").size).to eq(1)
+  end
+
   it "shows only what the role sees" do
     expect(summary(:member)).not_to include("revenue", "customers (", "invoices")
     expect(summary(:admin)).to include("revenue (sum total_cents, money)", "avg_basket (revenue / count)")

@@ -9,6 +9,28 @@ RSpec.describe DataTeller::Evaluation::Normalizer do
   def same?(left, right) = normalizer.call(left) == normalizer.call(right)
   def status(op, value) = { "dimension" => "status", "op" => op, "value" => value }
 
+  # ADR 0016.
+  describe "lists" do
+    def list(**rest) = { "version" => 1, "intent" => "answer", "dataset" => "orders", "list" => true }.merge(rest.transform_keys(&:to_s))
+    def by(dimension, dir) = { "by" => "dimension", "dimension" => dimension, "dir" => dir }
+
+    it "reads no columns as the defaults, and columns as a set" do
+      expect(same?(list, list(columns: %w[ship_on channel status ordered_at]))).to be(true)
+      expect(same?(list(columns: %w[status ordered_at]), list(columns: %w[ordered_at status]))).to be(true)
+      expect(same?(list, list(columns: %w[ordered_at status]))).to be(false)
+    end
+
+    it "ignores the order without a limit, and reads the default order with one" do
+      expect(same?(list(order_by: by("status", "asc")), list)).to be(true)
+      expect(same?(list(limit: 10), list(limit: 10, order_by: by("ordered_at", "desc")))).to be(true)
+      expect(same?(list(limit: 10), list(limit: 10, order_by: by("ordered_at", "asc")))).to be(false)
+    end
+
+    it "is never the same as a metric" do
+      expect(same?(list, answer(metric: "count"))).to be(false)
+    end
+  end
+
   it "ignores the order of filters and of groups" do
     expect(same?(answer(filters: [ { "segment" => "paid" }, status("eq", "paid") ]), answer(filters: [ status("eq", "paid"), { "segment" => "paid" } ]))).to be(true)
     expect(same?(answer(group_by: [ { "dimension" => "status" }, { "dimension" => "channel" } ]),

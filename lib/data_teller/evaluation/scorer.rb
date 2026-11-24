@@ -9,7 +9,7 @@ module DataTeller
         wrong_clarification: :low, wrongful_refusal: :low, wrong_reason: :low, invalid_output: :low
       }.freeze
 
-      ANSWER_FIELDS = %w[dataset metric filters group_by period order_by limit compare].freeze
+      ANSWER_FIELDS = %w[dataset metric list columns filters group_by period order_by limit compare].freeze
 
       # fields: for two answers, which ones match the expected query. same_result: a wrong answer that returns the rows of an
       # accepted one, which is usually a missing also_accepted. nil when not checked.

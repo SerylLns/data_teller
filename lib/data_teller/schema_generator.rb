@@ -21,6 +21,7 @@ module DataTeller
 
     def call
       branches = @catalog.datasets.select { |entry| entry.metrics.any? }.map { |entry| answer_branch(entry) }
+      lists = @catalog.datasets.select { |entry| listable?(entry) }.map { |entry| list_branch(entry) }
       clarify = clarify_branch
 
       {
@@ -28,7 +29,7 @@ module DataTeller
         "title" => "DataTeller query for the current role",
         "type" => "object",
         "required" => @base["required"],
-        "anyOf" => [ *branches, *clarify, @defs["out_of_scope"].deep_dup ],
+        "anyOf" => [ *branches, *lists, *clarify, @defs["out_of_scope"].deep_dup ],
         "$defs" => @defs.slice(*KEPT_DEFINITIONS).deep_dup
       }
     end
@@ -45,6 +46,33 @@ module DataTeller
       restrict_period(branch, entry)
       restrict_filters(properties, entry)
       restrict_grouping(properties, entry)
+      branch
+    end
+
+    # ADR 0016: offered where the validator would accept it, a dataset that opted in and that no threshold protects from these roles.
+    def listable?(entry)
+      entry.dataset.list && !protected_for_roles?(entry.dataset) && list_fields(entry).any?
+    end
+
+    def protected_for_roles?(dataset) = dataset.min_group_size&.applies_to?(@catalog.roles)
+
+    # A column through a protected dataset would be refused: it is left out of what the model can write.
+    def list_fields(entry)
+      entry.fields.reject { |field| field.via.any? { |dataset| protected_for_roles?(dataset) } }
+    end
+
+    def list_branch(entry)
+      branch = @defs["list"].deep_dup
+      properties = branch["properties"]
+      names = list_fields(entry).map(&:name)
+
+      properties["dataset"] = { "const" => entry.name.to_s }
+      properties["columns"]["items"] = enum(names)
+      restrict_period(branch, entry)
+      restrict_filters(properties, entry)
+      order_by = @defs["list_order_by"].deep_dup
+      order_by["properties"]["dimension"] = enum(names)
+      properties["order_by"] = order_by
       branch
     end
 

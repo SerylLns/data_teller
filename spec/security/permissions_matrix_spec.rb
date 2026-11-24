@@ -145,7 +145,8 @@ RSpec.describe "Permissions matrix" do
         end
 
         it "offers exactly the datasets the catalog shows" do
-          offered = schema["anyOf"].filter_map { |candidate| candidate.dig("properties", "dataset", "const") }
+          # A listable dataset has a second branch, its list (ADR 0016).
+          offered = schema["anyOf"].filter_map { |candidate| candidate.dig("properties", "dataset", "const") }.uniq
 
           expect(offered).to match_array(catalog.datasets.map { |entry| entry.name.to_s })
         end

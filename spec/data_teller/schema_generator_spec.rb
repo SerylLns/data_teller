@@ -14,8 +14,37 @@ RSpec.describe DataTeller::SchemaGenerator do
   let(:admin) { schemer_for(:admin) }
   let(:support) { schemer_for(:support) }
 
-  it "produces one branch per visible dataset, plus clarify and out_of_scope" do
-    expect(schema_for(:admin)["anyOf"].size).to eq(DataTeller::Catalog.for(:admin).datasets.size + 2)
+  it "produces one branch per visible dataset, one per dataset it may list, plus clarify and out_of_scope" do
+    listable = DataTeller::Catalog.for(:admin).datasets.count { |entry| entry.dataset.list }
+
+    expect(listable).to eq(1)
+    expect(schema_for(:admin)["anyOf"].size).to eq(DataTeller::Catalog.for(:admin).datasets.size + listable + 2)
+  end
+
+  # ADR 0016: offered where the validator accepts it, columns the role sees, none through a dataset that min_group_size protects from it.
+  describe "lists" do
+    def list(dataset = "orders", **rest)
+      { "version" => 1, "intent" => "answer", "dataset" => dataset, "list" => true }.merge(rest.transform_keys(&:to_s))
+    end
+
+    it "lets each role list a dataset that opted in, with its columns, a period, filters and an order" do
+      query = list(columns: %w[ordered_at status], period: on_date("ship_on"), filters: [ { "segment" => "paid" } ],
+                   order_by: { "by" => "dimension", "dimension" => "ordered_at", "dir" => "asc" }, limit: 10)
+
+      expect([ admin, support, schemer_for(:member) ].map { |schemer| schemer.valid?(query) }).to eq([ true, true, true ])
+      expect(admin.valid?(list("customers"))).to be(false)
+    end
+
+    it "offers a column through a protected dataset only to the roles it exempts" do
+      expect(admin.valid?(list(columns: %w[customer.city]))).to be(true)
+      expect(support.valid?(list(columns: %w[customer.city]))).to be(false)
+    end
+
+    it "cannot mix a list with a metric, a grouping or a comparison" do
+      expect(admin.valid?(list(metric: "count"))).to be(false)
+      expect(admin.valid?(list(group_by: [ { "dimension" => "status" } ]))).to be(false)
+      expect(admin.valid?(list(period: on_date("ordered_at"), compare: "previous_period"))).to be(false)
+    end
   end
 
   describe "datasets and metrics" do

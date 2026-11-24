@@ -25,6 +25,9 @@ module DataTeller
       - filters: a segment of the dataset, or a field compared with an operator. A field marked "lookup" takes {"lookup": "the name as the user wrote it"}.
       - group_by: fields to break the metric down by; a date needs a granularity (day to year). order_by and limit make a top N.
       - compare: previous_period or previous_year, with a period.
+      - list: true instead of a metric when the user asks to see the records themselves ("show me the orders...", "liste des..."),
+        only on a dataset marked "list". columns: fields to show, only those the user names (none: its default columns). period and
+        filters as for a metric; order_by a field; limit only when the user gives a number. A count stays a metric.
 
       Today is %<today>s (%<time_zone>s). When the question is relative ("last month", "this year"), use a relative range.
 
