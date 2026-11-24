@@ -109,6 +109,9 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
   - **The quick start does not show `c.current_user`**: without it the palette renders nothing and the endpoint answers 401, with no message (T41).
   - **Eval noise.** On a 28-question set, 3 or 4 answers of 56 moved between two runs with nothing changed for them: one run does not compare
     two declarations.
+- **T43 The eval's "to review" flag in a host app** (done 2026-11-24, [ADR 0015](adr/0015-eval-executor-without-user.md)). Found in the first
+  real integration: the executor built a user only the dummy's resolvers could read, so `same_result` was always false elsewhere. It now runs
+  a query from the question's role and the set's tenant, as the isolation kit does.
 - **T42 Conditions always applied** (done 2026-11-23, [ADR 0014](adr/0014-always-conditions.md)). Found in the first real integration: rows
   an app hides without a `default_scope` (a status left out by its policy scope, `discard`) were counted. `always where:` / `always scope:` on a
   dataset, applied on every table the query reads, joins included. Not a security item: it only narrows, the tenant filter does not depend on it.

@@ -71,6 +71,22 @@ RSpec.describe DataTeller::Evaluation::Scorer do
       expect(scorer.call(unpaid, paid)).to have_attributes(error: :wrong_answer, same_result: false)
     end
 
+    # A host's resolvers read its own user model (user.organization, user.profile...), which the eval has no way to build.
+    it "runs the queries without the host's user resolvers" do
+      host = DataTeller.config.dup.tap do |config|
+        config.tenant do
+          model Account
+          resolve { |user| user.organization }
+          time_zone(&:time_zone)
+        end
+        config.roles { |user| user.profile }
+      end
+      allow(DataTeller).to receive(:config).and_return(host)
+      written_otherwise = answer("invoices", "invoiced", filters: [ { "dimension" => "status", "op" => "eq", "value" => "open" } ])
+
+      expect(scorer.call(question("unpaid_amount"), written_otherwise)).to have_attributes(same_result: true)
+    end
+
     it "is not checked for anything but a wrong answer" do
       expect(scorer.call(question("customer_count"), out_of_scope("unknown_dataset")).same_result).to be_nil
     end
