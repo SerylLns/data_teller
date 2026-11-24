@@ -3,10 +3,11 @@ require "active_support/core_ext/string/inflections"
 module DataTeller
   # roles is required by boot validation (T07, ADR 0004 D5); it is allowed to be nil here so that the validator
   # can report every missing declaration at once instead of failing on the first one.
-  # min_group_size: a MinGroupSize, nil when the dataset declares none (ADR 0012). always: the conditions of ADR 0014.
-  class Dataset < Data.define(:name, :model_name, :roles, :tenant_path, :metrics, :dimensions, :segments, :synonyms, :min_group_size, :always)
+  # min_group_size: a MinGroupSize, nil when the dataset declares none (ADR 0012). always: the conditions of ADR 0014. list: a
+  # ListDeclaration, nil when the dataset cannot be listed (ADR 0016).
+  class Dataset < Data.define(:name, :model_name, :roles, :tenant_path, :metrics, :dimensions, :segments, :synonyms, :min_group_size, :always, :list)
     def initialize(model_name:, name: nil, roles: nil, tenant_path: nil, metrics: [], dimensions: [], segments: [], synonyms: [],
-                   min_group_size: nil, always: [])
+                   min_group_size: nil, always: [], list: nil)
       model_name = model_name.to_s
       derived = model_name.demodulize.underscore.pluralize
 
@@ -20,7 +21,8 @@ module DataTeller
         segments: index_by_name(model_name, segments, "segment"),
         synonyms: synonyms.map { |s| s.to_s.strip.freeze }.reject(&:empty?).uniq.freeze,
         min_group_size: min_group_size,
-        always: always.uniq.freeze
+        always: always.uniq.freeze,
+        list: list
       )
     end
 
@@ -37,7 +39,8 @@ module DataTeller
         segments: segments.sort.to_h { |key, segment| [ key, canonical_member(segment) ] },
         min_group_size: min_group_size && canonical(min_group_size.to_h),
         # Only when declared: the fingerprint of a dataset without one stays what it was.
-        **(always.empty? ? {} : { always: canonical(always.map { |condition| canonical(condition.to_h) }) })
+        **(always.empty? ? {} : { always: canonical(always.map { |condition| canonical(condition.to_h) }) }),
+        **(list ? { list: list.to_h } : {})
       }
     end
 

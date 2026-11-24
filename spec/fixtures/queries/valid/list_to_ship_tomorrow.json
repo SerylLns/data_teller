@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "list": true,
+  "columns": [
+    "ordered_at",
+    "customer.city",
+    "status"
+  ],
+  "period": {
+    "dimension": "ship_on",
+    "range": {
+      "relative": "tomorrow"
+    }
+  },
+  "filters": [
+    {
+      "segment": "paid"
+    }
+  ],
+  "order_by": {
+    "by": "dimension",
+    "dimension": "ordered_at",
+    "dir": "asc"
+  },
+  "limit": 20
+}

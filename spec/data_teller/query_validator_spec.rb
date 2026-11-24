@@ -57,6 +57,94 @@ RSpec.describe DataTeller::QueryValidator do
     end
   end
 
+  # ADR 0016: rows, on a dataset that opted in, in columns the role sees, never where min_group_size protects.
+  describe "lists" do
+    def list_catalog(*roles, customers_protected: false, customers_listable: false)
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(
+        model_name: "Order", roles: %i[admin support], tenant_path: %i[account],
+        dimensions: [ dimension(:status), dimension(:ordered_at, time: true), dimension(:ship_on), dimension(:total_cents, roles: %i[admin]) ],
+        segments: [ DataTeller::Segment.new(name: :paid, where: { status: "paid" }) ],
+        list: DataTeller::ListDeclaration.new(default: %i[ordered_at status total_cents])
+      ))
+      registry.register(DataTeller::Dataset.new(
+        model_name: "Customer", roles: %i[admin support], tenant_path: %i[account],
+        dimensions: [ dimension(:city), dimension(:email, sensitive: true, roles: %i[admin]) ],
+        min_group_size: (DataTeller::MinGroupSize.new(minimum: 5, except: %i[admin]) if customers_protected),
+        list: (DataTeller::ListDeclaration.new(default: %i[city]) if customers_listable)
+      ))
+      DataTeller::Catalog.new(roles, registry: registry.freeze!, tenant_model_name: "Account")
+    end
+
+    def dimension(name, **options) = DataTeller::Dimension.new(name: name, **options)
+
+    def list(dataset = "orders", **rest)
+      { "version" => 1, "intent" => "answer", "dataset" => dataset, "list" => true }.merge(rest.transform_keys(&:to_s))
+    end
+
+    def check(query, *roles, **options) = described_class.new(list_catalog(*roles, **options)).call(query)
+    def codes(result) = result.problems.map { |problem| problem[:code] }
+
+    it "accepts the default columns, and columns chosen with a period, filters and an order" do
+      expect(check(list, :support)).to be_accepted
+      expect(check(list(columns: %w[ordered_at customer.city status], period: period({ "relative" => "tomorrow" }, "ship_on"),
+                        filters: [ { "segment" => "paid" }, filter("customer.city", "eq", "Lyon") ],
+                        order_by: { "by" => "dimension", "dimension" => "ordered_at", "dir" => "asc" }, limit: 20), :support)).to be_accepted
+    end
+
+    it "refuses a dataset that did not opt in" do
+      result = check(list("customers"), :admin)
+
+      expect(result).to be_refused_with(:unsupported_query)
+      expect(codes(result)).to eq([ :not_listable ])
+    end
+
+    # A forbidden column and an unknown one are the same case (ADR 0001 D5).
+    it "refuses a column the role does not see, as an unknown one" do
+      hidden = check(list(columns: %w[status customer.email]), :support)
+      unknown = check(list(columns: %w[status nope]), :support)
+
+      expect(hidden.problems).to eq(unknown.problems)
+      expect(codes(hidden)).to eq([ :unknown_dimension ])
+      expect(check(list(columns: %w[status customer.email]), :admin)).to be_accepted
+    end
+
+    it "orders only by a column the role sees" do
+      order = { "by" => "dimension", "dimension" => "total_cents", "dir" => "desc" }
+
+      expect(codes(check(list(order_by: order), :support))).to eq([ :unknown_dimension ])
+      expect(check(list(order_by: order), :admin)).to be_accepted
+    end
+
+    it "keeps out of the defaults what the role does not see, and refuses when none is left" do
+      registry = DataTeller::Registry.new
+      registry.register(DataTeller::Dataset.new(model_name: "Order", roles: %i[admin support], tenant_path: %i[account],
+                                                dimensions: [ dimension(:total_cents, roles: %i[admin]) ],
+                                                list: DataTeller::ListDeclaration.new(default: %i[total_cents])))
+      catalog = DataTeller::Catalog.new([ :support ], registry: registry.freeze!, tenant_model_name: "Account")
+
+      expect(codes(described_class.new(catalog).call(list))).to eq([ :no_visible_column ])
+    end
+
+    it "is refused on a protected dataset it reads through a column, a filter or the order, unless the role is exempt" do
+      through_column = list(columns: %w[ordered_at customer.city])
+      through_filter = list(filters: [ filter("customer.city", "eq", "Lyon") ])
+      through_order = list(order_by: { "by" => "dimension", "dimension" => "customer.city", "dir" => "asc" })
+
+      [ through_column, through_filter, through_order ].each do |query|
+        expect(codes(check(query, :support, customers_protected: true))).to eq([ :protected_rows ])
+        expect(check(query, :admin, customers_protected: true)).to be_accepted
+      end
+      expect(check(list, :support, customers_protected: true)).to be_accepted
+    end
+
+    it "is refused on a protected dataset listed itself, unless the role is exempt" do
+      expect(codes(check(list("customers"), :support, customers_protected: true, customers_listable: true))).to eq([ :protected_rows ])
+      expect(check(list("customers"), :admin, customers_protected: true, customers_listable: true)).to be_accepted
+      expect(check(list("customers"), :support, customers_listable: true)).to be_accepted
+    end
+  end
+
   describe "structure" do
     [ nil, "orders", 42, [], {}, { "version" => 2, "intent" => "answer", "dataset" => "orders", "metric" => "count" } ].each do |bad|
       it "refuses #{bad.inspect[0, 30]}" do

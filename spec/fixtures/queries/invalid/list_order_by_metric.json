@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "list": true,
+  "order_by": {
+    "by": "metric",
+    "dir": "desc"
+  }
+}

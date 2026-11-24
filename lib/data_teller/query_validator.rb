@@ -41,7 +41,7 @@ module DataTeller
       return problem("", :invalid_structure) unless QuerySchema.valid?(query)
 
       case query["intent"]
-      when "answer" then check_answer(query)
+      when "answer" then query["list"] ? check_list(query) : check_answer(query)
       when "clarify" then check_clarify(query)
       end
     end
@@ -69,6 +69,52 @@ module DataTeller
       check_group_by(entry, Array(query["group_by"]))
       check_order_by(query["order_by"], Array(query["group_by"])) if query["order_by"]
       check_compare(entry, Array(query["group_by"])) if query["compare"]
+    end
+
+    # ADR 0016: rows of a dataset that opted in, columns the role sees, refused where min_group_size protects a dataset it reads.
+    def check_list(query)
+      entry = @catalog.datasets.find { |candidate| candidate.name.to_s == query["dataset"] }
+      return problem("/dataset", :unknown_dataset, reason: :unknown_dataset) unless entry
+      return problem("/list", :not_listable) unless entry.dataset.list
+
+      read = list_columns(entry, query["columns"])
+      check_period(entry, query["period"]) if query["period"]
+      Array(query["filters"]).each_with_index { |filter, index| check_filter(entry, filter, "/filters/#{index}") }
+      read << check_list_order(entry, query["order_by"]) if query["order_by"]
+      read.concat(filter_fields(entry, query))
+      check_protected_rows(entry, read.compact)
+    end
+
+    # The columns asked, or the declared defaults the role sees: a default it cannot see is left out, as a name it does not know.
+    def list_columns(entry, names)
+      if names
+        names.each_with_index.map do |name, index|
+          field(entry, name).tap { |found| problem("/columns/#{index}", :unknown_dimension) unless found }
+        end
+      else
+        entry.dataset.list.default.filter_map { |name| field(entry, name.to_s) }.tap do |found|
+          problem("/list", :no_visible_column) if found.empty?
+        end
+      end
+    end
+
+    # Ordering by a column the role does not see would reveal its values, row by row.
+    def check_list_order(entry, order_by)
+      field(entry, order_by["dimension"]).tap { |found| problem("/order_by/dimension", :unknown_dimension) unless found }
+    end
+
+    def filter_fields(entry, query)
+      names = Array(query["filters"]).filter_map { |filter| filter["dimension"] } + [ query.dig("period", "dimension") ].compact
+      names.filter_map { |name| field(entry, name) }
+    end
+
+    # A list is rows one by one, what min_group_size prevents (ADR 0016 D3). Every dataset it reads counts, the one asked and the ones a
+    # column, a filter or the order joins, unless the role is exempt on that dataset.
+    def check_protected_rows(entry, fields)
+      read = [ entry.dataset, *fields.flat_map(&:via) ].uniq(&:name)
+      return unless read.any? { |dataset| dataset.min_group_size&.applies_to?(@catalog.roles) }
+
+      problem("/list", :protected_rows)
     end
 
     # October's weeks and September's weeks are different groups: nothing lines them up.

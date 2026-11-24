@@ -95,7 +95,32 @@ module DataTeller
       check_metric_columns(dataset)
       check_role_narrowing(dataset)
       check_min_group_size_exemptions(dataset)
+      check_list(dataset)
       note_shadowed_paths(dataset)
+    end
+
+    # The default columns are what any role that lists the dataset sees first: each must be a dimension a query could name, and none
+    # sensitive, since a list reads the value itself (ADR 0016 D2). A role still only gets the defaults it can see.
+    def check_list(dataset)
+      return unless dataset.list
+
+      reachable = list_columns(dataset)
+      dataset.list.default.each do |name|
+        dimension = reachable[name]
+        if dimension.nil?
+          @errors << "dataset #{dataset.name}: list default: #{name} is not a dimension of the dataset or of one it reaches"
+        elsif dimension.sensitive
+          @errors << "dataset #{dataset.name}: list default: #{name} is sensitive; a role allowed to see it can still ask for it"
+        end
+      end
+    end
+
+    def list_columns(dataset)
+      own = dataset.dimensions.transform_keys(&:to_sym)
+      DimensionPaths.hops(dataset, registry: @registry, tenant_model_name: @config.tenant_model_name).each do |hop|
+        hop.target.dimensions.each_value { |dimension| own[:"#{hop.prefix}.#{dimension.name}"] = dimension }
+      end
+      own
     end
 
     # A role that cannot read the dataset has nothing to be exempt from: it is a typo, and a typo here would leave the role meant to be

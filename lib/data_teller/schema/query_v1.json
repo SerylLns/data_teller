@@ -13,6 +13,9 @@
       "$ref": "#/$defs/answer"
     },
     {
+      "$ref": "#/$defs/list"
+    },
+    {
       "$ref": "#/$defs/clarify"
     },
     {
@@ -87,6 +90,58 @@
         "compare": [
           "period"
         ]
+      }
+    },
+    "list": {
+      "description": "An answer that shows rows instead of a metric (ADR 0016). Columns are dimensions; none means the dataset's default.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "intent",
+        "dataset",
+        "list"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "intent": {
+          "const": "answer"
+        },
+        "dataset": {
+          "$ref": "#/$defs/name"
+        },
+        "list": {
+          "const": true
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "period": {
+          "$ref": "#/$defs/period"
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/filter"
+          }
+        },
+        "order_by": {
+          "$ref": "#/$defs/list_order_by"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
       }
     },
     "clarify": {
@@ -465,6 +520,29 @@
             "month",
             "quarter",
             "year"
+          ]
+        }
+      }
+    },
+    "list_order_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "by",
+        "dimension",
+        "dir"
+      ],
+      "properties": {
+        "by": {
+          "const": "dimension"
+        },
+        "dimension": {
+          "$ref": "#/$defs/name"
+        },
+        "dir": {
+          "enum": [
+            "asc",
+            "desc"
           ]
         }
       }

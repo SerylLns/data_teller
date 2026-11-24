@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "list": true,
+  "columns": [
+    "status",
+    "status"
+  ]
+}

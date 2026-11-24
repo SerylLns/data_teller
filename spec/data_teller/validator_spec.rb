@@ -216,6 +216,42 @@ RSpec.describe DataTeller::Validator do
     end
   end
 
+  # ADR 0016 D2: each default column is a dimension a query could name, own or through a path, and none is sensitive.
+  describe "list defaults" do
+    before { config.expose "Customer" }
+
+    def customers(**parts)
+      registry.register(DataTeller::Dataset.new(model_name: "Customer", roles: %i[admin support], tenant_path: %i[account],
+                                                dimensions: [ dimension(:city) ], **parts))
+    end
+
+    def list(*columns) = DataTeller::ListDeclaration.new(default: columns)
+
+    it "accept own dimensions and paths" do
+      customers
+      dataset(dimensions: [ dimension(:status), dimension(:ordered_at, time: true) ], list: list(:ordered_at, :"customer.city", :status))
+
+      expect(report).to be_ok
+    end
+
+    it "refuse a name that is not a dimension, here or through a path" do
+      customers
+      dataset(dimensions: [ dimension(:status) ], list: list(:status, :total_cents, :"customer.email"))
+
+      expect(report.errors).to contain_exactly(
+        "dataset orders: list default: total_cents is not a dimension of the dataset or of one it reaches",
+        "dataset orders: list default: customer.email is not a dimension of the dataset or of one it reaches"
+      )
+    end
+
+    it "refuse a sensitive dimension, own or through a path" do
+      customers(dimensions: [ dimension(:city), dimension(:email, sensitive: true, roles: %i[admin]) ])
+      dataset(dimensions: [ dimension(:status) ], list: list(:status, :"customer.email"))
+
+      expect(report.errors).to include(/list default: customer.email is sensitive/)
+    end
+  end
+
   it "requires explicit roles on a scope segment" do
     dataset(segments: [ DataTeller::Segment.new(name: :vip, scope: :vip_customers) ])
 

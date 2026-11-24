@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "intent": "answer",
+  "dataset": "orders",
+  "list": true,
+  "group_by": [
+    {
+      "dimension": "status"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ module DataTeller
       @segments = []
       @min_group_size = nil
       @always = []
+      @list = nil
       @problems = []
     end
 
@@ -53,12 +54,17 @@ module DataTeller
       collect_problems { @always << Always.new(**options) }
     end
 
+    # list default: %i[ordered_at status] (ADR 0016).
+    def list(**options)
+      collect_problems { @list = ListDeclaration.new(**options) }
+    end
+
     def build
       dataset = collect_problems do
         Dataset.new(
           model_name: @model_name, name: @name, roles: @roles, tenant_path: @tenant_path, synonyms: @synonyms,
           metrics: with_implicit_count(@metrics), dimensions: @dimensions, segments: @segments, min_group_size: @min_group_size,
-          always: @always
+          always: @always, list: @list
         )
       end
       raise DeclarationError.new(@problems) if @problems.any?

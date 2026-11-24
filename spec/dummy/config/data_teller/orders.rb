@@ -15,6 +15,9 @@ DataTeller.refine Order do
   dimension :status
   dimension :channel
 
+  # Listed row by row by any role; customer.city is there to ask for, refused to support by the customers' min_group_size (ADR 0016).
+  list default: %i[ordered_at status channel ship_on]
+
   segment :paid, where: { status: :paid }
   segment :open, where: { status: %i[pending paid] }
   segment :with_coupon, scope: :with_coupon, roles: %i[admin support member]

@@ -57,6 +57,19 @@ RSpec.describe "DataTeller.refine" do
     expect(refine_orders { always scope: :with_coupon }.to_h[:always]).to eq([ { scope: :with_coupon, where: nil } ])
   end
 
+  # ADR 0016 D2: opt-in, with the columns of a list that names none.
+  it "declares a dataset listable, with its default columns in order" do
+    dataset = refine_orders { list default: [ :ordered_at, "customer.city", :status ] }
+
+    expect(dataset.list.default).to eq(%i[ordered_at customer.city status])
+    expect(refine_orders { roles :admin }.list).to be_nil
+  end
+
+  it "leaves the fingerprint of a dataset that cannot be listed as it was" do
+    expect(refine_orders { roles :admin }.to_h).not_to have_key(:list)
+    expect(refine_orders { list default: %i[status] }.to_h[:list]).to eq(default: %i[status])
+  end
+
   it "keeps the tenant path in order" do
     expect(refine_orders { tenant_path :customer, :account }.tenant_path).to eq(%i[customer account])
   end
@@ -125,6 +138,15 @@ RSpec.describe "DataTeller.refine" do
       expect { refine_orders { always where: -> { Date.today } } }.to raise_error(DataTeller::DeclarationError, /always: where: must be a non-empty Hash/)
       expect { refine_orders { always where: { ship_on: { days_ago: 30 } } } }.to raise_error(DataTeller::DeclarationError, /relative offset/)
       expect { refine_orders { always scope: :paid, roles: :admin } }.to raise_error(DataTeller::DeclarationError, /Order.*roles/)
+    end
+
+    it "rejects a list with no column, too many, a duplicate or something that is not a name" do
+      expect { refine_orders { list default: [] } }.to raise_error(DataTeller::DeclarationError, /list: default: needs at least one/)
+      expect { refine_orders { list default: (1..9).map { |i| :"d#{i}" } } }.to raise_error(DataTeller::DeclarationError, /at most 8/)
+      expect { refine_orders { list default: %i[status status] } }.to raise_error(DataTeller::DeclarationError, /twice/)
+      expect { refine_orders { list default: [ "status; drop" ] } }.to raise_error(DataTeller::DeclarationError, /not a dimension name/)
+      expect { refine_orders { list default: [ :"a.b.c.d" ] } }.to raise_error(DataTeller::DeclarationError, /not a dimension name/)
+      expect { refine_orders { list } }.to raise_error(DataTeller::DeclarationError, /Order.*default/)
     end
 
     it "rejects a duplicate name inside a dataset and a dataset declared twice" do
