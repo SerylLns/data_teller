@@ -81,6 +81,25 @@ RSpec.describe DataTeller::IsolationCheck do
     expect(run.leaks).to contain_exactly(have_attributes(dataset: "customers", owner: globex.id))
   end
 
+  # ADR 0016: a list on each listable dataset, then one per column reached through a path, every row of the list traced to its owner.
+  describe "lists" do
+    it "probes the default list and each column a path reaches" do
+      shapes = described_class.new.probes.select { |probe| probe.dataset == "orders" }.map(&:shape)
+
+      expect(shapes).to include("list", "list customer.city", "list customer.name")
+      expect(shapes.grep(/\Alist/).size).to eq(1 + DataTeller::Catalog.for(:admin).dataset(:orders).fields.count { |field| field.steps.any? })
+    end
+
+    it "passes on a correct app, and catches a leak on a table a list joins" do
+      acme.orders.create!(customer: globex.customers.first, status: 1, total_cents: 100, ordered_at: Time.current)
+      run = ->(report) { report.runs.find { |one| one.dataset == "orders" && one.shape == "list customer.city" && one.tenant == acme.id } }
+      expect(run.call(check)).to have_attributes(failed?: false, refusal: nil)
+
+      break_tenant_filter_of(Customer)
+      expect(run.call(check).leaks).to contain_exactly(have_attributes(dataset: "customers", owner: globex.id))
+    end
+  end
+
   it "fails on a table the SQL reads that the compiler built no tenant filter for" do
     allow_any_instance_of(DataTeller::Plan).to receive(:touched).and_wrap_original do |original|
       original.call.reject { |dataset| dataset.name == :customers }

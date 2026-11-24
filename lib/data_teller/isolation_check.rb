@@ -86,9 +86,24 @@ module DataTeller
           *entry.fields.select(&:groupable?).map { |field| probe.call("group_by #{field.name}", "group_by" => [ group_item(field) ]) },
           *entry.segments.map { |segment| probe.call("segment #{segment.name}", "filters" => [ { "segment" => segment.name.to_s } ]) },
           *entry.metrics.reject { |metric| metric.steps.empty? }.map { |metric| probe.call("metric #{metric.name}", "metric" => metric.name.to_s) },
-          *entry.fields.select(&:filterable?).map { |field| probe.call("#{field.name} = a value of another tenant", {}, field) }
+          *entry.fields.select(&:filterable?).map { |field| probe.call("#{field.name} = a value of another tenant", {}, field) },
+          *list_probes(entry)
         ]
       end
+    end
+
+    # A list reads rows one by one (ADR 0016): its default columns, then each column reached through a path, so every join a list can make
+    # is traced. The rows checked are the whole list up to the cap, not one page.
+    def list_probes(entry)
+      return [] unless entry.dataset.list
+
+      base = { "version" => 1, "intent" => "answer", "dataset" => entry.name.to_s, "list" => true }
+      [
+        Probe.new(dataset: entry.name.to_s, shape: "list", query: base, other_value: nil),
+        *entry.fields.reject { |field| field.steps.empty? }.map do |field|
+          Probe.new(dataset: entry.name.to_s, shape: "list #{field.name}", query: base.merge("columns" => [ field.name.to_s ]), other_value: nil)
+        end
+      ]
     end
 
     # As QueryRunner runs it, with the same database role and row security, so that the report is about what the app does. Also
