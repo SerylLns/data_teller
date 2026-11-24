@@ -130,7 +130,9 @@ Legend: `[dep]` new dependency, `[sec]` security-relevant, `[perf]` performance-
     setting or a keyword is missing from them, so the reference cannot drift in silence.
   - **An integration guide**, written during the first real integration (the production app tried locally, then T40): its gaps show where an
     integrator falls into them, not where they are guessed.
-  - **The README back to a showcase**: the pitch, a quick start, links to the guide, the references and the security model.
+  - **The README back to a showcase**: the pitch, a quick start, links to the guide, the references and the security model. Done first
+    (2026-11-24): the security model, the options and checks, development and the ADR index moved to `docs/`; the references and the guide
+    replace `docs/configuration.md` when they exist.
   - A site (and a choice of tool) at publication, with T34.
 - **T40 `data_teller-demo` repository** (after T13b). Separate Rails app using the gem like an integrator. Decided 2026-11-07, two parts in one app:
   - **The demo: a fake merchant back-office** (dashboard, orders, a customer page; 3 or 4 read-only pages, generated from fake seeds, no real

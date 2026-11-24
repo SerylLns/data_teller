@@ -25,7 +25,7 @@ This is a one-person project, not a company with an on-call rotation. I'll ackno
 
 ## What doesn't
 
-- **The limits documented in the [README](README.md#security-model)** and in [ADR 0012](docs/adr/0012-aggregate-disclosure.md) D5: totals giving a hidden group away, `min` and `max`, dominance, differencing across several questions. They are known and written down; a new way to exploit them is still welcome, as a regular issue.
+- **The limits documented in the [security model](docs/security.md#what-these-rules-do-not-cover)** and in [ADR 0012](docs/adr/0012-aggregate-disclosure.md) D5: totals giving a hidden group away, `min` and `max`, dominance, differencing across several questions. They are known and written down; a new way to exploit them is still welcome, as a regular issue.
 - **A prompt injection that yields a query the user was allowed to ask anyway.** That is the design working: the worst a model's output can be is a valid question within the user's permissions.
 - **A `tenant_path` that reaches the right model through the wrong meaning.** The boot checks where a path ends, not what it means; that line is the integrator's to review.
 - **No per-user rate limit.** Known, and on the roadmap: the project is not meant for production yet.

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 568" width="980" height="568" role="img" aria-label="Five layers between a question and the data: the LLM only fills a JSON query; a validator checks every name against the role; the compiler adds the tenant filter on every table with bound parameters; Postgres runs it read-only within a time budget; an optional database role with row-level security holds even without the compiler's filter.">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#818b98"/></marker></defs>
+<rect x="0.5" y="0.5" width="979" height="567" rx="16" fill="#f6f8fa" stroke="#d1d9e0"/>
+<text x="50" y="40" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" font-size="14" fill="#1f2328">“How many paid orders ship tomorrow?”</text>
+<line x1="160" y1="48" x2="160" y2="68" stroke="#818b98" stroke-width="2" marker-end="url(#a)"/>
+<rect x="50" y="72" width="220" height="64" rx="10" fill="#ffffff" stroke="#cf222e" stroke-width="2"/>
+<text x="160" y="100" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2328">LLM</text>
+<text x="160" y="121" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#cf222e">untrusted output</text>
+<text x="300" y="100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2328">Picks names from a closed list and fills a JSON query.</text>
+<text x="300" y="121" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">Sees the question, the date and the names this role may use. Never a row.</text>
+<line x1="160" y1="140" x2="160" y2="160" stroke="#818b98" stroke-width="2" marker-end="url(#a)"/>
+<rect x="50" y="164" width="220" height="64" rx="10" fill="#ffffff" stroke="#1a7f37" stroke-width="2"/>
+<text x="160" y="192" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2328">Validator</text>
+<text x="160" y="213" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">names, roles, types</text>
+<text x="300" y="192" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2328">Checks every name against what this role may use, wherever it appears.</text>
+<text x="300" y="213" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">A forbidden name gets the same refusal as an unknown one.</text>
+<line x1="160" y1="232" x2="160" y2="252" stroke="#818b98" stroke-width="2" marker-end="url(#a)"/>
+<rect x="50" y="256" width="220" height="64" rx="10" fill="#ffffff" stroke="#1a7f37" stroke-width="2"/>
+<text x="160" y="284" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2328">Compiler</text>
+<text x="160" y="305" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">our code</text>
+<text x="300" y="284" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2328">Adds the tenant filter on every table it touches, joins included.</text>
+<text x="300" y="305" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">Column names from your declarations, values as bound parameters.</text>
+<line x1="160" y1="324" x2="160" y2="344" stroke="#818b98" stroke-width="2" marker-end="url(#a)"/>
+<rect x="50" y="348" width="220" height="64" rx="10" fill="#ffffff" stroke="#1a7f37" stroke-width="2"/>
+<text x="160" y="376" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2328">Postgres</text>
+<text x="160" y="397" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">read-only, time-bounded</text>
+<text x="300" y="376" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2328">Runs the query in a read-only transaction, one time budget per question.</text>
+<text x="300" y="397" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">Enforced by the database, not by a check in Ruby.</text>
+<line x1="160" y1="416" x2="160" y2="436" stroke="#818b98" stroke-width="2" marker-end="url(#a)"/>
+<rect x="50" y="440" width="220" height="64" rx="10" fill="#ffffff" stroke="#1a7f37" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="160" y="468" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2328">Database role</text>
+<text x="160" y="489" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">opt-in</text>
+<text x="300" y="468" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2328">Reads the declared columns only; with row-level security, the tenant’s rows only.</text>
+<text x="300" y="489" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">Holds even if the compiler’s filter were gone. Checked by rake data_teller:check.</text>
+<line x1="30" y1="72" x2="30" y2="136" stroke="#cf222e" stroke-width="3"/>
+<line x1="30" y1="164" x2="30" y2="504" stroke="#1a7f37" stroke-width="3"/>
+<text x="50" y="544" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e">Proved on your own tables: <tspan font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace" fill="#1f2328">rake data_teller:isolation</tspan> traces every row read back to its tenant.</text>
+</svg>

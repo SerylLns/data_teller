@@ -18,9 +18,9 @@
 <p align="center">
   <a href="#why">Why</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#security-in-one-picture">Security</a> ·
   <a href="#where-it-stands">Where it stands</a> ·
   <a href="#try-it-in-your-app">Try it</a> ·
-  <a href="#security-model">Security model</a> ·
   <a href="#follow-the-build">Follow the build</a>
 </p>
 
@@ -77,38 +77,52 @@ Every value is a bound parameter, and every column name comes from your declarat
 > [!NOTE]
 > The question itself is sent to the provider as typed: if a user writes a customer's name in it, that name goes too.
 
+## Security in one picture
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/security-layers-dark.svg">
+    <img src="docs/assets/security-layers-light.svg" width="900" alt="Five layers between a question and the data: the LLM only fills a JSON query; a validator checks every name against the role; the compiler adds the tenant filter on every table with bound parameters; Postgres runs it read-only within a time budget; an optional database role with row-level security holds even without the compiler's filter.">
+  </picture>
+</p>
+
+Isolation is tested in `spec/security/` against hostile scopes and values and common table shapes, on real rows across two tenants: that shows the cases tried, not all possible ones. Every rule, its state, and what the rules do not cover: [docs/security.md](docs/security.md).
+
 ## Where it stands
 
-Built one decision at a time, each written down with the options rejected. The full plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
+Built one decision at a time, each [written down](docs/adr/README.md) with the options rejected. The plan is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-- ✅ **The core, with no LLM in it.** Query format, declaration DSL checked at boot, validator, compiler with the tenant filter on every table, permissions by role on every use of a name, read-only execution with one time budget per question and an optional cost check, a read-only database role and row-level security, a minimum group size, lists of rows paged by cursor.
+- ✅ **The core, with no LLM in it.** Query format, declarations checked at boot, validator, compiler, permissions by role, read-only execution, database role and row-level security, minimum group size, lists.
 - ✅ **Tools to check it on your own data.** `rake data_teller:check`, the isolation kit, the cost report, the evaluation suite.
-- ✅ **A first LLM integration.** OpenAI client, `DataTeller.ask`, a router for large catalogs, a minimal palette. **No per-user limit yet.**
-- ⬜ **Next.** Prompt tuning, retrieval (RAG), filters on names, explanations, rate limits, a production UI.
+- ✅ **A first LLM integration.** OpenAI, `DataTeller.ask`, a router for large catalogs, a minimal palette. **No per-user limit yet.**
+- ⬜ **Next.** Prompt tuning, retrieval (RAG), filters on names, labels and a production UI, explanations, rate limits.
 
-### First measures
-
-On fake data, with `gpt-6-luna` and a first prompt nobody has tuned yet:
-
-| Questions, each asked in two languages | Answers right | Runs |
+| First measures, fake data, `gpt-6-luna`, untuned prompt | Answers right | Runs |
 |---|---|---|
-| Working set, 37 questions | **87.6%** on average | 5 |
-| Separate set, the author's 10 questions | **70.0%** (14/20) | 1 |
+| Working set: 37 questions, each in English and French | **87.6%** on average | 5 |
+| The author's 10 questions, kept apart | **70.0%** (14/20) | 1 |
+
+One run moves by about three answers, so these mostly give a starting point for tuning and retrieval.
+
+<details>
+<summary>How they were measured</summary>
 
 - **The 87.6%** counts answers accepted after a review of the first run, which took that run from 79.7% to 85.1% ([ADR 0007](docs/adr/0007-catalog-narrowing.md), [ADR 0009](docs/adr/0009-baseline.md)).
 - **The 70.0%** comes from one run, where one answer is worth 5 points, so the gap between the two numbers is a hint. These questions are never used for tuning, but they were seen during development, so this is not presented as an independent measure ([ADR 0006](docs/adr/0006-evaluation-dataset.md)).
-- **Lists** added four questions to the working set. One run on the 41: 90.2%, the 8 list answers right, and the same 8 failures as before. One run, so it is not averaged into the 87.6% ([ADR 0016](docs/adr/0016-lists.md)).
 
-Both say little until retrieval and tuning have something to compare to.
+</details>
 
-### Known gaps
+<details>
+<summary>Known gaps</summary>
 
-- A filter on a name the user wrote ("orders from Alice") is refused: lookups are not implemented yet.
+- A filter on a name the user wrote ("orders from Alice") is refused: lookups come with retrieval.
 - Each question stands alone: "and in June?" after a first question does not work.
-- With a soft-deleted parent, a total and its breakdown can disagree. The total keeps a row whose parent is deleted (who owns a row does not depend on a soft-delete), while a `group_by` through that parent leaves it out, since the parent's `default_scope` applies to the join. The same goes for an `always` condition. With `discard`, which has no `default_scope`, discarded rows are counted unless `always` leaves them out.
-- A path through an optional `belongs_to` is an inner join: rows with no parent are left out of a breakdown, or a list column, through that parent, while the total keeps them.
-- A user has one tenant: someone who sees several gets the one the resolver returns.
 - The palette shows your declared names as they are (`count`, `ordered_at`) and dates in ISO format: there are no labels yet.
+- A path through an optional `belongs_to` is an inner join: a breakdown, or a list column, through that parent leaves out the rows with no parent, while the total keeps them.
+- With a soft-deleted parent, a total and its breakdown can disagree. The total keeps a row whose parent is deleted (who owns a row does not depend on a soft-delete), while a `group_by` through that parent leaves it out, since the parent's `default_scope` applies to the join. The same goes for an `always` condition. With `discard`, which has no `default_scope`, discarded rows are counted unless `always` leaves them out.
+- A user has one tenant: someone who sees several gets the one the resolver returns.
+
+</details>
 
 ## Try it in your app
 
@@ -142,26 +156,6 @@ end
 
 Without `c.current_user`, nobody has access. Without `c.llm`, questions are refused, and declarations and checks still work.
 
-<details>
-<summary>Optional: time zone and language</summary>
-
-- `time_zone { |account| account.time_zone }` in `c.tenant` sets what "today" means for a tenant.
-- `c.locale { |user| user.locale }` sets the language of the palette. English and French are included.
-
-</details>
-
-<details>
-<summary>Optional: how heavy a question may be</summary>
-
-```ruby
-c.query_timeout = 5           # seconds for a whole question, every statement included (the default)
-c.max_query_cost = 20_000     # an example, off by default: choose yours with rake data_teller:costs
-```
-
-`query_timeout` bounds a question, not each statement: a `compare` or a protected answer runs up to four, and they share the time. With `max_query_cost`, every statement of a question is planned with `EXPLAIN` before any runs, and a question whose estimated cost adds up to more is refused without reading a row. The cost is in the planner's units, which depend on your data and settings, so there is no default ([ADR 0013](docs/adr/0013-query-budget.md)).
-
-</details>
-
 ### 2. Declare each exposed model, in one file per model
 
 ```ruby
@@ -183,77 +177,23 @@ end
 
 A column that isn't declared can't be queried. A `count` metric exists on every dataset without being declared.
 
-<details>
-<summary>Optional: answer "show me the ..." with rows</summary>
+Optional, each explained in [docs/configuration.md](docs/configuration.md):
 
-```ruby
-# config/data_teller/orders.rb
-DataTeller.refine Order do
-  # ...
-  list default: %i[ordered_at status ship_on]
-end
-```
-
-A dataset with `list` can be listed row by row; without it, a question asking for rows is refused. The model picks up to 8 columns among the dimensions the role sees, paths included, and `default` is what a list that names none shows. A sensitive dimension can't be a default. Rows come 50 at a time (`c.max_list_rows`), with the total, newest first on the default time dimension unless the question gives an order. A list is refused on a dataset where `min_group_size` applies to the role, since a row is a group of one ([ADR 0016](docs/adr/0016-lists.md)).
-
-</details>
-
-<details>
-<summary>Optional: hide small groups from some roles</summary>
-
-```ruby
-# config/data_teller/customers.rb
-DataTeller.refine Customer do
-  roles :admin, :support
-  tenant_path :account
-  min_group_size 5, except: :admin
-
-  dimension :acquisition_channel
-end
-```
-
-On a dataset that describes people, a group of fewer than 5 rows is hidden from every role not named in `except:`, in any query that reads the dataset, joins included. The answer says how many groups were hidden, never which. A single number under 5 is refused, zero included: if 0 were shown, "hidden" would mean "at least one". `of: :customer` counts the distinct values of a direct `belongs_to` instead of rows, so that twelve orders from one customer count as one ([ADR 0012](docs/adr/0012-aggregate-disclosure.md)).
-
-</details>
-
-<details>
-<summary>Optional: leave out rows your app always hides</summary>
-
-```ruby
-# config/data_teller/orders.rb
-DataTeller.refine Order do
-  roles :admin, :support
-  tenant_path :account
-  always where: { archived: false }
-  always scope: :not_cancelled   # the negative scope Rails defines for `enum :status`
-end
-```
-
-For rows your app hides on every screen without a `default_scope`: archived with `discard`, or a status left out by a policy scope. Every query that reads the dataset gets the condition, joins included, and the model never sees it. It takes a segment's `where:` or `scope:`, and the same checks apply. A "not equal" goes in a scope; on an enum, Rails already defines one per value ([ADR 0014](docs/adr/0014-always-conditions.md)).
-
-</details>
+- [`list default:`](docs/configuration.md#lists-answer-show-me-the--with-rows) answers "show me the ..." with rows, a page at a time.
+- [`always where:`](docs/configuration.md#leave-out-rows-your-app-always-hides) leaves out rows your app always hides, archived or discarded.
+- [`min_group_size`](docs/configuration.md#hide-small-groups-from-some-roles) hides groups smaller than N from some roles, on datasets that describe people.
+- [`time_zone` and `c.locale`](docs/configuration.md#time-zone-and-language) set what "today" means and the palette's language.
+- [`c.query_timeout` and `c.max_query_cost`](docs/configuration.md#how-heavy-a-question-may-be) bound how heavy a question may be.
 
 ### 3. Check it
 
 ```bash
-bin/rails data_teller:check                # in CI and after migrations: reads the tables and columns too
-bin/rails "data_teller:schema[support]"    # the JSON schema this role would get
-bin/rails "data_teller:catalog[support]"   # the same names, a few lines per dataset, for a person
-bin/rails data_teller:isolation            # every row read traced back to its tenant, on this database's rows (TENANTS=12,57,301 CAP=5000)
-bin/rails data_teller:costs                # each of those queries' estimated cost next to its real duration, to choose max_query_cost
-bin/rails "data_teller:eval[dev]"          # score a model on eval/dev.yml (MODEL=perfect|replay|naive|routed, SAVE=1 to keep the run; naive and routed are paid calls)
+bin/rails data_teller:check         # in CI and after migrations: reads the tables and columns too
+bin/rails data_teller:isolation     # every row read traced back to its tenant, on this database's rows
+bin/rails "data_teller:eval[dev]"   # score a model on your own questions in eval/dev.yml
 ```
 
-An invalid configuration keeps the engine off, and by default the app refuses to boot. With `c.on_invalid_config = :disable`, the app boots without the engine and logs the error. The boot itself never reads the database, so it can't block a migration.
-
-<details>
-<summary>What the isolation kit and the cost report do</summary>
-
-`data_teller:isolation` runs one query per declaration (each dimension, segment, metric path, and each filter compared to another tenant's value) as three tenants: by default the first two and the last one. A listable dataset is also listed, with its default columns and with each column it reaches through a path. It traces every row each query reads back to its owner through the `tenant_path` foreign keys, apart from the compiler, and exits 1 if a row belongs to another tenant or a table was read without a tenant filter. It only reads, in a transaction that is always rolled back, so you can point it at an anonymised copy of production; it prints dataset names and ids, never a value. A dataset no tenant read a row of is reported as not proved, not as passed ([ADR 0011](docs/adr/0011-isolation-kit.md)).
-
-`data_teller:costs` runs the same queries, as the same tenants, with `EXPLAIN ANALYZE`, and prints each one's estimated cost next to how long it took, sorted by cost, with a line where your `max_query_cost` falls. Set the threshold below the costs where the durations take off, with a margin: these queries are simple, and real questions combine them. Unlike the kit, it runs every query for real, each under `query_timeout`: point it at a copy of production, not at the primary. It prints costs and durations, never a value.
-
-</details>
+An invalid configuration keeps the engine off, and by default the app refuses to boot. The other tasks (the schema and catalog a role gets, the cost report) are in [docs/configuration.md](docs/configuration.md#checks-the-rake-tasks-the-isolation-kit-and-the-cost-report).
 
 ### 4. Mount the engine and add the palette
 
@@ -267,125 +207,15 @@ mount DataTeller::Engine => "/data_teller"
 <%= data_teller_palette %>
 ```
 
-Ctrl/Cmd+K opens it. It renders nothing for someone the endpoint would refuse.
+Ctrl/Cmd+K opens it. It renders nothing for someone the endpoint would refuse. **Each question is a paid call to OpenAI.** For another interface, `DataTeller.ask` takes the same path ([other ways in](docs/configuration.md#other-ways-in)).
 
-> [!IMPORTANT]
-> Each question is a paid call to OpenAI.
-
-For another interface, call the same path directly:
-
-```ruby
-outcome = DataTeller.ask("how many paid orders ship tomorrow?", user: current_user)
-outcome.status          # :answered, :clarify, :out_of_scope or :refused
-outcome.result&.columns # with outcome.result.rows, when answered
-
-# A list (outcome.result.list?) comes a page at a time: outcome.result.after is the next page's cursor, nil on the last one.
-DataTeller.rows(outcome.query, user: current_user, after: outcome.result.after)
-```
-
-The palette's "Show more" sends the query and the cursor back to `POST /data_teller/rows`, which checks both again as if the model had written them and never calls the provider.
-
-### 5. Recommended: limit the database role
-
-`c.database_role` runs each query as a Postgres role that reads the declared columns only, and `c.row_security` keeps that role to the current tenant's rows. `rake data_teller:grants` prints the SQL, and `rake data_teller:check` verifies it.
-
-## Security model
-
-These are the rules the project is built around. **Only what is marked as enforced exists today.**
-
-| Rule | State |
-|---|---|
-| Nothing is exposed unless it is declared | ✅ Enforced |
-| Every dataset declares a path to the tenant, checked at boot | ✅ Enforced |
-| The schema generated for the LLM only contains names the role can see | ✅ Enforced, but not a security boundary: the query validator re-checks everything |
-| A resolver returning anything but the tenant model means no tenant | ✅ Enforced |
-| A forbidden name and an unknown one get the same refusal | ✅ Enforced by the query validator |
-| A permission applies to every use of a name: reading, filtering, grouping, ordering, and through paths, ratios and segments | ✅ Enforced |
-| Values are bound parameters; column names come from declarations, never from the query | ✅ Enforced |
-| The tenant filter is applied last, on every table touched, and checked before running | ✅ Enforced |
-| A `scope:` used as a segment, and a `default_scope`, can only hold comparisons of the model's columns to plain values | ✅ Enforced: raw SQL, sub-queries, `from`, `joins` and the like are refused |
-| Queries run in a read-only transaction, within one time budget per question, enforced by the database | ✅ Enforced |
-| No row is sent to the LLM provider | ✅ Enforced by construction: what is sent is the question, the date and the role's declarations |
-| No sentence shown to an end user comes from the LLM | ✅ Enforced: messages come from translations, and clarification options are names the validator checked |
-| A list shows rows only on a dataset that declares `list`, never on one a minimum group size protects for the role; the cursor of its next page is checked and bound like the model's output | ✅ Enforced |
-| With `c.database_role`, queries run as a Postgres role that reads the declared columns only | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
-| With `c.row_security`, that role sees its tenant's rows only, even if the compiler's filter were gone | 🔒 Opt-in, enforced by the database; checked by `rake data_teller:check` |
-| With `min_group_size`, a group of fewer than N rows, or N of a declared unit, is hidden from the roles not exempted, in any query that reads the dataset; a single value under N is refused | 🔒 Opt-in, per dataset |
-
-Isolation is tested in `spec/security/` against hostile scopes and values, and on table shapes common in host apps (single table inheritance, soft-delete, nullable keys), on real rows across two tenants. That shows the cases tried, not all possible ones.
-
-<details>
-<summary>Known limits: what these rules do not cover</summary>
-
-Some limits are known and won't go away. The boot checks that a `tenant_path` reaches the right model, not that it means the right thing, so that line has to be reviewed; the isolation kit follows the same path, so it cannot catch it either. Polymorphic associations can't be on a path yet, nor can a plain association that reads a polymorphic key without its type: give such a table its own tenant key. The check for sensitive column names is a lint, not a guarantee.
-
-A minimum group size stops a role from reading a small group directly. It does not stop someone who sets out to cross-check answers ([ADR 0012](docs/adr/0012-aggregate-disclosure.md) D5):
-
-- **Totals give a hidden group away.** The total minus the groups shown is the group hidden.
-- **`min` and `max` return one row's value**, however large the group: give them to the exempt roles only, with a metric's `roles:`.
-- **Dominance.** A group where one person makes most of the total gives that person's amount, roughly.
-- **Differencing.** Two questions one person apart give that person's value. Only a rate limit and an audit trail, not built yet, make it slow and visible.
-- **The threshold follows the datasets a query reads, not what a metric means.** A count of distinct customers on `orders` does not read `customers`, so the threshold of `customers` does not apply; declare one on `orders` too, with `of: :customer`.
-
-It also has a cost. Counting distinct customers per group makes Postgres sort every joined row: on 500,000 orders grouped by a customer's city, about 1.8 s per query instead of 0.15 s, and the answer runs two queries. Counting a dataset's own rows stays fast.
-
-</details>
-
-## Development
-
-You need PostgreSQL with the `vector`, `pg_trgm` and `unaccent` extensions. `docker compose up -d` starts a suitable database on port 5433; if you use it, set `PGHOST=127.0.0.1 PGPORT=5433 PGUSER=postgres PGPASSWORD=postgres`.
-
-```bash
-bundle install
-RAILS_ENV=test bundle exec rails db:create db:schema:load
-bundle exec rspec
-bin/rubocop
-```
-
-`spec/dummy` is a small shop app (accounts, customers, products, orders, invoices, refunds, support tickets…) with **fake, deterministic seeds**, for development and tests only. To run a JSON query on them and see the SQL:
-
-```bash
-cd spec/dummy
-bundle exec rails db:create db:migrate db:seed
-bundle exec rake "try[Acme,admin]" QUERY='{"version":1,"intent":"answer","dataset":"orders","metric":"revenue"}'   # admin, support or member
-```
-
-To try the palette, with a fake sign-in that picks a seeded user. Each question is a paid call to OpenAI:
-
-```bash
-cd spec/dummy
-OPENAI_API_KEY=... bin/rails server   # then open http://localhost:3000, sign in, and press Ctrl/Cmd+K
-```
+Recommended: [run the queries as a limited database role](docs/configuration.md#limit-the-database-role), with row-level security.
 
 ## Follow the build
 
 I'm writing the build up as a series on dev.to, decisions and measures included: [part 0, why I don't let an LLM write SQL](https://dev.to/seryllns_/building-datateller-0-why-i-dont-let-an-llm-write-sql-2hjl).
 
-<details>
-<summary>The design decisions, each with the options rejected</summary>
-
-| ADR | Decision |
-|---|---|
-| [0001](docs/adr/0001-query-ir.md) | Structured query format |
-| [0002](docs/adr/0002-ui-delivery.md) | UI delivery: a command palette as a web component |
-| [0003](docs/adr/0003-positioning-and-security-order.md) | Positioning, security additions and development order |
-| [0004](docs/adr/0004-declaration-dsl.md) | Declaration DSL |
-| [0005](docs/adr/0005-compiler.md) | Compiler: from a validated query to ActiveRecord |
-| [0006](docs/adr/0006-evaluation-dataset.md) | Evaluation dataset: domain, languages, authorship |
-| [0007](docs/adr/0007-catalog-narrowing.md) | Narrowing the catalog before the query |
-| [0008](docs/adr/0008-llm-adapter.md) | The LLM adapter |
-| [0009](docs/adr/0009-baseline.md) | The naive baseline: model and prompt |
-| [0010](docs/adr/0010-ways-in.md) | The ways in: `DataTeller.ask`, the endpoint, the helper, and who is asking |
-| [0011](docs/adr/0011-isolation-kit.md) | The isolation kit: proving tenant isolation on the integrator's own tables |
-| [0012](docs/adr/0012-aggregate-disclosure.md) | Aggregate disclosure: a minimum group size per dataset |
-| [0013](docs/adr/0013-query-budget.md) | The query budget: a time per question, and an optional cost estimate |
-| [0014](docs/adr/0014-always-conditions.md) | Conditions always applied: `always` on a dataset |
-| [0015](docs/adr/0015-eval-executor-without-user.md) | The eval runs a query from a role and a tenant, not a user |
-| [0016](docs/adr/0016-lists.md) | Lists: an answer that shows rows |
-
-</details>
-
-Found a security issue? Please don't open a public issue: see [SECURITY.md](SECURITY.md).
+Not open to contributions before a first stable version; to run it locally, see [docs/development.md](docs/development.md). Found a security issue? Please don't open a public issue: see [SECURITY.md](SECURITY.md).
 
 ## License
 
